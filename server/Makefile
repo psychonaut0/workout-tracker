@@ -5,11 +5,12 @@
 
 DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable
 
-.PHONY: help build test fmt vet
+.PHONY: help build test fmt vet run
 
 help:
 	@echo "Targets (run from repo root as 'make -C server <target>'):"
 	@echo "  build  Compile the server binary into server/bin/server"
+	@echo "  run    Run the server against the local dev DB"
 	@echo "  test   Run all Go tests"
 	@echo "  fmt    go fmt ./..."
 	@echo "  vet    go vet ./..."
@@ -25,3 +26,6 @@ fmt:
 
 vet:
 	go vet ./...
+
+run:
+	DATABASE_URL=$(DATABASE_URL) go run ./cmd/server
