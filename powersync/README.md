@@ -1,3 +1,3 @@
 # powersync/
 
-PowerSync self-hosted service configuration: sync rules and JWT trust settings. Added in Plan 4.
+PowerSync self-hosted service configuration: sync rules and JWT trust settings (to be added when PowerSync is wired in).
