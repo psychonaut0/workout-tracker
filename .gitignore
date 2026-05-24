@@ -1,0 +1,41 @@
+# --- Secrets / env ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Common build / dep dirs (language-agnostic, kept here pre-stack-decision) ---
+node_modules/
+dist/
+build/
+out/
+.next/
+.svelte-kit/
+.turbo/
+.cache/
+coverage/
+
+# Go
+bin/
+*.test
+*.out
+
+# --- Local data ---
+*.sqlite
+*.sqlite-journal
+*.db
+data/
