@@ -1,0 +1,7 @@
+# Build artifacts
+bin/
+
+# Go test/coverage output
+*.test
+*.out
+coverage.txt
