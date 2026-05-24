@@ -1,0 +1,8 @@
+# Local-development overrides. Apply with:
+#   docker compose -f compose.yml -f compose.dev.yml --env-file .env up -d
+# Exposes Postgres on the host so `psql` and local tooling can connect.
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
