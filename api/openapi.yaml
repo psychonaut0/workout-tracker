@@ -1,0 +1,231 @@
+openapi: 3.1.0
+info:
+  title: Workout Tracker API
+  version: 0.1.0
+  description: >
+    Auth surface for the workout-tracker server. Issues a short-lived API access
+    JWT plus a rotating refresh token, mints short-lived PowerSync tokens, and
+    publishes the RS256 public key as a JWKS.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      operationId: getHealthz
+      responses:
+        "200":
+          description: Process is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+  /readyz:
+    get:
+      summary: Readiness probe (checks the database)
+      operationId: getReadyz
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        "503":
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+  /.well-known/jwks.json:
+    get:
+      summary: JSON Web Key Set (public signing key)
+      operationId: getJwks
+      responses:
+        "200":
+          description: The signing key set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JWKS"
+  /auth/login:
+    post:
+      summary: Exchange email + password for tokens
+      operationId: postAuthLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/refresh:
+    post:
+      summary: Rotate the refresh token and get a fresh access token
+      operationId: postAuthRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Invalid or reused refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/logout:
+    post:
+      summary: Revoke the refresh token family
+      operationId: postAuthLogout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Revoked
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/powersync-token:
+    post:
+      summary: Mint a short-lived PowerSync token for the authenticated user
+      operationId: postAuthPowerSyncToken
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: A PowerSync token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PowerSyncTokenResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Status:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required: [refresh_token]
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: integer
+        refresh_token:
+          type: string
+      required: [access_token, token_type, expires_in, refresh_token]
+    PowerSyncTokenResponse:
+      type: object
+      properties:
+        endpoint:
+          type: string
+        token:
+          type: string
+        expires_at:
+          type: integer
+      required: [endpoint, token, expires_at]
+    JWK:
+      type: object
+      properties:
+        kty:
+          type: string
+        use:
+          type: string
+        alg:
+          type: string
+        kid:
+          type: string
+        n:
+          type: string
+        e:
+          type: string
+      required: [kty, alg, kid, n, e]
+    JWKS:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/JWK"
+      required: [keys]
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+          required: [message]
+      required: [error]
