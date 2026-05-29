@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"workout-tracker/server/internal/api"
+	"workout-tracker/server/internal/auth"
 	"workout-tracker/server/internal/config"
 	"workout-tracker/server/internal/db"
 )
@@ -25,6 +26,15 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.SlogLevel()}))
 	slog.SetDefault(logger)
 
+	priv, err := auth.LoadPrivateKeyPEM(cfg.JWTPrivateKeyPath)
+	if err != nil {
+		logger.Error("load signing key failed", "err", err)
+		os.Exit(1)
+	}
+	kid := auth.ThumbprintKID(&priv.PublicKey)
+	signer := auth.NewSigner(priv, kid, cfg.JWTIssuer)
+	verifier := auth.NewVerifier(&priv.PublicKey, cfg.JWTIssuer)
+
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -35,9 +45,26 @@ func main() {
 	}
 	defer pool.Close()
 
+	authHandler := api.NewAuthHandler(api.AuthConfig{
+		Users:             auth.NewUserStore(pool),
+		Refresh:           auth.NewRefreshStore(pool, cfg.RefreshTokenTTL),
+		Signer:            signer,
+		APIAudience:       cfg.APIAudience,
+		PowerSyncAudience: cfg.PowerSyncAudience,
+		PowerSyncURL:      cfg.PowerSyncURL,
+		AccessTTL:         cfg.AccessTokenTTL,
+		PowerSyncTTL:      cfg.PowerSyncTokenTTL,
+	})
+
 	srv := &http.Server{
-		Addr:              cfg.HTTPAddr,
-		Handler:           api.NewRouter(pool),
+		Addr: cfg.HTTPAddr,
+		Handler: api.NewRouter(api.Deps{
+			Pinger:      pool,
+			JWKS:        auth.JWKSHandler(&priv.PublicKey, kid),
+			Auth:        authHandler,
+			Verifier:    verifier,
+			APIAudience: cfg.APIAudience,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -45,7 +72,7 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("server starting", "addr", cfg.HTTPAddr)
+		logger.Info("server starting", "addr", cfg.HTTPAddr, "kid", kid)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server failed", "err", err)
 			os.Exit(1)

@@ -17,7 +17,7 @@ func TestReadyz_Returns200WhenPingerSucceeds(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	rec := httptest.NewRecorder()
 
-	NewRouter(&fakePinger{}).ServeHTTP(rec, req)
+	NewRouter(Deps{Pinger: &fakePinger{}}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want %d", rec.Code, http.StatusOK)
@@ -35,7 +35,7 @@ func TestReadyz_Returns503WhenPingerFails(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	rec := httptest.NewRecorder()
 
-	NewRouter(&fakePinger{err: errors.New("connection refused")}).ServeHTTP(rec, req)
+	NewRouter(Deps{Pinger: &fakePinger{err: errors.New("connection refused")}}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status: got %d, want %d", rec.Code, http.StatusServiceUnavailable)
