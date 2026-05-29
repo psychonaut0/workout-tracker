@@ -24,5 +24,29 @@ services:
       timeout: 5s
       retries: 10
 
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
+      POWERSYNC_URL: ${POWERSYNC_URL}
+    secrets:
+      - jwt_private_key
+    healthcheck:
+      test: ["CMD", "/server", "-healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
+
+secrets:
+  jwt_private_key:
+    file: ../server/.secrets/jwt_private_key.pem
