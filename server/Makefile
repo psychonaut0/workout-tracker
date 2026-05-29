@@ -32,7 +32,7 @@ vet:
 	go vet ./...
 
 run:
-	DATABASE_URL=$(DATABASE_URL) go run ./cmd/server
+	DATABASE_URL=$(DATABASE_URL) JWT_PRIVATE_KEY_PATH=$(JWT_PRIVATE_KEY_PATH) go run ./cmd/server
 
 MIGRATIONS_DIR := db/migrations
 
