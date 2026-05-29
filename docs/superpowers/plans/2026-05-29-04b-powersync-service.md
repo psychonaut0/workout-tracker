@@ -330,7 +330,7 @@ Add `powersync-storage` and `powersync` under `services:` (after `server`), and 
       powersync-storage:
         condition: service_healthy
       server:
-        condition: service_started
+        condition: service_healthy
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync.yaml
       PS_PORT: "8080"
