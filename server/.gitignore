@@ -5,3 +5,6 @@ bin/
 *.test
 *.out
 coverage.txt
+
+# Local signing keys (never commit)
+.secrets/

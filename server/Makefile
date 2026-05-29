@@ -47,3 +47,10 @@ migrate-status:
 
 migrate-reset:
 	go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" reset
+
+JWT_PRIVATE_KEY_PATH ?= .secrets/jwt_private_key.pem
+
+.PHONY: gen-jwt-key
+
+gen-jwt-key:
+	go run ./cmd/genkey -out $(JWT_PRIVATE_KEY_PATH) -bits 3072
