@@ -39,3 +39,12 @@ bin/
 *.sqlite-journal
 *.db
 data/
+
+# --- Flutter / Dart (app/) ---
+app/.dart_tool/
+app/.fvm/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+# NOTE: app/build/ is already covered by the generic build/ rule above.
+# NOTE: app/pubspec.lock is intentionally NOT ignored — committed for reproducible builds.
+# NOTE: the local PowerSync DB lives outside the repo (app-support dir); *.db/*.sqlite already covered.
