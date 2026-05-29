@@ -28,7 +28,7 @@
 | Decoder robustness | Accept the table name from either `table` or `type` (Dart `CrudEntry.toJson` emits `type`; the demo connectors send `table`) so the endpoint can't drift from the Plan-5b connector. |
 | Split modeling | Flat seeded catalog + user custom exercises **now**; structured day-templates in the follow-on plan. `sessions.split_label` is free-text. |
 
-**Deferred:** the Flutter `uploadData` connector (Plan 5b); `day_templates`/`day_template_items` (the follow-on backend plan); server-side 24h-edit enforcement; a `muscle_group` CHECK constraint; retroactive PR recompute.
+**Deferred:** the Flutter `uploadData` connector (Plan 5b); `day_templates`/`day_template_items` (the follow-on backend plan); server-side 24h-edit enforcement; a `muscle_group` CHECK constraint; retroactive PR recompute. **Also accepted as limitations:** (a) clearing a nullable free-text field (`split_label`/`notes`/`muscle_group`) back to NULL via PATCH is not supported — PATCH uses `COALESCE`-preserve semantics, so use a PUT to replace the row; (b) `exercises.slug` is globally UNIQUE, so the Plan-5b connector must send a unique, non-empty `slug` for custom exercises — cross-user or empty-slug collisions are silently skipped (per-user slug scoping or server-generated slugs is a future option).
 
 ## Conventions
 
@@ -219,7 +219,7 @@ Expected: all three `\d` descriptions show the columns (`sets` includes `user_id
 - [ ] **Step 7: Verify rollback then re-apply**
 
 ```bash
-make -C server migrate-down   # drops bodyweight_logs (00008)
+make -C server migrate-down   # rolls back the latest migration (00009, publication DROP TABLE)
 make -C server migrate-up
 make -C server migrate-status
 ```
@@ -779,85 +779,107 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 	}
 }
 
-// applySet stamps user_id from the PARENT session (verifying the user owns it);
-// a set referencing a session the user does not own is rejected (skip). Touched
-// (session, exercise) groups and exercises are registered for recompute.
+// applySet writes a set. PowerSync PATCH opData carries ONLY the changed columns,
+// so PATCH/DELETE operate by id (constrained to the owner) and read the stored
+// (session_id, exercise_id) back via RETURNING for recompute — never assume those
+// columns are present, and never default omitted columns (that would clobber, e.g.
+// flip is_warmup). PUT requires session_id, used to stamp user_id from the parent
+// session and reject cross-user writes. Touched groups/exercises drive recompute.
 func applySet(ctx context.Context, tx pgx.Tx, userID string, op crudOp, topGroups map[[2]string]struct{}, prExercises map[string]struct{}) error {
-	if op.Op == "DELETE" {
-		// Capture the group before deleting so we can recompute it.
+	switch op.Op {
+	case "DELETE":
 		var sessionID, exerciseID string
-		err := tx.QueryRow(ctx, `SELECT session_id::text, exercise_id::text FROM sets WHERE id=$1::uuid AND user_id=$2::uuid`, op.ID, userID).Scan(&sessionID, &exerciseID)
+		err := tx.QueryRow(ctx,
+			`DELETE FROM sets WHERE id=$1::uuid AND user_id=$2::uuid
+			 RETURNING session_id::text, exercise_id::text`,
+			op.ID, userID).Scan(&sessionID, &exerciseID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil // already gone / not owned — no-op
 		}
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM sets WHERE id=$1::uuid AND user_id=$2::uuid`, op.ID, userID); err != nil {
+		topGroups[[2]string{sessionID, exerciseID}] = struct{}{}
+		prExercises[exerciseID] = struct{}{}
+		return nil
+
+	case "PATCH":
+		// Omitted columns arrive as "" so NULLIF→NULL and COALESCE preserves the
+		// stored value. Do NOT default is_warmup here. Read the group back so
+		// recompute targets the actual persisted row, not client-sent values.
+		weight, _ := str(op.Data, "weight_kg")
+		reps, _ := str(op.Data, "reps")
+		setNum, _ := str(op.Data, "set_number")
+		warm, _ := str(op.Data, "is_warmup")
+		var sessionID, exerciseID string
+		err := tx.QueryRow(ctx,
+			`UPDATE sets SET
+			   weight_kg  = COALESCE(NULLIF($3,'')::numeric, weight_kg),
+			   reps       = COALESCE(NULLIF($4,'')::numeric::int, reps),
+			   set_number = COALESCE(NULLIF($5,'')::numeric::int, set_number),
+			   is_warmup  = COALESCE(NULLIF($6,'')::bool, is_warmup),
+			   updated_at = NOW()
+			 WHERE id=$1::uuid AND user_id=$2::uuid
+			 RETURNING session_id::text, exercise_id::text`,
+			op.ID, userID, weight, reps, setNum, warm).Scan(&sessionID, &exerciseID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil // not found / not owned — no-op
+		}
+		if err != nil {
 			return err
 		}
 		topGroups[[2]string{sessionID, exerciseID}] = struct{}{}
 		prExercises[exerciseID] = struct{}{}
 		return nil
-	}
 
-	sessionID, _ := str(op.Data, "session_id")
-	exerciseID, _ := str(op.Data, "exercise_id")
-	if sessionID == "" || exerciseID == "" {
-		return fmt.Errorf("set missing session_id/exercise_id")
-	}
-	// Verify the user owns the parent session; this also yields the user_id to stamp.
-	var ownerID string
-	err := tx.QueryRow(ctx, `SELECT user_id::text FROM sessions WHERE id=$1::uuid`, sessionID).Scan(&ownerID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("set references unknown session %s", sessionID)
-	}
-	if err != nil {
-		return err
-	}
-	if ownerID != userID {
-		return fmt.Errorf("set references session owned by another user")
-	}
-
-	setNum, _ := str(op.Data, "set_number")
-	weight, _ := str(op.Data, "weight_kg")
-	reps, _ := str(op.Data, "reps")
-	rir, hasRir := str(op.Data, "rir")
-	warm, _ := str(op.Data, "is_warmup")
-	if warm == "" {
-		warm = "false"
-	}
-	rirArg := any(nil)
-	if hasRir && rir != "" {
-		rirArg = rir
-	}
-
-	if op.Op == "PUT" {
+	case "PUT":
+		sessionID, _ := str(op.Data, "session_id")
+		exerciseID, _ := str(op.Data, "exercise_id")
+		if sessionID == "" || exerciseID == "" {
+			return fmt.Errorf("set PUT missing session_id/exercise_id")
+		}
+		// Verify the user owns the parent session (the user_id we stamp).
+		var ownerID string
+		err := tx.QueryRow(ctx, `SELECT user_id::text FROM sessions WHERE id=$1::uuid`, sessionID).Scan(&ownerID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("set references unknown session %s", sessionID)
+		}
+		if err != nil {
+			return err
+		}
+		if ownerID != userID {
+			return fmt.Errorf("set references session owned by another user")
+		}
+		setNum, _ := str(op.Data, "set_number")
+		weight, _ := str(op.Data, "weight_kg")
+		reps, _ := str(op.Data, "reps")
+		rir, hasRir := str(op.Data, "rir")
+		warm, _ := str(op.Data, "is_warmup")
+		if warm == "" {
+			warm = "false" // correct insert default for a new set
+		}
+		rirArg := any(nil)
+		if hasRir && rir != "" {
+			rirArg = rir
+		}
 		_, err = tx.Exec(ctx,
 			`INSERT INTO sets (id, session_id, exercise_id, user_id, set_number, weight_kg, reps, rir, is_warmup, updated_at)
-			 VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::int, $6::numeric, $7::int, $8::int, $9::bool, NOW())
+			 VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::numeric::int, $6::numeric, $7::numeric::int, $8::numeric::int, $9::bool, NOW())
 			 ON CONFLICT (id) DO UPDATE SET
 			   exercise_id=EXCLUDED.exercise_id, set_number=EXCLUDED.set_number, weight_kg=EXCLUDED.weight_kg,
 			   reps=EXCLUDED.reps, rir=EXCLUDED.rir, is_warmup=EXCLUDED.is_warmup, updated_at=NOW()
 			 WHERE sets.user_id = $4::uuid`,
 			op.ID, sessionID, exerciseID, userID, setNum, weight, reps, rirArg, warm)
-	} else { // PATCH
-		_, err = tx.Exec(ctx,
-			`UPDATE sets SET
-			   weight_kg = COALESCE(NULLIF($3,'')::numeric, weight_kg),
-			   reps = COALESCE(NULLIF($4,'')::int, reps),
-			   set_number = COALESCE(NULLIF($5,'')::int, set_number),
-			   is_warmup = COALESCE(NULLIF($6,'')::bool, is_warmup),
-			   updated_at = NOW()
-			 WHERE id=$1::uuid AND user_id=$2::uuid`,
-			op.ID, userID, weight, reps, setNum, warm)
+		if err != nil {
+			return err
+		}
+		topGroups[[2]string{sessionID, exerciseID}] = struct{}{}
+		prExercises[exerciseID] = struct{}{}
+		return nil
+
+	default:
+		return fmt.Errorf("unknown op %q", op.Op)
 	}
-	if err != nil {
-		return err
-	}
-	topGroups[[2]string{sessionID, exerciseID}] = struct{}{}
-	prExercises[exerciseID] = struct{}{}
-	return nil
 }
 ```
 
@@ -958,6 +980,46 @@ func TestUpload_PRFlagsHeaviestAcrossSessions(t *testing.T) {
 	_ = pool.QueryRow(ctx, `SELECT weight_kg::text FROM sets WHERE session_id=$1::uuid AND is_pr=true`, s2).Scan(&prWeightS2)
 	if prWeightS2 != "110.00" {
 		t.Errorf("s2 PR should be the 110kg set, got %s", prWeightS2)
+	}
+}
+
+// Regression: a PATCH carrying only the changed column (PowerSync sends partial
+// opData) must update that column WITHOUT clobbering is_warmup or being dropped
+// for missing session_id/exercise_id.
+func TestUpload_PatchPreservesWarmupAndUpdatesReps(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+	var exID string
+	_ = pool.QueryRow(ctx, `SELECT id::text FROM exercises WHERE is_template=true LIMIT 1`).Scan(&exID)
+
+	sid := "99999999-9999-9999-9999-999999999999"
+	setID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid`, sid) })
+
+	// Create a session + a WARMUP set.
+	postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"sessions","id":"`+sid+`","data":{"id":"`+sid+`","date":"2026-05-29"}},
+	  {"op":"PUT","table":"sets","id":"`+setID+`","data":{"id":"`+setID+`","session_id":"`+sid+`","exercise_id":"`+exID+`","set_number":1,"weight_kg":"40.00","reps":10,"is_warmup":true}}
+	]}`)
+
+	// PATCH only reps (no session_id/exercise_id/is_warmup) — the typical edit shape.
+	rec := postUpload(t, h, user, `{"batch":[{"op":"PATCH","table":"sets","id":"`+setID+`","data":{"id":"`+setID+`","reps":12}}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	var reps int
+	var isWarmup bool
+	if err := pool.QueryRow(ctx, `SELECT reps, is_warmup FROM sets WHERE id=$1::uuid`, setID).Scan(&reps, &isWarmup); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if reps != 12 {
+		t.Errorf("reps: got %d, want 12 (the PATCH must apply)", reps)
+	}
+	if !isWarmup {
+		t.Errorf("is_warmup: got false, want true (PATCH must NOT clobber the omitted flag)")
 	}
 }
 ```
