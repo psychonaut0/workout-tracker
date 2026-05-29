@@ -97,7 +97,7 @@ ENTRYPOINT ["/server"]
 Run from repo root:
 
 ```bash
-docker build -t workout-tracker-server:plan4a -f server/Dockerfile server
+docker build -t workout-tracker-server:local -f server/Dockerfile server
 ```
 
 Expected: build succeeds (modules download, static binary builds, final image is tiny). Note the build context is `server` (the module dir).
@@ -109,10 +109,10 @@ Run from repo root:
 ```bash
 # The Dockerfile must not reference .secrets, and .dockerignore must exclude it.
 grep -q '.secrets' server/.dockerignore && echo "dockerignore excludes .secrets OK"
-grep -c 'secrets' server/Dockerfile   # expected: 0
+! grep -q 'secrets' server/Dockerfile && echo "Dockerfile has no secrets refs OK"
 
 # Running with no env must fail fast on config load (proves it's our binary, key not embedded).
-docker run --rm workout-tracker-server:plan4a 2>&1 | head -2
+docker run --rm workout-tracker-server:local 2>&1 | head -2
 ```
 
 Expected: `.dockerignore` excludes `.secrets` (prints OK); the Dockerfile has `0` references to secrets; running the image with no env prints a config error like `{"...","msg":"config load failed","err":"DATABASE_URL is required"}` and exits non-zero (the binary starts, then exits because no DB/key env is set — correct).
@@ -231,6 +231,7 @@ import (
 	"context"
 	"flag"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -250,6 +251,10 @@ func main() {
 		addr := os.Getenv("HTTP_ADDR")
 		if addr == "" {
 			addr = ":8080"
+		}
+		// Normalize "0.0.0.0:8080" / "host:8080" to ":8080" for the localhost probe.
+		if _, port, err := net.SplitHostPort(addr); err == nil {
+			addr = ":" + port
 		}
 		if err := healthcheck("http://localhost" + addr); err != nil {
 			os.Exit(1)
@@ -564,9 +569,10 @@ Expected: `healthz=200`, `readyz=200` (readyz proves the container reached `post
 
 - [ ] **Step 4: Full auth flow against the containerized API**
 
-Run from repo root (the dev user `me@example.com`/`devpassword` exists in the DB from earlier work):
+Run from repo root (the dev user `me@example.com`/`devpassword` should exist from earlier work; the guard below creates it if missing):
 
 ```bash
+make -C server create-user EMAIL=me@example.com PASSWORD=devpassword 2>/dev/null || echo "user already exists"
 LOGIN=$(curl -sS -X POST http://localhost:8080/auth/login -H 'Content-Type: application/json' -d '{"email":"me@example.com","password":"devpassword"}')
 ACCESS=$(printf '%s' "$LOGIN" | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
 echo "login OK"
@@ -585,7 +591,7 @@ Run from repo root:
 # image itself has no /run/secrets baked in (it's a tmpfs mount). Confirm the
 # source file is untracked and the Dockerfile never copies it.
 git ls-files server/.secrets/ | grep -q . && echo "TRACKED (BAD)" || echo "key untracked OK"
-grep -c 'secrets' server/Dockerfile  # expected 0
+! grep -q 'secrets' server/Dockerfile && echo "Dockerfile has no secrets refs OK"
 ```
 
 Expected: `key untracked OK`; Dockerfile secrets references `0`.
