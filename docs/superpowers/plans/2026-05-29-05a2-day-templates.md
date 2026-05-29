@@ -380,7 +380,9 @@ func TestUpload_SessionLinksDayTemplate(t *testing.T) {
 	ctx := context.Background()
 	// Use a seeded shared template (any user may reference it from a session).
 	var tmpl string
-	_ = pool.QueryRow(ctx, `SELECT id::text FROM day_templates WHERE slug='upper-a'`).Scan(&tmpl)
+	if err := pool.QueryRow(ctx, `SELECT id::text FROM day_templates WHERE slug='upper-a'`).Scan(&tmpl); err != nil {
+		t.Skipf("day_templates seed not applied — run migrations first: %v", err)
+	}
 
 	sid := "ffffffff-ffff-ffff-ffff-ffffffffffff"
 	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid`, sid) })
