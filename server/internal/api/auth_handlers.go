@@ -138,3 +138,29 @@ func (h *AuthHandler) issueTokens(w http.ResponseWriter, r *http.Request, userID
 		RefreshToken: refresh,
 	})
 }
+
+type powerSyncTokenResponse struct {
+	Endpoint  string `json:"endpoint"`
+	Token     string `json:"token"`
+	ExpiresAt int64  `json:"expires_at"` // unix seconds; debug aid only
+}
+
+// PowerSyncToken mints a short-lived PowerSync JWT for the authenticated user.
+// It must be registered behind RequireAuth so UserIDFromContext is populated.
+func (h *AuthHandler) PowerSyncToken(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok || userID == "" {
+		writeJSONError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	token, err := h.cfg.Signer.Sign(userID, h.cfg.PowerSyncAudience, h.cfg.PowerSyncTTL)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not mint powersync token")
+		return
+	}
+	writeJSON(w, http.StatusOK, powerSyncTokenResponse{
+		Endpoint:  h.cfg.PowerSyncURL,
+		Token:     token,
+		ExpiresAt: time.Now().Add(h.cfg.PowerSyncTTL).Unix(),
+	})
+}

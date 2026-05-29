@@ -139,3 +139,32 @@ func TestLogout_RevokesFamily(t *testing.T) {
 		t.Errorf("revoke calls: got %d, want 1", fr.revokeCalls)
 	}
 }
+
+func TestPowerSyncToken_MintsScopedToken(t *testing.T) {
+	h := newHandler(t, &fakeUsers{}, &fakeRefresh{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/powersync-token", nil)
+	// Simulate the auth middleware having authenticated the user.
+	req = req.WithContext(context.WithValue(req.Context(), userIDKey, "user-99"))
+	h.PowerSyncToken(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d", rec.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["endpoint"] != "http://powersync:8080" || body["token"] == "" {
+		t.Errorf("unexpected body: %v", body)
+	}
+}
+
+func TestPowerSyncToken_RequiresAuthenticatedUser(t *testing.T) {
+	h := newHandler(t, &fakeUsers{}, &fakeRefresh{})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/powersync-token", nil)
+	h.PowerSyncToken(rec, req) // no user in context
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status: got %d, want 401", rec.Code)
+	}
+}
