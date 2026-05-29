@@ -1,14 +1,16 @@
-# PowerSync sync rules. A client receives its own exercises (by_user bucket,
-# keyed by the JWT "sub" via request.user_id()) plus all template exercises
-# (templates global bucket, synced to every authenticated client). These are two
-# separate buckets because a single data query cannot OR a parameterized
-# condition (created_by = bucket.user_id) with a non-parameterized one
-# (is_template = true) — PowerSync requires splitting that into separate queries.
+# PowerSync sync rules. A client receives, scoped to the authenticated user
+# (request.user_id() = the JWT sub): their own exercises, sessions, sets, and
+# bodyweight logs — plus all template exercises via the global `templates`
+# bucket. Each data query is a single-table SELECT (PowerSync classic sync rules
+# do not support JOINs); `sets` is filtered on its denormalized user_id column.
 bucket_definitions:
   by_user:
     parameters: SELECT request.user_id() AS user_id
     data:
       - SELECT * FROM exercises WHERE created_by = bucket.user_id
+      - SELECT * FROM sessions WHERE user_id = bucket.user_id
+      - SELECT * FROM sets WHERE user_id = bucket.user_id
+      - SELECT * FROM bodyweight_logs WHERE user_id = bucket.user_id
   templates:
     data:
       - SELECT * FROM exercises WHERE is_template = true
