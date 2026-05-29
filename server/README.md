@@ -48,6 +48,9 @@ All commands below run from the **repo root**.
 | `make -C server migrate-down`    | Roll back the most recent migration |
 | `make -C server migrate-status`  | Show migration status |
 | `make -C server migrate-reset`   | Roll back **all** migrations (destructive) |
+| `make -C server gen-jwt-key`     | Generate the RSA signing key (one-off) |
+| `make -C server create-user EMAIL=.. PASSWORD=..` | Create a user |
+| `make -C server lint-spec`       | Lint `api/openapi.yaml` with vacuum |
 
 ## File layout
 
@@ -63,6 +66,53 @@ All commands below run from the **repo root**.
 | ----------- | ------ | -------- |
 | `/healthz`  | GET    | Liveness — 200 if the process is up. Does not touch the DB. |
 | `/readyz`   | GET    | Readiness — 200 if `pool.Ping` succeeds within 2s, 503 otherwise. |
+
+## Authentication
+
+The server issues a short-lived **API access JWT** (`aud=workout-tracker-api`,
+default 15m) plus a rotating **opaque refresh token** (default 30d, stored only
+as a SHA-256 hash, rotated on every use, whole family revoked on reuse). It also
+mints a separate short-lived **PowerSync JWT** (`aud=workout-tracker-powersync`,
+default 5m) on demand. Both JWTs are RS256, signed by one RSA keypair whose
+public half is published at `/.well-known/jwks.json`.
+
+### One-time setup
+
+1. Generate the signing key (writes `server/.secrets/jwt_private_key.pem`,
+   which is gitignored):
+
+       make -C server gen-jwt-key
+
+2. Apply migrations (creates `users`, `exercises`, `refresh_tokens`):
+
+       make -C server migrate-up
+
+3. Create your user:
+
+       make -C server create-user EMAIL=me@example.com PASSWORD=yourpassword
+
+### Auth endpoints
+
+| Path | Method | Auth | Behavior |
+| ---- | ------ | ---- | -------- |
+| `/.well-known/jwks.json` | GET | none | Public signing key (JWKS) |
+| `/auth/login` | POST | none | `{email,password}` → `{access_token, token_type, expires_in, refresh_token}` |
+| `/auth/refresh` | POST | none | `{refresh_token}` → rotated tokens |
+| `/auth/logout` | POST | none | `{refresh_token}` → 204; revokes the family |
+| `/auth/powersync-token` | POST | Bearer access token | → `{endpoint, token, expires_at}` |
+
+### Configuration (additional env vars)
+
+| Env var | Required | Default | Notes |
+| ------- | -------- | ------- | ----- |
+| `JWT_PRIVATE_KEY_PATH` | yes | — | Path to the PKCS#8 RSA private key PEM |
+| `JWT_ISSUER` | no | `workout-tracker` | `iss` claim |
+| `API_AUDIENCE` | no | `workout-tracker-api` | Access-token audience |
+| `POWERSYNC_AUDIENCE` | no | `workout-tracker-powersync` | PowerSync-token audience |
+| `POWERSYNC_URL` | no | `http://localhost:8080` | Endpoint returned to the PowerSync client (set when PowerSync joins) |
+| `ACCESS_TOKEN_TTL` | no | `15m` | Access-token lifetime |
+| `REFRESH_TOKEN_TTL` | no | `720h` | Refresh-token lifetime |
+| `POWERSYNC_TOKEN_TTL` | no | `5m` | PowerSync-token lifetime (< 60m) |
 
 ## Configuration
 
