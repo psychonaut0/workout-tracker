@@ -29,6 +29,11 @@ services:
       context: ../server
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Run as the host user that owns the mounted key secret. Non-swarm
+    # `docker compose` bind-mounts file secrets preserving the host file's
+    # ownership/mode (0600), so the container must run as that uid to read it
+    # (the secret long-syntax uid/gid/mode is swarm-only and ignored here).
+    user: "${SERVER_UID:-1000}:${SERVER_GID:-1000}"
     depends_on:
       postgres:
         condition: service_healthy

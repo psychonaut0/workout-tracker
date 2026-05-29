@@ -409,6 +409,11 @@ services:
       context: ../server
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Run as the host user that owns the mounted key secret. Non-swarm
+    # `docker compose` bind-mounts file secrets preserving the host file's
+    # ownership/mode (0600), so the container must run as that uid to read it
+    # (the secret long-syntax uid/gid/mode is swarm-only and ignored here).
+    user: "${SERVER_UID:-1000}:${SERVER_GID:-1000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -432,6 +437,13 @@ secrets:
     file: ../server/.secrets/jwt_private_key.pem
 ```
 
+> **Compose-secret permissions gotcha:** non-swarm `docker compose` bind-mounts
+> file-based secrets preserving the host file's owner/mode. The key is `0600`
+> owned by the host user, so the container must run as that uid (`user:` above);
+> the secret long-syntax `uid`/`gid`/`mode` keys are swarm-only and silently
+> ignored by `docker compose`. Set `SERVER_UID`/`SERVER_GID` in `infra/.env` to
+> `id -u`/`id -g` (default 1000).
+
 - [ ] **Step 2: Add `POWERSYNC_URL` to `infra/.env.example`**
 
 Append to `infra/.env.example`:
@@ -443,12 +455,19 @@ Append to `infra/.env.example`:
 # Dev default (set in compose.dev.yml): http://localhost:8090
 # Prod: the Tailscale hostname/IP of this host on the PowerSync port.
 POWERSYNC_URL=http://localhost:8090
+
+# uid:gid the `server` container runs as, so it can read the 0600 JWT key
+# secret (compose bind-mounts the host key preserving its owner/mode). Set to
+# the user that runs `make -C server gen-jwt-key` / owns the key file:
+#   id -u  /  id -g   (defaults to 1000:1000 if unset)
+SERVER_UID=1000
+SERVER_GID=1000
 ```
 
-Also add the same line to your local `infra/.env` (which is gitignored) so compose has the value:
+Also add these to your local `infra/.env` (which is gitignored) so compose has the values:
 
 ```bash
-printf '\nPOWERSYNC_URL=http://localhost:8090\n' >> infra/.env
+printf '\nPOWERSYNC_URL=http://localhost:8090\nSERVER_UID=%s\nSERVER_GID=%s\n' "$(id -u)" "$(id -g)" >> infra/.env
 ```
 
 - [ ] **Step 3: Validate the merged config**
