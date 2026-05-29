@@ -185,7 +185,7 @@ Expected: `ALTER ROLE` succeeds; the second psql connects as `powersync_role` an
 
 - [ ] **Step 4: Document the one-time step in `server/README.md`**
 
-Add a subsection to `server/README.md` under the migrations area (after the existing `## Migrations` section):
+Also bump the prerequisites line in `server/README.md` from `Go 1.24+` to `Go 1.26+` (it currently disagrees with `go.mod`'s `go 1.26.3` and the infra runbook). Then add a subsection under the migrations area (after the existing `## Migrations` section):
 
 ```markdown
 ## PowerSync replication role (one-time)
@@ -539,7 +539,8 @@ PSTOKEN=$(curl -sS -X POST http://localhost:8080/auth/powersync-token -H "Author
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
 echo "got powersync token (len=${#PSTOKEN})"
 
-# Open the sync stream. PowerSync uses the "Token" auth scheme (not "Bearer").
+# Open the sync stream. PowerSync accepts either "Token <jwt>" or "Bearer <jwt>"
+# (parser regex /^(Token|Bearer) (\S+)$/); we use Token to match the official test client.
 # A valid token returns a 200 streaming response; an invalid one returns 401.
 # curl will hit --max-time on a successful stream (exit 28) after capturing the
 # initial checkpoint + data lines, which is the success signal here.
@@ -628,10 +629,10 @@ All commands below run from the **repo root**.
 
 ## Validating the sync integration (no client needed)
 
-       # Service healthy + probes
+       # Service healthy + probes (separate calls — curl applies -w once per URL)
        docker inspect --format='{{.State.Health.Status}}' workout-tracker-powersync-1
-       curl -sS -o /dev/null -w "startup=%{http_code} liveness=%{http_code}\n" \
-         http://localhost:8090/probes/startup http://localhost:8090/probes/liveness
+       curl -sS -o /dev/null -w "startup=%{http_code}\n" http://localhost:8090/probes/startup
+       curl -sS -o /dev/null -w "liveness=%{http_code}\n" http://localhost:8090/probes/liveness
 
        # Replication slot active + publication present
        set -a && . infra/.env && set +a
