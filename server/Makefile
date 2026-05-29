@@ -54,3 +54,8 @@ JWT_PRIVATE_KEY_PATH ?= .secrets/jwt_private_key.pem
 
 gen-jwt-key:
 	go run ./cmd/genkey -out $(JWT_PRIVATE_KEY_PATH) -bits 3072
+
+.PHONY: create-user
+
+create-user:
+	DATABASE_URL=$(DATABASE_URL) go run ./cmd/createuser -email $(EMAIL) -password $(PASSWORD)
