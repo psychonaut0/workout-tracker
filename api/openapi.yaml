@@ -283,7 +283,7 @@ components:
           enum: [PUT, PATCH, DELETE]
         table:
           type: string
-          enum: [exercises, sessions, sets, bodyweight_logs]
+          enum: [exercises, sessions, sets, bodyweight_logs, day_templates, day_template_items]
         id:
           type: string
         data:
