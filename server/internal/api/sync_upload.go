@@ -134,6 +134,10 @@ func applyOp(ctx context.Context, tx pgx.Tx, userID string, op crudOp, topGroups
 		return applyExercise(ctx, tx, userID, op)
 	case "sets":
 		return applySet(ctx, tx, userID, op, topGroups, prExercises)
+	case "day_templates":
+		return applyDayTemplate(ctx, tx, userID, op)
+	case "day_template_items":
+		return applyDayTemplateItem(ctx, tx, userID, op)
 	default:
 		return fmt.Errorf("unknown table %q", op.tableName())
 	}
@@ -171,24 +175,28 @@ func applySession(ctx context.Context, tx pgx.Tx, userID string, op crudOp) erro
 		date, _ := str(op.Data, "date")
 		label, _ := str(op.Data, "split_label")
 		notes, _ := str(op.Data, "notes")
+		tmpl, _ := str(op.Data, "day_template_id")
 		_, err := tx.Exec(ctx,
-			`INSERT INTO sessions (id, user_id, date, split_label, notes)
-			 VALUES ($1::uuid, $2::uuid, $3::date, NULLIF($4,''), NULLIF($5,''))
-			 ON CONFLICT (id) DO UPDATE SET date=EXCLUDED.date, split_label=EXCLUDED.split_label, notes=EXCLUDED.notes
+			`INSERT INTO sessions (id, user_id, date, split_label, notes, day_template_id)
+			 VALUES ($1::uuid, $2::uuid, $3::date, NULLIF($4,''), NULLIF($5,''), NULLIF($6,'')::uuid)
+			 ON CONFLICT (id) DO UPDATE SET date=EXCLUDED.date, split_label=EXCLUDED.split_label,
+			   notes=EXCLUDED.notes, day_template_id=EXCLUDED.day_template_id
 			 WHERE sessions.user_id = $2::uuid`,
-			op.ID, userID, date, label, notes)
+			op.ID, userID, date, label, notes, tmpl)
 		return err
 	case "PATCH":
 		date, _ := str(op.Data, "date")
 		label, _ := str(op.Data, "split_label")
 		notes, _ := str(op.Data, "notes")
+		tmpl, _ := str(op.Data, "day_template_id")
 		_, err := tx.Exec(ctx,
 			`UPDATE sessions SET
 			   date = COALESCE(NULLIF($3,'')::date, date),
 			   split_label = COALESCE(NULLIF($4,''), split_label),
-			   notes = COALESCE(NULLIF($5,''), notes)
+			   notes = COALESCE(NULLIF($5,''), notes),
+			   day_template_id = COALESCE(NULLIF($6,'')::uuid, day_template_id)
 			 WHERE id = $1::uuid AND user_id = $2::uuid`,
-			op.ID, userID, date, label, notes)
+			op.ID, userID, date, label, notes, tmpl)
 		return err
 	case "DELETE":
 		_, err := tx.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid AND user_id=$2::uuid`, op.ID, userID)
@@ -360,6 +368,117 @@ func applySet(ctx context.Context, tx pgx.Tx, userID string, op crudOp, topGroup
 		prExercises[exerciseID] = struct{}{}
 		return nil
 
+	default:
+		return fmt.Errorf("unknown op %q", op.Op)
+	}
+}
+
+// applyDayTemplate handles user-created CUSTOM day templates only. created_by is
+// stamped from the token and is_template is forced false; seeded shared templates
+// (created_by NULL) can never be written/edited/deleted by a client. slug is not
+// client-settable (NULL for custom days).
+func applyDayTemplate(ctx context.Context, tx pgx.Tx, userID string, op crudOp) error {
+	switch op.Op {
+	case "PUT":
+		name, _ := str(op.Data, "name")
+		notes, _ := str(op.Data, "notes")
+		pos, _ := str(op.Data, "position")
+		_, err := tx.Exec(ctx,
+			`INSERT INTO day_templates (id, name, notes, position, is_template, created_by)
+			 VALUES ($1::uuid, $2, NULLIF($3,''), COALESCE(NULLIF($4,'')::numeric::int, 0), false, $5::uuid)
+			 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, notes=EXCLUDED.notes, position=EXCLUDED.position
+			 WHERE day_templates.created_by = $5::uuid`,
+			op.ID, name, notes, pos, userID)
+		return err
+	case "PATCH":
+		name, _ := str(op.Data, "name")
+		notes, _ := str(op.Data, "notes")
+		pos, _ := str(op.Data, "position")
+		_, err := tx.Exec(ctx,
+			`UPDATE day_templates SET
+			   name = COALESCE(NULLIF($3,''), name),
+			   notes = COALESCE(NULLIF($4,''), notes),
+			   position = COALESCE(NULLIF($5,'')::numeric::int, position)
+			 WHERE id=$1::uuid AND created_by=$2::uuid`,
+			op.ID, userID, name, notes, pos)
+		return err
+	case "DELETE":
+		_, err := tx.Exec(ctx, `DELETE FROM day_templates WHERE id=$1::uuid AND created_by=$2::uuid`, op.ID, userID)
+		return err
+	default:
+		return fmt.Errorf("unknown op %q", op.Op)
+	}
+}
+
+// applyDayTemplateItem writes an item into a day template the user OWNS (verified
+// against the parent's created_by), stamping created_by + is_template=false from
+// the parent. DELETE/PATCH operate by id constrained to the owner.
+func applyDayTemplateItem(ctx context.Context, tx pgx.Tx, userID string, op crudOp) error {
+	switch op.Op {
+	case "DELETE":
+		_, err := tx.Exec(ctx, `DELETE FROM day_template_items WHERE id=$1::uuid AND created_by=$2::uuid`, op.ID, userID)
+		return err
+	case "PATCH":
+		pos, _ := str(op.Data, "position")
+		warm, _ := str(op.Data, "target_warmup_sets")
+		work, _ := str(op.Data, "target_working_sets")
+		rlow, _ := str(op.Data, "target_rep_low")
+		rhigh, _ := str(op.Data, "target_rep_high")
+		rirlow, _ := str(op.Data, "target_rir_low")
+		rirhigh, _ := str(op.Data, "target_rir_high")
+		_, err := tx.Exec(ctx,
+			`UPDATE day_template_items SET
+			   position            = COALESCE(NULLIF($3,'')::numeric::int, position),
+			   target_warmup_sets  = COALESCE(NULLIF($4,'')::numeric::int, target_warmup_sets),
+			   target_working_sets = COALESCE(NULLIF($5,'')::numeric::int, target_working_sets),
+			   target_rep_low      = COALESCE(NULLIF($6,'')::numeric::int, target_rep_low),
+			   target_rep_high     = COALESCE(NULLIF($7,'')::numeric::int, target_rep_high),
+			   target_rir_low      = COALESCE(NULLIF($8,'')::numeric::int, target_rir_low),
+			   target_rir_high     = COALESCE(NULLIF($9,'')::numeric::int, target_rir_high)
+			 WHERE id=$1::uuid AND created_by=$2::uuid`,
+			op.ID, userID, pos, warm, work, rlow, rhigh, rirlow, rirhigh)
+		return err
+	case "PUT":
+		tmplID, _ := str(op.Data, "day_template_id")
+		exID, _ := str(op.Data, "exercise_id")
+		if tmplID == "" || exID == "" {
+			return fmt.Errorf("item PUT missing day_template_id/exercise_id")
+		}
+		// The parent template must be owned by this user (created_by = userID).
+		var owner *string
+		err := tx.QueryRow(ctx, `SELECT created_by::text FROM day_templates WHERE id=$1::uuid`, tmplID).Scan(&owner)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("item references unknown template %s", tmplID)
+		}
+		if err != nil {
+			return err
+		}
+		if owner == nil || *owner != userID {
+			return fmt.Errorf("item references template not owned by user")
+		}
+		pos, _ := str(op.Data, "position")
+		warm, _ := str(op.Data, "target_warmup_sets")
+		work, _ := str(op.Data, "target_working_sets")
+		rlow, _ := str(op.Data, "target_rep_low")
+		rhigh, _ := str(op.Data, "target_rep_high")
+		rirlow, _ := str(op.Data, "target_rir_low")
+		rirhigh, _ := str(op.Data, "target_rir_high")
+		_, err = tx.Exec(ctx,
+			`INSERT INTO day_template_items
+			   (id, day_template_id, exercise_id, position, target_warmup_sets, target_working_sets,
+			    target_rep_low, target_rep_high, target_rir_low, target_rir_high, is_template, created_by)
+			 VALUES ($1::uuid, $2::uuid, $3::uuid, COALESCE(NULLIF($4,'')::numeric::int,0),
+			    NULLIF($5,'')::numeric::int, NULLIF($6,'')::numeric::int,
+			    NULLIF($7,'')::numeric::int, NULLIF($8,'')::numeric::int,
+			    NULLIF($9,'')::numeric::int, NULLIF($10,'')::numeric::int, false, $11::uuid)
+			 ON CONFLICT (id) DO UPDATE SET
+			   exercise_id=EXCLUDED.exercise_id, position=EXCLUDED.position,
+			   target_warmup_sets=EXCLUDED.target_warmup_sets, target_working_sets=EXCLUDED.target_working_sets,
+			   target_rep_low=EXCLUDED.target_rep_low, target_rep_high=EXCLUDED.target_rep_high,
+			   target_rir_low=EXCLUDED.target_rir_low, target_rir_high=EXCLUDED.target_rir_high
+			 WHERE day_template_items.created_by = $11::uuid`,
+			op.ID, tmplID, exID, pos, warm, work, rlow, rhigh, rirlow, rirhigh, userID)
+		return err
 	default:
 		return fmt.Errorf("unknown op %q", op.Op)
 	}

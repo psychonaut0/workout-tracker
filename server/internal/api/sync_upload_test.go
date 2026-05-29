@@ -233,3 +233,93 @@ func TestUpload_PatchPreservesWarmupAndUpdatesReps(t *testing.T) {
 	}
 }
 
+func TestUpload_CustomDayTemplateAndItems(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+	var exID string
+	_ = pool.QueryRow(ctx, `SELECT id::text FROM exercises WHERE is_template=true LIMIT 1`).Scan(&exID)
+
+	tmpl := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	item := "cccccccc-cccc-cccc-cccc-cccccccccccc"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM day_templates WHERE id=$1::uuid`, tmpl) })
+
+	rec := postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"day_templates","id":"`+tmpl+`","data":{"id":"`+tmpl+`","name":"My Gym Day","position":1}},
+	  {"op":"PUT","table":"day_template_items","id":"`+item+`","data":{"id":"`+item+`","day_template_id":"`+tmpl+`","exercise_id":"`+exID+`","position":1,"target_working_sets":4,"target_rep_low":6,"target_rep_high":8}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Template + item exist, stamped to the user, is_template=false.
+	var tplOwner string
+	var tplIsTemplate bool
+	if err := pool.QueryRow(ctx, `SELECT created_by::text, is_template FROM day_templates WHERE id=$1::uuid`, tmpl).Scan(&tplOwner, &tplIsTemplate); err != nil {
+		t.Fatalf("template: %v", err)
+	}
+	if tplOwner != user || tplIsTemplate {
+		t.Errorf("template owner/is_template: got %s/%v", tplOwner, tplIsTemplate)
+	}
+	var itemOwner string
+	var working int
+	if err := pool.QueryRow(ctx, `SELECT created_by::text, target_working_sets FROM day_template_items WHERE id=$1::uuid`, item).Scan(&itemOwner, &working); err != nil {
+		t.Fatalf("item: %v", err)
+	}
+	if itemOwner != user || working != 4 {
+		t.Errorf("item owner/working: got %s/%d", itemOwner, working)
+	}
+}
+
+func TestUpload_ItemRejectedForUnownedTemplate(t *testing.T) {
+	pool := uploadTestPool(t)
+	owner := seedUploadUser(t, pool)
+	attacker := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+	var exID string
+	_ = pool.QueryRow(ctx, `SELECT id::text FROM exercises WHERE is_template=true LIMIT 1`).Scan(&exID)
+
+	tmpl := "dddddddd-dddd-dddd-dddd-dddddddddddd"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM day_templates WHERE id=$1::uuid`, tmpl) })
+	postUpload(t, h, owner, `{"batch":[{"op":"PUT","table":"day_templates","id":"`+tmpl+`","data":{"id":"`+tmpl+`","name":"Owner Day","position":1}}]}`)
+
+	// attacker adds an item to the owner's template — must be skipped, still 2xx
+	rec := postUpload(t, h, attacker, `{"batch":[{"op":"PUT","table":"day_template_items","id":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","data":{"id":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","day_template_id":"`+tmpl+`","exercise_id":"`+exID+`","position":1}}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("must stay 2xx, got %d", rec.Code)
+	}
+	var n int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM day_template_items WHERE id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'`).Scan(&n)
+	if n != 0 {
+		t.Errorf("item must NOT be written, got %d", n)
+	}
+}
+
+func TestUpload_SessionLinksDayTemplate(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+	// Use a seeded shared template (any user may reference it from a session).
+	var tmpl string
+	if err := pool.QueryRow(ctx, `SELECT id::text FROM day_templates WHERE slug='upper-a'`).Scan(&tmpl); err != nil {
+		t.Skipf("day_templates seed not applied — run migrations first: %v", err)
+	}
+
+	sid := "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid`, sid) })
+
+	rec := postUpload(t, h, user, `{"batch":[{"op":"PUT","table":"sessions","id":"`+sid+`","data":{"id":"`+sid+`","date":"2026-05-29","split_label":"Upper A","day_template_id":"`+tmpl+`"}}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d", rec.Code)
+	}
+	var linked string
+	if err := pool.QueryRow(ctx, `SELECT day_template_id::text FROM sessions WHERE id=$1::uuid`, sid).Scan(&linked); err != nil {
+		t.Fatalf("read session: %v", err)
+	}
+	if linked != tmpl {
+		t.Errorf("day_template_id: got %s, want %s", linked, tmpl)
+	}
+}
