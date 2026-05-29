@@ -1,0 +1,6 @@
+# Never send the signing key or local build output into the build context.
+.secrets/
+bin/
+
+# Not needed in the image build.
+*.md
