@@ -64,6 +64,8 @@ func main() {
 	}
 	defer pool.Close()
 
+	uploadHandler := api.NewUploadHandler(pool)
+
 	authHandler := api.NewAuthHandler(api.AuthConfig{
 		Users:             auth.NewUserStore(pool),
 		Refresh:           auth.NewRefreshStore(pool, cfg.RefreshTokenTTL),
@@ -83,6 +85,7 @@ func main() {
 			Auth:        authHandler,
 			Verifier:    verifier,
 			APIAudience: cfg.APIAudience,
+			Upload:      uploadHandler,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

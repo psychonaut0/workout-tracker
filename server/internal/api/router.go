@@ -22,6 +22,7 @@ type Deps struct {
 	Auth        *AuthHandler
 	Verifier    *auth.Verifier
 	APIAudience string
+	Upload      *UploadHandler
 }
 
 // NewRouter builds the chi router. Auth is nil-safe for the health-only tests:
@@ -42,6 +43,9 @@ func NewRouter(d Deps) *chi.Mux {
 			r.Group(func(pr chi.Router) {
 				pr.Use(RequireAuth(d.Verifier, d.APIAudience))
 				pr.Post("/auth/powersync-token", d.Auth.PowerSyncToken)
+				if d.Upload != nil {
+					pr.Post("/sync/upload", d.Upload.Upload)
+				}
 			})
 		}
 	}
