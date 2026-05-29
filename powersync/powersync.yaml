@@ -1,0 +1,16 @@
+# PowerSync self-hosted service configuration (consumed when the sync service
+# joins the compose stack). The client_auth block tells PowerSync to trust JWTs
+# signed by the Go API: it fetches the public key from the API's JWKS endpoint
+# and requires the token audience to match.
+#
+# jwks_uri + audience are the definitely-required keys. allow_local_jwks is
+# included to permit the plain-HTTP internal JWKS URL (the in-cluster `server`
+# host, not public HTTPS); VERIFY this exact key name against the pinned
+# PowerSync service image when the service is wired in — if the image rejects an
+# unknown key, drop the line (a plain-http internal jwks_uri may already be
+# accepted) or rename it per that version's docs.
+client_auth:
+  jwks_uri: http://server:8080/.well-known/jwks.json
+  audience:
+    - workout-tracker-powersync
+  allow_local_jwks: true

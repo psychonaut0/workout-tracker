@@ -1,0 +1,8 @@
+# PowerSync sync rules. Each connected client receives only its own rows,
+# keyed by the authenticated user id (the JWT "sub" claim, exposed as
+# request.user_id()). Tables are added as later plans introduce them.
+bucket_definitions:
+  by_user:
+    parameters: SELECT request.user_id() AS user_id
+    data:
+      - SELECT * FROM exercises WHERE created_by = bucket.user_id OR is_template = true
