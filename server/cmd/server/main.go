@@ -3,7 +3,9 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +19,23 @@ import (
 )
 
 func main() {
+	healthFlag := flag.Bool("healthcheck", false, "probe /healthz on the local HTTP_ADDR and exit 0 (healthy) or 1")
+	flag.Parse()
+	if *healthFlag {
+		addr := os.Getenv("HTTP_ADDR")
+		if addr == "" {
+			addr = ":8080"
+		}
+		// Normalize "0.0.0.0:8080" / "host:8080" to ":8080" for the localhost probe.
+		if _, port, err := net.SplitHostPort(addr); err == nil {
+			addr = ":" + port
+		}
+		if err := healthcheck("http://localhost" + addr); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("config load failed", "err", err)
