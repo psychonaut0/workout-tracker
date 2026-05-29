@@ -7,7 +7,7 @@ All commands below run from the **repo root**.
 
 ## Prerequisites
 
-- Go 1.24+ (`go version`)
+- Go 1.26+ (`go version`)
 - Postgres running locally from the `infra/` stack — see `infra/README.md`
 
 ## First-time setup
@@ -135,3 +135,17 @@ Goose is installed as a Go tool via the `tool` directive in `go.mod`.
 There is no separate binary to install — `go tool goose` resolves to the
 pinned version. Migrations live in `db/migrations/` and follow goose's
 `<seq>_<name>.sql` naming.
+
+## PowerSync replication role (one-time)
+
+Migration `00004` creates the `powersync_role` as `NOLOGIN` with no password (no
+secret in git). Grant it `LOGIN` + a password out-of-band, reading the value from
+`infra/.env` so it never enters version control or shell history beyond this run:
+
+    set -a && . infra/.env && set +a
+    PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5433 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+      --no-psqlrc -v ON_ERROR_STOP=1 \
+      -c "ALTER ROLE powersync_role LOGIN PASSWORD '${PS_REPLICATION_PASSWORD}';"
+
+The PowerSync service connects to the source database as this role; its password
+must match `PS_REPLICATION_PASSWORD` in `infra/.env`.
