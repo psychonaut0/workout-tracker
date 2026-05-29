@@ -145,6 +145,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/upload:
+    post:
+      summary: Apply a batch of PowerSync client write operations
+      description: >
+        Target of the PowerSync client uploadData connector. Applies the whole
+        batch in one transaction. Per the PowerSync contract this endpoint never
+        returns 4xx for validation/ownership errors (that would permanently block
+        the client's upload queue); such ops are logged and skipped and the
+        response is still 200. 5xx indicates a transient error the client should
+        retry.
+      operationId: postSyncUpload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadRequest"
+      responses:
+        "200":
+          description: Batch processed (applied count may be less than submitted if ops were skipped)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Transient error; retry the same batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   securitySchemes:
     bearerAuth:
@@ -229,3 +267,32 @@ components:
               type: string
           required: [message]
       required: [error]
+    UploadRequest:
+      type: object
+      properties:
+        batch:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrudOp"
+      required: [batch]
+    CrudOp:
+      type: object
+      properties:
+        op:
+          type: string
+          enum: [PUT, PATCH, DELETE]
+        table:
+          type: string
+          enum: [exercises, sessions, sets, bodyweight_logs]
+        id:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+      required: [op, table, id]
+    UploadResult:
+      type: object
+      properties:
+        applied:
+          type: integer
+      required: [applied]
