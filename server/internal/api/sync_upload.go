@@ -14,7 +14,7 @@ import (
 )
 
 // UploadHandler applies PowerSync client write batches to Postgres. It is the
-// target of the Flutter client's uploadData connector (Plan 5b).
+// target of the Flutter client's uploadData connector (the PowerSync write path).
 type UploadHandler struct {
 	pool *pgxpool.Pool
 }
