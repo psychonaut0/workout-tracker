@@ -59,3 +59,8 @@ gen-jwt-key:
 
 create-user:
 	DATABASE_URL=$(DATABASE_URL) go run ./cmd/createuser -email $(EMAIL) -password $(PASSWORD)
+
+.PHONY: lint-spec
+
+lint-spec:
+	go run github.com/daveshanley/vacuum@v0.27.2 lint -d --fail-severity error ../api/openapi.yaml
