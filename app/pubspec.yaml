@@ -1,0 +1,30 @@
+name: workout_tracker
+description: Workout tracker Flutter client (local-first via PowerSync).
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.8.0
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Local-first sync engine. v2 bundles SQLite via build hooks, so no separate
+  # powersync_flutter_libs is needed (works on Linux desktop out of the box).
+  powersync: ^2.2.0
+  # Token storage.
+  flutter_secure_storage: ^9.2.2
+  # HTTP to the Go API (login / refresh / powersync-token / sync upload).
+  http: ^1.2.2
+  # App-support dir for the local DB file.
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
