@@ -3,7 +3,7 @@
 
 -include ../infra/.env
 
-DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable
+DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5433/$(POSTGRES_DB)?sslmode=disable
 
 .PHONY: help build test fmt vet run migrate-up migrate-down migrate-status migrate-reset
 

@@ -31,7 +31,7 @@ All commands below run from the **repo root**.
 
        set -a && . infra/.env && set +a
        PGPASSWORD="$POSTGRES_PASSWORD" \
-         psql -h localhost -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+         psql -h localhost -p 5433 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 
 ## Useful commands
 
@@ -45,7 +45,8 @@ All commands below run from the **repo root**.
 ## Files
 
 - `compose.yml` — production-shaped base; no host ports exposed.
-- `compose.dev.yml` — local-only override; exposes Postgres on `localhost:5432`.
+- `compose.dev.yml` — local-only override; exposes Postgres on `localhost:5433`
+  (port 5433, not 5432, so it coexists with another local Postgres on 5432).
 - `.env.example` — copy to `.env` and fill in. **`.env` is gitignored — never commit real credentials.**
 
 ## Why `wal_level=logical`?

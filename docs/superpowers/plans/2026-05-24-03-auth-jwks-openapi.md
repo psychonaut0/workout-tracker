@@ -844,7 +844,7 @@ backgrounded `kill -TERM $!` would kill the wrapper and orphan the server on
 ```bash
 make -C server build
 set -a && . infra/.env && set +a
-DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" \
+DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5433/$POSTGRES_DB?sslmode=disable" \
 JWT_PRIVATE_KEY_PATH=server/.secrets/jwt_private_key.pem \
   server/bin/server > /tmp/wt-p3-t6.log 2>&1 &
 SERVER_PID=$!
@@ -1273,7 +1273,7 @@ Run from repo root (Postgres up):
 ```bash
 make -C server migrate-up
 set -a && . infra/.env && set +a
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\d refresh_tokens'
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5433 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\d refresh_tokens'
 ```
 
 Expected: `migrate-up` prints `OK   00003_create_refresh_tokens.sql`; `\d refresh_tokens` shows the eight columns, the unique index on `token_hash`, the FK to `users(id)`, and the `family`/`user` indexes.
@@ -1510,7 +1510,7 @@ Run from repo root (Postgres up, migrations applied):
 make -C server test
 make -C server create-user EMAIL=me@example.com PASSWORD=devpassword
 set -a && . infra/.env && set +a
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT email FROM users WHERE email='me@example.com';"
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5433 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT email FROM users WHERE email='me@example.com';"
 ```
 
 Expected: tests PASS (user-store integration tests run against the dev DB); createuser logs success; psql prints `me@example.com`.
@@ -2569,7 +2569,7 @@ Launch the built binary directly (Step 4 already ran `make -C server build`), so
 
 ```bash
 set -a && . infra/.env && set +a
-DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" \
+DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5433/$POSTGRES_DB?sslmode=disable" \
 JWT_PRIVATE_KEY_PATH=server/.secrets/jwt_private_key.pem \
   server/bin/server > /tmp/wt-p3-t15.log 2>&1 &
 SERVER_PID=$!
@@ -3123,7 +3123,7 @@ Run from repo root:
 
 ```bash
 set -a && . infra/.env && set +a
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 5433 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
   "SELECT count(*) FROM users WHERE email='me@example.com';"
 # If it prints 0, create the user:
 # make -C server create-user EMAIL=me@example.com PASSWORD=devpassword
@@ -3138,7 +3138,7 @@ directly so `$!` is the real PID):
 
 ```bash
 set -a && . infra/.env && set +a
-DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" \
+DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5433/$POSTGRES_DB?sslmode=disable" \
 JWT_PRIVATE_KEY_PATH=server/.secrets/jwt_private_key.pem \
   server/bin/server > /tmp/wt-p3-final.log 2>&1 &
 SERVER_PID=$!
