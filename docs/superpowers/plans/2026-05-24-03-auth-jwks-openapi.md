@@ -29,6 +29,15 @@ These resolve the research's open questions. Each is a config value or a localiz
 
 The two structural choices the research most strongly endorsed — **two separate tokens** and a **stateful `refresh_tokens` table with rotation** — are locked because they are painful to retrofit and align with "build it right for the decade."
 
+### Deferred hardening (acceptable for a single-user, Tailscale-only app)
+
+These are deliberately out of scope for Plan 3 — noted so they aren't lost:
+
+- **Login timing oracle:** the unknown-user path returns before running Argon2id, so response timing can distinguish "user exists." Negligible for one user; equalize later by verifying against a fixed dummy hash on the unknown-user path.
+- **`createuser` password via flag:** the plaintext appears in shell history and `/proc/<pid>/cmdline`. Fine for a local one-off admin tool; switch to a prompt (`golang.org/x/term`) or env var if it ever matters.
+- **`refresh_tokens` row growth:** consumed/expired rows accumulate; add a periodic cleanup `DELETE` later (see Task 11 note).
+- **Rate-limiting** on `/auth/login`: unnecessary behind Tailscale; add if the API is ever exposed more broadly (Argon2id also makes brute-force expensive).
+
 ---
 
 ## Conventions in effect (from memory)
@@ -87,10 +96,16 @@ Run from repo root:
 ```bash
 go -C server get github.com/golang-jwt/jwt/v5@v5.3.1
 go -C server get golang.org/x/crypto/argon2
-go -C server mod tidy
 ```
 
-Expected: `go.mod` gains `github.com/golang-jwt/jwt/v5 v5.3.1` and `golang.org/x/crypto vX.Y.Z` in the **direct** require block. The transitive `github.com/golang-jwt/jwt/v4` stays `// indirect`.
+Do **not** run `go mod tidy` here. Neither package is imported by any code yet
+(`x/crypto/argon2` lands in Task 2, `jwt/v5` in Task 8), and under Go's module-graph
+pruning `go mod tidy` would drop the not-yet-imported `jwt/v5` and re-mark
+`x/crypto` as `// indirect`. `go get` records both as explicit (direct) requires;
+they become genuinely used by Task 8, after which a `go mod tidy` is safe (and is
+exercised naturally by the end-state build in Task 20).
+
+Expected: `go.mod` gains `github.com/golang-jwt/jwt/v5 v5.3.1` and `golang.org/x/crypto vX.Y.Z` in the **direct** require block (no `// indirect`). The transitive `github.com/golang-jwt/jwt/v4` stays `// indirect`.
 
 - [ ] **Step 2: Verify the dependency state**
 
@@ -820,11 +835,18 @@ func main() {
 
 - [ ] **Step 2: Build and smoke-test (the dev key now exists; config requires its path)**
 
-Run from repo root (Postgres up from Plan 1; key generated in Task 4):
+Run from repo root (Postgres up from Plan 1; key generated in Task 4). Launch the
+**built binary directly** rather than `make run`: `make run` shells out to
+`go run`, which does not forward `SIGTERM` to its compiled child, so a
+backgrounded `kill -TERM $!` would kill the wrapper and orphan the server on
+`:8080`. Running the binary makes `$!` the real PID and exercises graceful shutdown.
 
 ```bash
 make -C server build
-make -C server run > /tmp/wt-p3-t6.log 2>&1 &
+set -a && . infra/.env && set +a
+DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" \
+JWT_PRIVATE_KEY_PATH=server/.secrets/jwt_private_key.pem \
+  server/bin/server > /tmp/wt-p3-t6.log 2>&1 &
 SERVER_PID=$!
 sleep 2
 curl -sS -o /dev/null -w "healthz=%{http_code}\n" http://localhost:8080/healthz
@@ -833,7 +855,7 @@ kill -TERM "$SERVER_PID"; wait "$SERVER_PID" 2>/dev/null || true
 grep -c '"level":"INFO"' /tmp/wt-p3-t6.log
 ```
 
-Expected: `healthz=200`, `readyz=200`, and at least one INFO log line. (If `LOG_LEVEL=debug` were set, debug lines would now appear — proving the carry-over wiring works.)
+Expected: `healthz=200`, `readyz=200`, and at least one INFO log line, and the log ends with `"msg":"server stopped"` (graceful shutdown ran). (If `LOG_LEVEL=debug` were set, debug lines would appear — proving the carry-over wiring works.)
 
 - [ ] **Step 3: Commit**
 
@@ -1641,47 +1663,15 @@ func (s *RefreshStore) Issue(ctx context.Context, userID string) (string, error)
 	return plain, nil
 }
 
-// Rotate consumes the presented token and issues a successor in the same family.
-// If the presented token was already used or revoked, the entire family is
-// revoked and ErrRefreshReused is returned.
+// Rotate atomically consumes the presented token and issues a successor in the
+// same family. The consume is a single conditional UPDATE ... RETURNING run
+// inside a transaction, so two concurrent rotations of the same token cannot
+// both succeed: Postgres takes a row lock, the loser re-evaluates the
+// `used_at IS NULL` predicate after the winner commits, matches zero rows, and
+// falls into the reuse path. If the presented token exists but was already used
+// or revoked, the whole family is revoked and ErrRefreshReused is returned.
 func (s *RefreshStore) Rotate(ctx context.Context, presented string) (string, string, error) {
 	hash := hashToken(presented)
-
-	var (
-		userID    string
-		familyID  string
-		expiresAt time.Time
-		usedAt    *time.Time
-		revokedAt *time.Time
-	)
-	err := s.pool.QueryRow(ctx,
-		`SELECT user_id::text, family_id::text, expires_at, used_at, revoked_at
-		 FROM refresh_tokens WHERE token_hash = $1`, hash,
-	).Scan(&userID, &familyID, &expiresAt, &usedAt, &revokedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", ErrInvalidRefreshToken
-	}
-	if err != nil {
-		return "", "", err
-	}
-
-	if usedAt != nil || revokedAt != nil {
-		// Reuse of a consumed/revoked token: nuke the whole family.
-		if _, rerr := s.pool.Exec(ctx,
-			`UPDATE refresh_tokens SET revoked_at = NOW()
-			 WHERE family_id = $1::uuid AND revoked_at IS NULL`, familyID); rerr != nil {
-			return "", "", rerr
-		}
-		return "", "", ErrRefreshReused
-	}
-	if time.Now().After(expiresAt) {
-		return "", "", ErrInvalidRefreshToken
-	}
-
-	newPlain, newHash, err := newToken()
-	if err != nil {
-		return "", "", err
-	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -1689,20 +1679,58 @@ func (s *RefreshStore) Rotate(ctx context.Context, presented string) (string, st
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx,
-		`UPDATE refresh_tokens SET used_at = NOW() WHERE token_hash = $1`, hash); err != nil {
+	// Atomic conditional consume: matches at most once, only if the token is live.
+	var userID, familyID string
+	err = tx.QueryRow(ctx,
+		`UPDATE refresh_tokens SET used_at = NOW()
+		 WHERE token_hash = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()
+		 RETURNING user_id::text, family_id::text`, hash,
+	).Scan(&userID, &familyID)
+	if err == nil {
+		newPlain, newHash, nerr := newToken()
+		if nerr != nil {
+			return "", "", nerr
+		}
+		if _, ierr := tx.Exec(ctx,
+			`INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
+			 VALUES ($1::uuid, $2::uuid, $3, $4)`,
+			userID, familyID, newHash, time.Now().Add(s.ttl)); ierr != nil {
+			return "", "", ierr
+		}
+		if cerr := tx.Commit(ctx); cerr != nil {
+			return "", "", cerr
+		}
+		return userID, newPlain, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return "", "", err
 	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
-		 VALUES ($1::uuid, $2::uuid, $3, $4)`,
-		userID, familyID, newHash, time.Now().Add(s.ttl)); err != nil {
-		return "", "", err
+
+	// The token is not live. Classify: genuine reuse (used/revoked) -> revoke the
+	// whole family; merely expired or entirely unknown -> invalid, no family action.
+	var familyID2 string
+	var usedAt, revokedAt *time.Time
+	derr := tx.QueryRow(ctx,
+		`SELECT family_id::text, used_at, revoked_at FROM refresh_tokens WHERE token_hash = $1`, hash,
+	).Scan(&familyID2, &usedAt, &revokedAt)
+	if errors.Is(derr, pgx.ErrNoRows) {
+		return "", "", ErrInvalidRefreshToken
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", "", err
+	if derr != nil {
+		return "", "", derr
 	}
-	return userID, newPlain, nil
+	if usedAt != nil || revokedAt != nil {
+		if _, rerr := tx.Exec(ctx,
+			`UPDATE refresh_tokens SET revoked_at = NOW()
+			 WHERE family_id = $1::uuid AND revoked_at IS NULL`, familyID2); rerr != nil {
+			return "", "", rerr
+		}
+		if cerr := tx.Commit(ctx); cerr != nil {
+			return "", "", cerr
+		}
+		return "", "", ErrRefreshReused
+	}
+	return "", "", ErrInvalidRefreshToken // exists but expired
 }
 
 // RevokeFamily revokes the entire family of the presented token (logout).
@@ -1725,6 +1753,8 @@ func (s *RefreshStore) RevokeFamily(ctx context.Context, presented string) error
 	return err
 }
 ```
+
+> **Follow-up (deferred):** consumed/expired `refresh_tokens` rows accumulate over time. A periodic `DELETE FROM refresh_tokens WHERE expires_at < NOW()` (a cron job or a later cleanup task) keeps the table bounded. Not needed for a single user in Plan 3 — documented here so it isn't forgotten.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -2534,8 +2564,14 @@ Expected: every package passes; binary builds.
 
 Run from repo root (Postgres up, migrations applied, dev key generated, `me@example.com` created in Task 10):
 
+Launch the built binary directly (Step 4 already ran `make -C server build`), so
+`$!` is the real server PID:
+
 ```bash
-make -C server run > /tmp/wt-p3-t15.log 2>&1 &
+set -a && . infra/.env && set +a
+DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" \
+JWT_PRIVATE_KEY_PATH=server/.secrets/jwt_private_key.pem \
+  server/bin/server > /tmp/wt-p3-t15.log 2>&1 &
 SERVER_PID=$!
 sleep 2
 
@@ -2677,6 +2713,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           description: Invalid or reused refresh token
           content:
@@ -2696,6 +2738,12 @@ paths:
       responses:
         "204":
           description: Revoked
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /auth/powersync-token:
     post:
       summary: Mint a short-lived PowerSync token for the authenticated user
@@ -2865,8 +2913,12 @@ PowerSync isn't deployed until it joins the stack in a later plan, but the auth 
 # signed by the Go API: it fetches the public key from the API's JWKS endpoint
 # and requires the token audience to match.
 #
-# allow_local_jwks is required because the JWKS URL is plain HTTP on the
-# internal Docker/Tailscale network rather than public HTTPS.
+# jwks_uri + audience are the definitely-required keys. allow_local_jwks is
+# included to permit the plain-HTTP internal JWKS URL (the in-cluster `server`
+# host, not public HTTPS); VERIFY this exact key name against the pinned
+# PowerSync service image when the service is wired in — if the image rejects an
+# unknown key, drop the line (a plain-http internal jwks_uri may already be
+# accepted) or rename it per that version's docs.
 client_auth:
   jwks_uri: http://server:8080/.well-known/jwks.json
   audience:
@@ -2899,8 +2951,10 @@ rules it will use.
 ## Files
 
 - `powersync.yaml` — the `client_auth` block: PowerSync fetches the Go API's
-  JWKS to verify tokens, requires audience `workout-tracker-powersync`, and sets
-  `allow_local_jwks: true` so the plain-HTTP internal JWKS URL is accepted.
+  JWKS to verify tokens and requires audience `workout-tracker-powersync`. It
+  also includes `allow_local_jwks: true` to accept the plain-HTTP internal JWKS
+  URL — verify that key name against the pinned PowerSync image when the service
+  is wired in (drop or rename it if the image rejects it).
 - `sync-rules.yaml` — buckets each client to its own rows by the JWT `sub`
   (`request.user_id()`).
 
@@ -3079,10 +3133,14 @@ Expected: prints `1` (or create the user, then re-check).
 
 - [ ] **Step 3: Full auth flow against the running server**
 
-Run from repo root:
+Run from repo root (Step 1 already ran `make -C server build`; launch the binary
+directly so `$!` is the real PID):
 
 ```bash
-make -C server run > /tmp/wt-p3-final.log 2>&1 &
+set -a && . infra/.env && set +a
+DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" \
+JWT_PRIVATE_KEY_PATH=server/.secrets/jwt_private_key.pem \
+  server/bin/server > /tmp/wt-p3-final.log 2>&1 &
 SERVER_PID=$!
 sleep 2
 
