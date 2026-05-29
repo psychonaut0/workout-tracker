@@ -16,14 +16,14 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Error("config load failed", "err", err)
+		slog.Error("config load failed", "err", err)
 		os.Exit(1)
 	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.SlogLevel()}))
+	slog.SetDefault(logger)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -36,8 +36,12 @@ func main() {
 	defer pool.Close()
 
 	srv := &http.Server{
-		Addr:    cfg.HTTPAddr,
-		Handler: api.NewRouter(pool),
+		Addr:              cfg.HTTPAddr,
+		Handler:           api.NewRouter(pool),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {
