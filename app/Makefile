@@ -28,7 +28,7 @@ get:
 	$(FLUTTER) pub get
 
 scaffold-linux:
-	$(FLUTTER) create --platforms=linux --org tech.travelware --project-name workout_tracker .
+	$(FLUTTER) create --platforms=linux --org io.github.psychonaut0 --project-name workout_tracker .
 
 analyze:
 	$(FLUTTER) analyze

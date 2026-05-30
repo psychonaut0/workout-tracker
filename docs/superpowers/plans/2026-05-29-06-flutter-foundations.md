@@ -323,7 +323,7 @@ get:
 	$(FLUTTER) pub get
 
 scaffold-linux:
-	$(FLUTTER) create --platforms=linux --org tech.travelware --project-name workout_tracker .
+	$(FLUTTER) create --platforms=linux --org io.github.psychonaut0 --project-name workout_tracker .
 
 analyze:
 	$(FLUTTER) analyze
@@ -845,7 +845,7 @@ Note the outcome in the Task-13 memory update (counts observed, round-trip confi
 ### Task 13: Update memory + finish the branch
 
 **Files:**
-- Modify: `/home/psy/.claude/projects/-home-psy-Documents-personal-projects-workout-tracker/memory/project_status_and_dev_setup.md`
+- Modify: the Claude Code project memory (`project_status_and_dev_setup.md`)
 
 - [ ] **Step 1: Update the project-status memory**
 
