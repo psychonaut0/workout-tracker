@@ -13,6 +13,9 @@ dependencies:
   # Local-first sync engine. v2 bundles SQLite via build hooks, so no separate
   # powersync_flutter_libs is needed (works on Linux desktop out of the box).
   powersync: ^2.2.0
+  # ResultSet type for db.watch() streams. Transitive via powersync, declared
+  # direct because home_screen imports package:sqlite3/common.dart.
+  sqlite3: ^3.3.2
   # Token storage.
   flutter_secure_storage: ^9.2.2
   # HTTP to the Go API (login / refresh / powersync-token / sync upload).

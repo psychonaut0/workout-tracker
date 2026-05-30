@@ -77,6 +77,7 @@ class HomeScreen extends StatelessWidget {
   Future<void> _logQuickSession(BuildContext context) async {
     // Pick any exercise to attach the sets to (first synced row).
     final ex = await db.getOptional('SELECT id FROM exercises ORDER BY name LIMIT 1');
+    if (!context.mounted) return;
     if (ex == null) {
       _toast(context, 'No exercise to log against yet — wait for sync.');
       return;
