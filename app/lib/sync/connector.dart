@@ -59,37 +59,31 @@ class WorkoutConnector extends PowerSyncBackendConnector {
   Future<void> uploadData(PowerSyncDatabase database) async {
     final tx = await database.getNextCrudTransaction();
     if (tx == null) return;
+    // Throws on transient (network / 5xx / 401) -> tx is NOT completed and the
+    // SDK retries the same batch. Returns normally on 2xx (or an unexpected
+    // 4xx, treated as accepted) so we then clear the queue.
+    await uploadBatch(tx.crud);
+    await tx.complete();
+  }
 
-    // Build the batch in the exact shape the server expects:
-    // {"batch":[{"op":"PUT|PATCH|DELETE","table":"<t>","id":"<uuid>","data":{...}}]}
-    // CrudEntry.op.toJson() already yields "PUT"/"PATCH"/"DELETE".
-    final batch = tx.crud
-        .map((op) => {
-              'op': op.op.toJson(),
-              'table': op.table,
-              'id': op.id,
-              'data': op.opData ?? <String, dynamic>{},
-            })
-        .toList();
-
+  /// Visible for testing: POST one batch of CRUD ops to /sync/upload with the
+  /// ACCESS token. Throws ONLY on transient failures (the server always returns
+  /// 2xx for bad data; a throw here would permanently block the upload queue).
+  Future<void> uploadBatch(List<CrudEntry> crud) async {
     final access = await auth.ensureAccessToken();
     if (access == null) {
       // No way to authenticate right now; throw so the SDK retries later
       // (transient from the queue's perspective — nothing is dropped).
       throw Exception('no access token for upload');
     }
-
-    // A network error throws here and propagates: that is the transient case,
-    // we do NOT complete, and the SDK retries the same batch later.
     final res = await _http.post(
       Uri.parse('$apiBaseUrl/sync/upload'),
       headers: {
         'content-type': 'application/json',
         'authorization': 'Bearer $access',
       },
-      body: jsonEncode({'batch': batch}),
+      body: jsonEncode({'batch': buildUploadBatch(crud)}),
     );
-
     if (res.statusCode == 401) {
       // Access token expired mid-upload: refresh and let the SDK retry.
       await auth.refresh();
@@ -99,9 +93,22 @@ class WorkoutConnector extends PowerSyncBackendConnector {
       // Transient server error: do not complete -> SDK retries the same batch.
       throw Exception('upload transient error (${res.statusCode})');
     }
-    // Any 2xx (including silently-skipped bad ops) => batch accepted. Complete
-    // so these ops leave the queue. 4xx is not expected per the contract, but
-    // we also treat it as "accepted" to avoid permanently wedging the queue.
-    await tx.complete();
+    // Any 2xx (including silently-skipped bad ops) => accepted; the caller
+    // completes the transaction so these ops leave the queue.
+  }
+
+  /// Visible for testing: pure CrudEntry -> wire shape. `op.toJson()` yields the
+  /// uppercase "PUT"/"PATCH"/"DELETE" the Go handler switches on; the table name
+  /// is sent under `table` (the handler also accepts `type`). `opData` is null
+  /// for DELETE and only the changed columns for PATCH.
+  static List<Map<String, dynamic>> buildUploadBatch(List<CrudEntry> crud) {
+    return crud
+        .map((op) => {
+              'op': op.op.toJson(),
+              'table': op.table,
+              'id': op.id,
+              'data': op.opData ?? <String, dynamic>{},
+            })
+        .toList();
   }
 }
