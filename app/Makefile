@@ -4,7 +4,7 @@
 FLUTTER := fvm flutter
 DART := fvm dart
 
-.PHONY: help install get scaffold-linux analyze test fmt format run doctor devices clean
+.PHONY: help install get scaffold-linux analyze test fmt format build run doctor devices clean
 
 help:
 	@echo "Targets (run from repo root as 'make -C app <target>'):"
@@ -15,6 +15,7 @@ help:
 	@echo "  test           Run all Flutter tests"
 	@echo "  fmt            Format Dart sources in place (dart format)"
 	@echo "  format         Verify formatting, fail if changes needed (CI)"
+	@echo "  build          Build the Linux desktop bundle (compiles native libs)"
 	@echo "  run            Run on the Linux desktop target"
 	@echo "  doctor         flutter doctor -v"
 	@echo "  devices        List devices (expect a linux device)"
@@ -40,6 +41,9 @@ fmt:
 
 format:
 	$(DART) format --output=none --set-exit-if-changed .
+
+build:
+	$(FLUTTER) build linux
 
 run:
 	$(FLUTTER) run -d linux
