@@ -40,7 +40,8 @@ class WTabBar extends StatelessWidget {
     final viewPadding = MediaQuery.viewPaddingOf(context);
     final bottomPad = 9 + viewPadding.bottom;
 
-    return ClipRect(
+    // The frosted bar (clipped layer) — FAB slot is empty so no clipping occurs.
+    final frostedBar = ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
@@ -67,21 +68,8 @@ class WTabBar extends StatelessWidget {
                 active: currentIndex == 1,
                 onTap: () => onTab(1),
               ),
-              // Center FAB slot
-              Expanded(
-                child: SizedBox(
-                  height: 64,
-                  child: Center(
-                    child: Transform.translate(
-                      offset: const Offset(0, -22),
-                      child: _FabButton(
-                        onStart: onStart,
-                        tokens: tokens,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              // Center FAB slot — empty placeholder keeps column widths balanced.
+              const Expanded(child: SizedBox(height: 64)),
               // History (index 2)
               _TabButton(
                 icon: WIcons.history,
@@ -100,6 +88,20 @@ class WTabBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+
+    // The FAB overlay sits outside the clipped layer so its upward overhang
+    // is not clipped. Stack.clipBehavior = Clip.none lets it draw above the bar.
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        frostedBar,
+        Transform.translate(
+          offset: const Offset(0, -22),
+          child: _FabButton(onStart: onStart),
+        ),
+      ],
     );
   }
 }
@@ -156,11 +158,9 @@ class _TabButton extends StatelessWidget {
 class _FabButton extends StatelessWidget {
   const _FabButton({
     required this.onStart,
-    required this.tokens,
   });
 
   final VoidCallback onStart;
-  final dynamic tokens;
 
   @override
   Widget build(BuildContext context) {

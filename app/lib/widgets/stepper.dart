@@ -85,30 +85,35 @@ class _WStepperState extends State<WStepper> {
         behavior: HitTestBehavior.opaque,
         onTap: () => _step(dir),
         child: Container(
-          width: 34,
+          width: 25,
           height: 34,
           decoration: buttonDecoration,
           alignment: Alignment.center,
-          child: Icon(icon, size: 18, color: tokens.text),
+          child: Icon(icon, size: 16, color: tokens.text),
         ),
       );
     }
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         btn(key: const Key('stepper-dec'), icon: Icons.remove, dir: -1),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Text(
-            widget.format(_internalValue),
-            style: WorkoutType.mono(
-              size: 15,
-              weight: FontWeight.w700,
-              color: tokens.text,
+        const SizedBox(width: 4),
+        Expanded(
+          child: Center(
+            child: Text(
+              widget.format(_internalValue),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: WorkoutType.mono(
+                size: 15,
+                weight: FontWeight.w700,
+                color: tokens.text,
+              ),
             ),
           ),
         ),
+        const SizedBox(width: 4),
         btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1),
       ],
     );

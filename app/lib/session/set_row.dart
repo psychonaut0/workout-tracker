@@ -159,9 +159,9 @@ class _EditContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Weight stepper (100px wide, matching the WEIGHT column header)
-        SizedBox(
-          width: 100,
+        // Weight stepper (flex 100, matching the WEIGHT column header)
+        Expanded(
+          flex: 100,
           child: WStepper(
             value: set.weightKg,
             step: exercise.plateStepKg,
@@ -174,9 +174,9 @@ class _EditContent extends StatelessWidget {
         ),
         const SizedBox(width: 8),
 
-        // Reps stepper (76px)
-        SizedBox(
-          width: 76,
+        // Reps stepper (flex 76)
+        Expanded(
+          flex: 76,
           child: WStepper(
             value: set.reps.toDouble(),
             step: 1,
@@ -189,9 +189,9 @@ class _EditContent extends StatelessWidget {
         ),
         const SizedBox(width: 8),
 
-        // RIR picker (77px) or empty spacer for warm-ups
-        SizedBox(
-          width: 77,
+        // RIR picker (flex 77) or empty spacer for warm-ups
+        Expanded(
+          flex: 77,
           child: set.isWarmup
               ? const SizedBox.shrink()
               : RirPicker(

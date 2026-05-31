@@ -218,8 +218,8 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
                       Expanded(
                         child: Row(
                           children: [
-                            SizedBox(
-                              width: 100,
+                            Expanded(
+                              flex: 100,
                               child: Text(
                                 'WEIGHT',
                                 textAlign: TextAlign.center,
@@ -230,8 +230,9 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
                                 ),
                               ),
                             ),
-                            SizedBox(
-                              width: 76,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 76,
                               child: Text(
                                 'REPS',
                                 textAlign: TextAlign.center,
@@ -242,8 +243,9 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
                                 ),
                               ),
                             ),
-                            SizedBox(
-                              width: 77,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 77,
                               child: Text(
                                 'RIR',
                                 textAlign: TextAlign.center,
