@@ -1,0 +1,190 @@
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+
+import '../theme/app_theme.dart';
+import '../theme/icons.dart';
+import '../theme/typography.dart';
+
+/// The 5-slot bottom navigation bar with a center FAB.
+///
+/// Visual layout (left → right):
+///   [Today] [Progress] [  FAB  ] [History] [Plan]
+///
+/// The FAB is NOT a tab — it calls [onStart] and does not emit an index.
+/// [onTab] emits IndexedStack indices 0..3 (identity mapping):
+///   Today=0, Progress=1, History=2, Plan=3.
+///
+/// Rendered with a frosted-glass effect: ClipRect + BackdropFilter (blur 16)
+/// over a semi-transparent bg container (alpha 0.88), with a top hairline border.
+class WTabBar extends StatelessWidget {
+  const WTabBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTab,
+    required this.onStart,
+  });
+
+  /// The currently active IndexedStack index (0..3).
+  final int currentIndex;
+
+  /// Called with the new IndexedStack index when a tab is tapped.
+  final ValueChanged<int> onTab;
+
+  /// Called when the center FAB is tapped. Never emits an index.
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+    final bottomPad = 9 + viewPadding.bottom;
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: tokens.bg.withValues(alpha: 0.88),
+            border: Border(
+              top: BorderSide(color: tokens.line, width: 1),
+            ),
+          ),
+          padding: EdgeInsets.only(bottom: bottomPad, top: 4),
+          child: Row(
+            children: [
+              // Today (index 0)
+              _TabButton(
+                icon: WIcons.home,
+                label: 'Today',
+                active: currentIndex == 0,
+                onTap: () => onTab(0),
+              ),
+              // Progress (index 1)
+              _TabButton(
+                icon: WIcons.chart,
+                label: 'Progress',
+                active: currentIndex == 1,
+                onTap: () => onTab(1),
+              ),
+              // Center FAB slot
+              Expanded(
+                child: SizedBox(
+                  height: 64,
+                  child: Center(
+                    child: Transform.translate(
+                      offset: const Offset(0, -22),
+                      child: _FabButton(
+                        onStart: onStart,
+                        tokens: tokens,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // History (index 2)
+              _TabButton(
+                icon: WIcons.history,
+                label: 'History',
+                active: currentIndex == 2,
+                onTap: () => onTab(2),
+              ),
+              // Plan (index 3)
+              _TabButton(
+                icon: WIcons.plan,
+                label: 'Plan',
+                active: currentIndex == 3,
+                onTap: () => onTab(3),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tab button ────────────────────────────────────────────────────────────────
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final color = active ? tokens.accent : tokens.faint;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 64,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 23, color: color),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: WorkoutType.mono(
+                  size: 9.5,
+                  weight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Center FAB ────────────────────────────────────────────────────────────────
+
+class _FabButton extends StatelessWidget {
+  const _FabButton({
+    required this.onStart,
+    required this.tokens,
+  });
+
+  final VoidCallback onStart;
+  final dynamic tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return GestureDetector(
+      onTap: onStart,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: t.accent,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: t.accent.withValues(alpha: 0.45),
+              blurRadius: 22,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Icon(WIcons.bolt, size: 26, color: t.accentInk),
+      ),
+    );
+  }
+}
