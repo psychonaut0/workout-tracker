@@ -276,6 +276,36 @@ class BodyweightEntry {
   }
 }
 
+// ── ProgressPoint ─────────────────────────────────────────────────────────────
+
+class ProgressPoint {
+  final String date;
+  final double topWeightKg;
+  final int topReps;
+  final bool isPr;
+  final double volumeKg;
+
+  const ProgressPoint({
+    required this.date,
+    required this.topWeightKg,
+    required this.topReps,
+    required this.isPr,
+    required this.volumeKg,
+  });
+
+  factory ProgressPoint.fromRow(Map<String, dynamic> r) => ProgressPoint(
+        date: r['date'] as String,
+        topWeightKg: (r['top_weight'] as num?)?.toDouble() ?? 0,
+        topReps: (r['top_reps'] as num?)?.toInt() ?? 0,
+        isPr: ((r['is_pr'] as num?) ?? 0) != 0,
+        volumeKg: (r['volume'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// Epley formula: estimated 1-rep max in kg (rounded to nearest kg).
+int est1rm(double weightKg, int reps) =>
+    (weightKg * (1 + reps / 30)).round();
+
 // ── MuscleTarget ──────────────────────────────────────────────────────────────
 
 class MuscleTarget {
