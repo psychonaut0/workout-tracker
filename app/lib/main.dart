@@ -85,7 +85,7 @@ class _AppState extends State<App> {
             title: 'workout-tracker',
             theme: buildTheme(s.brightness, s.accentColor),
             home: _loggedIn
-                ? AppShell(onLogout: _onLogout)
+                ? AppShell(onLogout: _onLogout, auth: widget.auth)
                 : LoginScreen(auth: widget.auth, onLoggedIn: _onLoggedIn),
           );
         },

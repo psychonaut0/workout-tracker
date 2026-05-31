@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../auth/auth_store.dart';
 import '../data/day_template_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../sync/db.dart';
 import '../ui/history_screen.dart';
 import '../ui/plan_screen.dart';
+import '../ui/profile_screen.dart';
 import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
-import 'placeholder_screen.dart';
 import 'session_launcher.dart' as launcher;
 import 'w_tab_bar.dart';
 
@@ -25,14 +26,18 @@ import 'w_tab_bar.dart';
 ///
 /// The FAB calls [launcher.startSession] with the next-in-rotation template
 /// (null → custom session) and resets to the Today tab on return.
-///
-/// [onLogout] is stored for future use (e.g. Profile overlay button). No logout
-/// button is wired in this increment.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.onLogout});
+  const AppShell({
+    super.key,
+    required this.onLogout,
+    required this.auth,
+  });
 
-  /// Called when the user logs out. Retained for future Profile overlay wiring.
-  final VoidCallback onLogout;
+  /// Called (awaited) when the user logs out via the Profile screen.
+  final Future<void> Function() onLogout;
+
+  /// The authenticated user store — forwarded to ProfileScreen for email display.
+  final AuthStore auth;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -76,11 +81,15 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
-  /// Opens a root-navigator overlay for the Profile placeholder.
+  /// Opens the Profile & Settings screen as a root-navigator overlay.
   Future<void> _openProfile() async {
     await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => const PlaceholderTab(title: 'Profile'),
+        builder: (_) => ProfileScreen(
+          onClose: () => Navigator.of(context, rootNavigator: true).pop(),
+          onLogout: widget.onLogout,
+          auth: widget.auth,
+        ),
       ),
     );
   }
