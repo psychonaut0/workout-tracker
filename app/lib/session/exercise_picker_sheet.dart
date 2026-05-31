@@ -1,0 +1,322 @@
+import 'package:flutter/material.dart';
+
+import '../data/models.dart';
+import '../theme/app_theme.dart';
+import '../theme/icons.dart';
+import '../theme/tokens.dart';
+import '../theme/typography.dart';
+
+/// Shows a modal bottom sheet that lets the user search and pick an exercise.
+///
+/// Returns the selected [Exercise], or null if dismissed.
+///
+/// Visual spec: `docs/design_handoff_workout_tracker/design/app/screen-log.jsx`
+/// `ExerciseSheet`.
+///
+/// Layout:
+/// - Search field at the top.
+/// - Exercises grouped by muscle (alphabetical within each group).
+/// - A compound dot indicator next to compound exercises.
+/// - Tap to select and dismiss.
+Future<Exercise?> showExercisePicker(
+  BuildContext context, {
+  required List<Exercise> exercises,
+}) {
+  return showModalBottomSheet<Exercise>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ExercisePickerSheet(exercises: exercises),
+  );
+}
+
+class _ExercisePickerSheet extends StatefulWidget {
+  const _ExercisePickerSheet({required this.exercises});
+
+  final List<Exercise> exercises;
+
+  @override
+  State<_ExercisePickerSheet> createState() => _ExercisePickerSheetState();
+}
+
+class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
+  String _query = '';
+
+  List<Exercise> get _filtered {
+    if (_query.isEmpty) return widget.exercises;
+    final q = _query.toLowerCase();
+    return widget.exercises
+        .where((e) =>
+            e.name.toLowerCase().contains(q) ||
+            e.muscleGroup.toLowerCase().contains(q))
+        .toList();
+  }
+
+  /// Group exercises by muscle group, preserving insertion order.
+  Map<String, List<Exercise>> _group(List<Exercise> exercises) {
+    final result = <String, List<Exercise>>{};
+    for (final ex in exercises) {
+      final key = ex.muscleGroup.isEmpty ? 'Other' : ex.muscleGroup;
+      (result[key] ??= []).add(ex);
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final filtered = _filtered;
+    final grouped = _group(filtered);
+    final muscles = grouped.keys.toList()..sort();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: tokens.surface,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppRadius.radius),
+            ),
+          ),
+          child: Column(
+            children: [
+              // ── Drag handle ──────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 6),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: tokens.lineStrong,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // ── Title ────────────────────────────────────────────────
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Add exercise',
+                      style: WorkoutType.display(
+                        size: 18,
+                        weight: FontWeight.w700,
+                        color: tokens.text,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Icon(Icons.close,
+                          size: 20, color: tokens.faint),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // ── Search field ─────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: tokens.surface2,
+                    borderRadius:
+                        BorderRadius.circular(AppRadius.radius * 0.7),
+                    border: Border.all(color: tokens.line),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      Icon(WIcons.search, size: 16, color: tokens.faint),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          autofocus: false,
+                          style: WorkoutType.body(
+                              size: 14, color: tokens.text),
+                          decoration: InputDecoration(
+                            hintText: 'Search exercises…',
+                            hintStyle: WorkoutType.body(
+                                size: 14, color: tokens.faint),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onChanged: (v) => setState(() => _query = v),
+                        ),
+                      ),
+                      if (_query.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => setState(() => _query = ''),
+                          child:
+                              Icon(Icons.close, size: 16, color: tokens.faint),
+                        ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Exercise list ────────────────────────────────────────
+              Expanded(
+                child: filtered.isEmpty
+                    ? _EmptyState(tokens: tokens)
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: muscles.fold<int>(
+                          0,
+                          (n, m) => n + 1 + grouped[m]!.length,
+                        ),
+                        itemBuilder: (_, idx) {
+                          // Flatten muscle-group headers + exercise rows
+                          var pos = 0;
+                          for (final muscle in muscles) {
+                            if (idx == pos) {
+                              return _MuscleHeader(
+                                  label: muscle, tokens: tokens);
+                            }
+                            pos++;
+                            final items = grouped[muscle]!;
+                            if (idx < pos + items.length) {
+                              final ex = items[idx - pos];
+                              return _ExerciseRow(
+                                exercise: ex,
+                                tokens: tokens,
+                                onTap: () =>
+                                    Navigator.of(context).pop(ex),
+                              );
+                            }
+                            pos += items.length;
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Sub-widgets ───────────────────────────────────────────────────────────────
+
+class _MuscleHeader extends StatelessWidget {
+  const _MuscleHeader({required this.label, required this.tokens});
+
+  final String label;
+  final WorkoutTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      child: Text(
+        label.toUpperCase(),
+        style: WorkoutType.mono(
+          size: 10,
+          weight: FontWeight.w600,
+          color: tokens.faint,
+          letterSpacing: 0.08 * 10,
+        ),
+      ),
+    );
+  }
+}
+
+class _ExerciseRow extends StatelessWidget {
+  const _ExerciseRow({
+    required this.exercise,
+    required this.tokens,
+    required this.onTap,
+  });
+
+  final Exercise exercise;
+  final WorkoutTokens tokens;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            // Compound indicator dot
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: exercise.compound ? tokens.accent : tokens.surface3,
+              ),
+            ),
+
+            // Name
+            Expanded(
+              child: Text(
+                exercise.name,
+                style: WorkoutType.body(
+                  size: 15,
+                  weight: FontWeight.w500,
+                  color: tokens.text,
+                ),
+              ),
+            ),
+
+            // Equipment label (if any)
+            if (exercise.equip != null)
+              Text(
+                exercise.equip!,
+                style:
+                    WorkoutType.mono(size: 10.5, color: tokens.faint),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.tokens});
+
+  final WorkoutTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(WIcons.dumbbell, size: 32, color: tokens.faint),
+            const SizedBox(height: 12),
+            Text(
+              'No exercises found',
+              style: WorkoutType.body(
+                  size: 15, weight: FontWeight.w600, color: tokens.dim),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

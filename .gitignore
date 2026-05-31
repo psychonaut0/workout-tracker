@@ -39,6 +39,9 @@ bin/
 *.sqlite-journal
 *.db
 data/
+# Flutter source directories named 'data' are NOT local data files
+!app/lib/data/
+!app/test/data/
 
 # --- Flutter / Dart (app/) ---
 app/.dart_tool/

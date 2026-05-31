@@ -323,3 +323,146 @@ func TestUpload_SessionLinksDayTemplate(t *testing.T) {
 		t.Errorf("day_template_id: got %s, want %s", linked, tmpl)
 	}
 }
+
+// TestUpload_MuscleTargetUpsertConflict: PUT the same (user_id, muscle) twice with
+// different target_sets and a different UUID each time → exactly ONE row, latest value.
+// This validates the ON CONFLICT (user_id, muscle) upsert key (not the id PK).
+func TestUpload_MuscleTargetUpsertConflict(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+
+	id1 := "e1111111-1111-1111-1111-111111111111"
+	id2 := "e2222222-2222-2222-2222-222222222222"
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM muscle_targets WHERE user_id=$1::uuid`, user)
+	})
+
+	// First PUT: target_sets=10
+	rec := postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"muscle_targets","id":"`+id1+`","data":{"muscle":"chest","target_sets":10}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first PUT status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Second PUT: same muscle, different UUID, target_sets=15
+	rec = postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"muscle_targets","id":"`+id2+`","data":{"muscle":"chest","target_sets":15}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("second PUT status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Exactly one row for this user+muscle, with the latest value.
+	var count, targetSets int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*), MAX(target_sets) FROM muscle_targets WHERE user_id=$1::uuid AND muscle='chest'`,
+		user).Scan(&count, &targetSets); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("muscle_targets rows: got %d, want 1 (upsert must not duplicate)", count)
+	}
+	if targetSets != 15 {
+		t.Errorf("target_sets: got %d, want 15 (latest value must win)", targetSets)
+	}
+}
+
+// TestUpload_ExercisePutOmittedTraitsDefaults: PUT a custom exercise without any
+// trait fields → 2xx AND the row exists with compound=false, plate_step_kg=2.5.
+// Validates the COALESCE(..., false) / COALESCE(..., 2.5) defaults for NOT-NULL cols.
+func TestUpload_ExercisePutOmittedTraitsDefaults(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+
+	exID := "e3333333-3333-3333-3333-333333333333"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid`, exID) })
+
+	// PUT with only the required identity fields — all trait fields omitted.
+	rec := postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"exercises","id":"`+exID+`","data":{"name":"My Custom Exercise","slug":"my-custom-exercise","muscle_group":"chest"}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Row must exist with correct NOT-NULL defaults.
+	var compound bool
+	var plateStep string
+	if err := pool.QueryRow(ctx,
+		`SELECT compound, plate_step_kg::text FROM exercises WHERE id=$1::uuid`, exID).Scan(&compound, &plateStep); err != nil {
+		t.Fatalf("read exercise: %v", err)
+	}
+	if compound {
+		t.Errorf("compound: got true, want false (default when omitted)")
+	}
+	// The column is NUMERIC(5,2) so Postgres may return "2.50"; accept both forms.
+	if plateStep != "2.5" && plateStep != "2.50" {
+		t.Errorf("plate_step_kg: got %s, want 2.5 (default when omitted)", plateStep)
+	}
+}
+
+// TestUpload_PatchSessionDurationAndDayTemplateFocus: PATCH a session's duration_min
+// and a day_template's focus → other columns preserved (date / name respectively).
+func TestUpload_PatchSessionDurationAndDayTemplateFocus(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+
+	sid := "e4444444-4444-4444-4444-444444444444"
+	tmpl := "e5555555-5555-5555-5555-555555555555"
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid`, sid)
+		_, _ = pool.Exec(ctx, `DELETE FROM day_templates WHERE id=$1::uuid`, tmpl)
+	})
+
+	// Create session + day_template via PUT.
+	rec := postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"sessions","id":"`+sid+`","data":{"date":"2026-05-29","split_label":"Push"}},
+	  {"op":"PUT","table":"day_templates","id":"`+tmpl+`","data":{"name":"Push Day","position":1}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// PATCH only the new columns (omit all others).
+	rec = postUpload(t, h, user, `{"batch":[
+	  {"op":"PATCH","table":"sessions","id":"`+sid+`","data":{"duration_min":62}},
+	  {"op":"PATCH","table":"day_templates","id":"`+tmpl+`","data":{"focus":"Push"}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PATCH status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Session: duration_min updated, date preserved.
+	var durMin int
+	var date string
+	if err := pool.QueryRow(ctx,
+		`SELECT duration_min, date::text FROM sessions WHERE id=$1::uuid`, sid).Scan(&durMin, &date); err != nil {
+		t.Fatalf("read session: %v", err)
+	}
+	if durMin != 62 {
+		t.Errorf("duration_min: got %d, want 62", durMin)
+	}
+	if date != "2026-05-29" {
+		t.Errorf("date: got %s, want 2026-05-29 (must be preserved by PATCH)", date)
+	}
+
+	// day_template: focus updated, name preserved.
+	var focus, name string
+	if err := pool.QueryRow(ctx,
+		`SELECT focus, name FROM day_templates WHERE id=$1::uuid`, tmpl).Scan(&focus, &name); err != nil {
+		t.Fatalf("read day_template: %v", err)
+	}
+	if focus != "Push" {
+		t.Errorf("focus: got %s, want Push", focus)
+	}
+	if name != "Push Day" {
+		t.Errorf("name: got %s, want Push Day (must be preserved by PATCH)", name)
+	}
+}

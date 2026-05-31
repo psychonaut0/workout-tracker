@@ -138,6 +138,8 @@ func applyOp(ctx context.Context, tx pgx.Tx, userID string, op crudOp, topGroups
 		return applyDayTemplate(ctx, tx, userID, op)
 	case "day_template_items":
 		return applyDayTemplateItem(ctx, tx, userID, op)
+	case "muscle_targets":
+		return applyMuscleTarget(ctx, tx, userID, op)
 	default:
 		return fmt.Errorf("unknown table %q", op.tableName())
 	}
@@ -176,27 +178,32 @@ func applySession(ctx context.Context, tx pgx.Tx, userID string, op crudOp) erro
 		label, _ := str(op.Data, "split_label")
 		notes, _ := str(op.Data, "notes")
 		tmpl, _ := str(op.Data, "day_template_id")
+		durMin, _ := str(op.Data, "duration_min")
 		_, err := tx.Exec(ctx,
-			`INSERT INTO sessions (id, user_id, date, split_label, notes, day_template_id)
-			 VALUES ($1::uuid, $2::uuid, $3::date, NULLIF($4,''), NULLIF($5,''), NULLIF($6,'')::uuid)
+			`INSERT INTO sessions (id, user_id, date, split_label, notes, day_template_id, duration_min)
+			 VALUES ($1::uuid, $2::uuid, $3::date, NULLIF($4,''), NULLIF($5,''), NULLIF($6,'')::uuid,
+			   NULLIF($7,'')::numeric::int)
 			 ON CONFLICT (id) DO UPDATE SET date=EXCLUDED.date, split_label=EXCLUDED.split_label,
-			   notes=EXCLUDED.notes, day_template_id=EXCLUDED.day_template_id
+			   notes=EXCLUDED.notes, day_template_id=EXCLUDED.day_template_id,
+			   duration_min=EXCLUDED.duration_min
 			 WHERE sessions.user_id = $2::uuid`,
-			op.ID, userID, date, label, notes, tmpl)
+			op.ID, userID, date, label, notes, tmpl, durMin)
 		return err
 	case "PATCH":
 		date, _ := str(op.Data, "date")
 		label, _ := str(op.Data, "split_label")
 		notes, _ := str(op.Data, "notes")
 		tmpl, _ := str(op.Data, "day_template_id")
+		durMin, _ := str(op.Data, "duration_min")
 		_, err := tx.Exec(ctx,
 			`UPDATE sessions SET
 			   date = COALESCE(NULLIF($3,'')::date, date),
 			   split_label = COALESCE(NULLIF($4,''), split_label),
 			   notes = COALESCE(NULLIF($5,''), notes),
-			   day_template_id = COALESCE(NULLIF($6,'')::uuid, day_template_id)
+			   day_template_id = COALESCE(NULLIF($6,'')::uuid, day_template_id),
+			   duration_min = COALESCE(NULLIF($7,'')::numeric::int, duration_min)
 			 WHERE id = $1::uuid AND user_id = $2::uuid`,
-			op.ID, userID, date, label, notes, tmpl)
+			op.ID, userID, date, label, notes, tmpl, durMin)
 		return err
 	case "DELETE":
 		_, err := tx.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid AND user_id=$2::uuid`, op.ID, userID)
@@ -245,22 +252,70 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 		name, _ := str(op.Data, "name")
 		slug, _ := str(op.Data, "slug")
 		muscle, _ := str(op.Data, "muscle_group")
+		equip, _ := str(op.Data, "equip")
+		compound, _ := str(op.Data, "compound")
+		baseWeight, _ := str(op.Data, "base_weight_kg")
+		plateStep, _ := str(op.Data, "plate_step_kg")
+		repLow, _ := str(op.Data, "default_rep_low")
+		repHigh, _ := str(op.Data, "default_rep_high")
+		warmupSets, _ := str(op.Data, "default_warmup_sets")
+		workingSets, _ := str(op.Data, "default_working_sets")
+		rirLow, _ := str(op.Data, "default_rir_low")
+		rirHigh, _ := str(op.Data, "default_rir_high")
 		_, err := tx.Exec(ctx,
-			`INSERT INTO exercises (id, name, slug, muscle_group, is_template, created_by)
-			 VALUES ($1::uuid, $2, $3, $4, false, $5::uuid)
-			 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, slug=EXCLUDED.slug, muscle_group=EXCLUDED.muscle_group
-			 WHERE exercises.created_by = $5::uuid`,
-			op.ID, name, slug, muscle, userID)
+			`INSERT INTO exercises
+			   (id, name, slug, muscle_group, equip, compound, base_weight_kg, plate_step_kg,
+			    default_rep_low, default_rep_high, default_warmup_sets, default_working_sets,
+			    default_rir_low, default_rir_high, is_template, created_by)
+			 VALUES ($1::uuid, $2, $3, $4, NULLIF($5,''),
+			    COALESCE(NULLIF($6,'')::bool, false),
+			    NULLIF($7,'')::numeric,
+			    COALESCE(NULLIF($8,'')::numeric, 2.5),
+			    NULLIF($9,'')::numeric::int, NULLIF($10,'')::numeric::int,
+			    NULLIF($11,'')::numeric::int, NULLIF($12,'')::numeric::int,
+			    NULLIF($13,'')::numeric::int, NULLIF($14,'')::numeric::int,
+			    false, $15::uuid)
+			 ON CONFLICT (id) DO UPDATE SET
+			   name=EXCLUDED.name, slug=EXCLUDED.slug, muscle_group=EXCLUDED.muscle_group,
+			   equip=EXCLUDED.equip, compound=EXCLUDED.compound,
+			   base_weight_kg=EXCLUDED.base_weight_kg, plate_step_kg=EXCLUDED.plate_step_kg,
+			   default_rep_low=EXCLUDED.default_rep_low, default_rep_high=EXCLUDED.default_rep_high,
+			   default_warmup_sets=EXCLUDED.default_warmup_sets, default_working_sets=EXCLUDED.default_working_sets,
+			   default_rir_low=EXCLUDED.default_rir_low, default_rir_high=EXCLUDED.default_rir_high
+			 WHERE exercises.created_by = $15::uuid`,
+			op.ID, name, slug, muscle, equip, compound, baseWeight, plateStep,
+			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh, userID)
 		return err
 	case "PATCH":
 		name, _ := str(op.Data, "name")
 		muscle, _ := str(op.Data, "muscle_group")
+		equip, _ := str(op.Data, "equip")
+		compound, _ := str(op.Data, "compound")
+		baseWeight, _ := str(op.Data, "base_weight_kg")
+		plateStep, _ := str(op.Data, "plate_step_kg")
+		repLow, _ := str(op.Data, "default_rep_low")
+		repHigh, _ := str(op.Data, "default_rep_high")
+		warmupSets, _ := str(op.Data, "default_warmup_sets")
+		workingSets, _ := str(op.Data, "default_working_sets")
+		rirLow, _ := str(op.Data, "default_rir_low")
+		rirHigh, _ := str(op.Data, "default_rir_high")
 		_, err := tx.Exec(ctx,
 			`UPDATE exercises SET
-			   name = COALESCE(NULLIF($3,''), name),
-			   muscle_group = COALESCE(NULLIF($4,''), muscle_group)
+			   name           = COALESCE(NULLIF($3,''), name),
+			   muscle_group   = COALESCE(NULLIF($4,''), muscle_group),
+			   equip          = COALESCE(NULLIF($5,''), equip),
+			   compound       = COALESCE(NULLIF($6,'')::bool, compound),
+			   base_weight_kg = COALESCE(NULLIF($7,'')::numeric, base_weight_kg),
+			   plate_step_kg  = COALESCE(NULLIF($8,'')::numeric, plate_step_kg),
+			   default_rep_low      = COALESCE(NULLIF($9,'')::numeric::int, default_rep_low),
+			   default_rep_high     = COALESCE(NULLIF($10,'')::numeric::int, default_rep_high),
+			   default_warmup_sets  = COALESCE(NULLIF($11,'')::numeric::int, default_warmup_sets),
+			   default_working_sets = COALESCE(NULLIF($12,'')::numeric::int, default_working_sets),
+			   default_rir_low      = COALESCE(NULLIF($13,'')::numeric::int, default_rir_low),
+			   default_rir_high     = COALESCE(NULLIF($14,'')::numeric::int, default_rir_high)
 			 WHERE id=$1::uuid AND created_by=$2::uuid`,
-			op.ID, userID, name, muscle)
+			op.ID, userID, name, muscle, equip, compound, baseWeight, plateStep,
+			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh)
 		return err
 	case "DELETE":
 		_, err := tx.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid AND created_by=$2::uuid`, op.ID, userID)
@@ -383,24 +438,32 @@ func applyDayTemplate(ctx context.Context, tx pgx.Tx, userID string, op crudOp) 
 		name, _ := str(op.Data, "name")
 		notes, _ := str(op.Data, "notes")
 		pos, _ := str(op.Data, "position")
+		focus, _ := str(op.Data, "focus")
+		weekday, _ := str(op.Data, "scheduled_weekday")
 		_, err := tx.Exec(ctx,
-			`INSERT INTO day_templates (id, name, notes, position, is_template, created_by)
-			 VALUES ($1::uuid, $2, NULLIF($3,''), COALESCE(NULLIF($4,'')::numeric::int, 0), false, $5::uuid)
-			 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, notes=EXCLUDED.notes, position=EXCLUDED.position
-			 WHERE day_templates.created_by = $5::uuid`,
-			op.ID, name, notes, pos, userID)
+			`INSERT INTO day_templates (id, name, notes, position, focus, scheduled_weekday, is_template, created_by)
+			 VALUES ($1::uuid, $2, NULLIF($3,''), COALESCE(NULLIF($4,'')::numeric::int, 0),
+			   NULLIF($5,''), NULLIF($6,'')::numeric::int, false, $7::uuid)
+			 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, notes=EXCLUDED.notes, position=EXCLUDED.position,
+			   focus=EXCLUDED.focus, scheduled_weekday=EXCLUDED.scheduled_weekday
+			 WHERE day_templates.created_by = $7::uuid`,
+			op.ID, name, notes, pos, focus, weekday, userID)
 		return err
 	case "PATCH":
 		name, _ := str(op.Data, "name")
 		notes, _ := str(op.Data, "notes")
 		pos, _ := str(op.Data, "position")
+		focus, _ := str(op.Data, "focus")
+		weekday, _ := str(op.Data, "scheduled_weekday")
 		_, err := tx.Exec(ctx,
 			`UPDATE day_templates SET
-			   name = COALESCE(NULLIF($3,''), name),
-			   notes = COALESCE(NULLIF($4,''), notes),
-			   position = COALESCE(NULLIF($5,'')::numeric::int, position)
+			   name             = COALESCE(NULLIF($3,''), name),
+			   notes            = COALESCE(NULLIF($4,''), notes),
+			   position         = COALESCE(NULLIF($5,'')::numeric::int, position),
+			   focus            = COALESCE(NULLIF($6,''), focus),
+			   scheduled_weekday = COALESCE(NULLIF($7,'')::numeric::int, scheduled_weekday)
 			 WHERE id=$1::uuid AND created_by=$2::uuid`,
-			op.ID, userID, name, notes, pos)
+			op.ID, userID, name, notes, pos, focus, weekday)
 		return err
 	case "DELETE":
 		_, err := tx.Exec(ctx, `DELETE FROM day_templates WHERE id=$1::uuid AND created_by=$2::uuid`, op.ID, userID)
@@ -478,6 +541,37 @@ func applyDayTemplateItem(ctx context.Context, tx pgx.Tx, userID string, op crud
 			   target_rir_low=EXCLUDED.target_rir_low, target_rir_high=EXCLUDED.target_rir_high
 			 WHERE day_template_items.created_by = $11::uuid`,
 			op.ID, tmplID, exID, pos, warm, work, rlow, rhigh, rirlow, rirhigh, userID)
+		return err
+	default:
+		return fmt.Errorf("unknown op %q", op.Op)
+	}
+}
+
+// applyMuscleTarget writes a per-user weekly set target for a muscle group.
+// The table has UNIQUE(user_id, muscle) so we upsert on that composite key to
+// avoid silent conflicts when the client generates a fresh UUID on each write.
+// created_at is never client-settable.
+func applyMuscleTarget(ctx context.Context, tx pgx.Tx, userID string, op crudOp) error {
+	switch op.Op {
+	case "PUT":
+		muscle, _ := str(op.Data, "muscle")
+		targetSets, _ := str(op.Data, "target_sets")
+		_, err := tx.Exec(ctx,
+			`INSERT INTO muscle_targets (id, user_id, muscle, target_sets)
+			 VALUES ($1::uuid, $2::uuid, $3, NULLIF($4,'')::numeric::int)
+			 ON CONFLICT (user_id, muscle) DO UPDATE SET target_sets = EXCLUDED.target_sets`,
+			op.ID, userID, muscle, targetSets)
+		return err
+	case "PATCH":
+		targetSets, _ := str(op.Data, "target_sets")
+		_, err := tx.Exec(ctx,
+			`UPDATE muscle_targets SET
+			   target_sets = COALESCE(NULLIF($3,'')::numeric::int, target_sets)
+			 WHERE id=$1::uuid AND user_id=$2::uuid`,
+			op.ID, userID, targetSets)
+		return err
+	case "DELETE":
+		_, err := tx.Exec(ctx, `DELETE FROM muscle_targets WHERE id=$1::uuid AND user_id=$2::uuid`, op.ID, userID)
 		return err
 	default:
 		return fmt.Errorf("unknown op %q", op.Op)

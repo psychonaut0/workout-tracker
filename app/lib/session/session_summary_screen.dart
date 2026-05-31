@@ -1,0 +1,520 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../data/exercise_repository.dart';
+import '../data/models.dart';
+import '../data/session_repository.dart';
+import '../sync/db.dart';
+import '../theme/app_theme.dart';
+import '../theme/icons.dart';
+import '../theme/tokens.dart';
+import '../theme/typography.dart';
+import '../units/unit_service.dart';
+import '../widgets/pr_badge.dart';
+import '../widgets/tag.dart';
+
+/// Post-session summary overlay.
+///
+/// Visual spec: README "Screens → 3. Session summary".
+///
+/// Shows:
+/// - Success check mark
+/// - `"{name} · {focus}"` title (from `split_label`)
+/// - Stat tiles: Duration, Sets, Volume, PRs
+/// - Top sets list with PR badges
+/// - "Done" button → pops to the launcher
+class SessionSummaryScreen extends StatefulWidget {
+  const SessionSummaryScreen({super.key, required this.sessionId});
+
+  final String sessionId;
+
+  @override
+  State<SessionSummaryScreen> createState() => _SessionSummaryScreenState();
+}
+
+class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
+  late final SessionRepository _sessionRepo;
+  late final ExerciseRepository _exerciseRepo;
+
+  SessionSummaryRow? _session;
+  List<ExerciseBlockData>? _blocks;
+  Map<String, String> _exerciseNames = {};
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionRepo = SessionRepository(db);
+    _exerciseRepo = ExerciseRepository(db);
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      // Read the session summary row
+      final rows = await db.getAll(
+        'SELECT * FROM sessions WHERE id = ?',
+        [widget.sessionId],
+      );
+      if (rows.isEmpty) {
+        setState(() {
+          _error = 'Session not found.';
+          _loading = false;
+        });
+        return;
+      }
+      final session = SessionSummaryRow.fromRow(rows.first);
+
+      // Read and group sets
+      final sets = await _sessionRepo.setsForSession(widget.sessionId);
+      final blocks = _sessionRepo.groupIntoBlocks(sets);
+
+      // Load exercise names for display
+      final allExercises = await _exerciseRepo.all();
+      final names = {for (final e in allExercises) e.id: e.name};
+
+      setState(() {
+        _session = session;
+        _blocks = blocks;
+        _exerciseNames = names;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load session: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final unit = context.watch<UnitService>();
+
+    return Scaffold(
+      backgroundColor: tokens.bg,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _ErrorState(
+                  error: _error!,
+                  tokens: tokens,
+                  onDone: () => Navigator.of(context)
+                      .popUntil((route) => route.isFirst),
+                )
+              : _SummaryBody(
+                  session: _session!,
+                  blocks: _blocks!,
+                  exerciseNames: _exerciseNames,
+                  unit: unit,
+                  tokens: tokens,
+                  onDone: () => Navigator.of(context)
+                      .popUntil((route) => route.isFirst),
+                ),
+    );
+  }
+}
+
+// ── Summary body ──────────────────────────────────────────────────────────────
+
+class _SummaryBody extends StatelessWidget {
+  const _SummaryBody({
+    required this.session,
+    required this.blocks,
+    required this.exerciseNames,
+    required this.unit,
+    required this.tokens,
+    required this.onDone,
+  });
+
+  final SessionSummaryRow session;
+  final List<ExerciseBlockData> blocks;
+  final Map<String, String> exerciseNames;
+  final UnitService unit;
+  final WorkoutTokens tokens;
+  final VoidCallback onDone;
+
+  int get _totalSets =>
+      blocks.fold(0, (n, b) => n + b.sets.where((s) => !s.isWarmup).length);
+
+  double get _totalVolumeKg => blocks.fold(
+        0.0,
+        (n, b) => n +
+            b.sets
+                .where((s) => !s.isWarmup)
+                .fold(0.0, (v, s) => v + s.weightKg * s.reps),
+      );
+
+  int get _prCount => blocks.where((b) => b.isPr).length;
+
+  @override
+  Widget build(BuildContext context) {
+    final durationMin = session.durationMin ?? 0;
+    final splitLabel = session.splitLabel ?? '';
+
+    // Parse name · focus from the stored split_label (middot separator)
+    final parts = splitLabel.split(' · ');
+    final title = parts.isNotEmpty ? parts[0] : splitLabel;
+    final focus = parts.length > 1 ? parts.sublist(1).join(' · ') : '';
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            MediaQuery.of(context).padding.top + 24,
+            16,
+            MediaQuery.of(context).padding.bottom + 24,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              // ── Success icon ─────────────────────────────────────────
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: tokens.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(WIcons.check,
+                      size: 36, color: tokens.accentInk),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Title ────────────────────────────────────────────────
+              Center(
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: WorkoutType.display(
+                      size: 22,
+                      weight: FontWeight.w700,
+                      color: tokens.text,
+                    ),
+                    children: [
+                      TextSpan(text: title),
+                      if (focus.isNotEmpty) ...[
+                        TextSpan(
+                          text: ' · $focus',
+                          style: WorkoutType.display(
+                            size: 22,
+                            weight: FontWeight.w600,
+                            color: tokens.faint,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+
+              Center(
+                child: Text(
+                  session.date,
+                  style: WorkoutType.mono(size: 11, color: tokens.faint),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Stat tiles ───────────────────────────────────────────
+              _StatTiles(
+                durationMin: durationMin,
+                totalSets: _totalSets,
+                volumeKg: _totalVolumeKg,
+                prCount: _prCount,
+                unit: unit,
+                tokens: tokens,
+              ),
+              const SizedBox(height: 28),
+
+              // ── Top sets list ────────────────────────────────────────
+              if (blocks.isNotEmpty) ...[
+                Text(
+                  'TOP SETS',
+                  style: WorkoutType.mono(
+                    size: 10,
+                    weight: FontWeight.w600,
+                    color: tokens.faint,
+                    letterSpacing: 0.08 * 10,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final block in blocks)
+                  _TopSetRow(
+                    block: block,
+                    name: exerciseNames[block.exerciseId] ??
+                        block.exerciseId,
+                    unit: unit,
+                    tokens: tokens,
+                  ),
+              ],
+              const SizedBox(height: 32),
+
+              // ── Done button ──────────────────────────────────────────
+              GestureDetector(
+                onTap: onDone,
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: tokens.accent,
+                    borderRadius:
+                        BorderRadius.circular(AppRadius.radius),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Done',
+                    style: WorkoutType.display(
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: tokens.accentInk,
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Stat tiles ────────────────────────────────────────────────────────────────
+
+class _StatTiles extends StatelessWidget {
+  const _StatTiles({
+    required this.durationMin,
+    required this.totalSets,
+    required this.volumeKg,
+    required this.prCount,
+    required this.unit,
+    required this.tokens,
+  });
+
+  final int durationMin;
+  final int totalSets;
+  final double volumeKg;
+  final int prCount;
+  final UnitService unit;
+  final WorkoutTokens tokens;
+
+  String _fmtVolume() {
+    final v = UnitService.fromKg(volumeKg, unit.unit);
+    if (v >= 1000) {
+      final t = v / 1000;
+      final rounded = (t * 10).round() / 10;
+      return '${rounded % 1 == 0 ? rounded.toInt() : rounded}t';
+    }
+    return '${v.round()}${unit.uLabel}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _Tile(
+            label: 'Duration',
+            value: '${durationMin}m',
+            tokens: tokens),
+        const SizedBox(width: 12),
+        _Tile(
+            label: 'Sets',
+            value: '$totalSets',
+            tokens: tokens),
+        const SizedBox(width: 12),
+        _Tile(
+            label: 'Volume',
+            value: _fmtVolume(),
+            tokens: tokens),
+        const SizedBox(width: 12),
+        _Tile(
+            label: 'PRs',
+            value: '$prCount',
+            tokens: tokens,
+            highlight: prCount > 0),
+      ],
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({
+    required this.label,
+    required this.value,
+    required this.tokens,
+    this.highlight = false,
+  });
+
+  final String label;
+  final String value;
+  final WorkoutTokens tokens;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          borderRadius: BorderRadius.circular(AppRadius.radius * 0.7),
+          border: Border.all(color: tokens.line),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: WorkoutType.display(
+                size: 20,
+                weight: FontWeight.w700,
+                color: highlight ? tokens.accent : tokens.text,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: WorkoutType.mono(size: 9.5, color: tokens.faint),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Top set row ───────────────────────────────────────────────────────────────
+
+class _TopSetRow extends StatelessWidget {
+  const _TopSetRow({
+    required this.block,
+    required this.name,
+    required this.unit,
+    required this.tokens,
+  });
+
+  final ExerciseBlockData block;
+  final String name;
+  final UnitService unit;
+  final WorkoutTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        borderRadius: BorderRadius.circular(AppRadius.radius * 0.7),
+        border: Border.all(color: tokens.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              name,
+              style: WorkoutType.body(
+                size: 14,
+                weight: FontWeight.w600,
+                color: tokens.text,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: unit.fmtWt(block.topWeight),
+                  style: WorkoutType.mono(
+                    size: 14,
+                    weight: FontWeight.w700,
+                    color: tokens.text,
+                  ),
+                ),
+                TextSpan(
+                  text: unit.uLabel,
+                  style: WorkoutType.mono(size: 10, color: tokens.faint),
+                ),
+                TextSpan(
+                  text: ' × ${block.topReps}',
+                  style: WorkoutType.mono(size: 13, color: tokens.dim),
+                ),
+              ],
+            ),
+          ),
+          if (block.isPr) ...[
+            const SizedBox(width: 8),
+            const PRBadge(small: true),
+          ] else ...[
+            const SizedBox(width: 8),
+            const Tag(label: 'TOP', tone: TagTone.solid),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Error state ───────────────────────────────────────────────────────────────
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.error,
+    required this.tokens,
+    required this.onDone,
+  });
+
+  final String error;
+  final WorkoutTokens tokens;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: tokens.danger),
+            const SizedBox(height: 16),
+            Text(
+              error,
+              style: WorkoutType.body(size: 14, color: tokens.dim),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: onDone,
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                decoration: BoxDecoration(
+                  color: tokens.accent,
+                  borderRadius: BorderRadius.circular(AppRadius.radius),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Done',
+                  style: WorkoutType.mono(
+                    size: 14,
+                    weight: FontWeight.w700,
+                    color: tokens.accentInk,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
