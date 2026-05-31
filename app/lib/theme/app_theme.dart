@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tokens.dart';
+import 'typography.dart';
 
 /// Build a [ThemeData] with [WorkoutTokens] wired as a [ThemeExtension].
 /// Typography is applied in [WorkoutType] and wired via [_buildTextTheme].
@@ -12,6 +13,7 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
     brightness: brightness,
     scaffoldBackgroundColor: tokens.bg,
     extensions: [tokens],
+    textTheme: WorkoutType.hankenTextTheme,
     colorScheme: ColorScheme(
       brightness: brightness,
       primary: accent,
