@@ -11,6 +11,7 @@
 ///
 /// `'1'` → `(low: 1, high: 1)`, `'0–1'` or `'1–0'` → `(low: 0, high: 1)`.
 /// Normalizes so `low <= high`.
+/// Throws on empty / partial / non-numeric input — use [rirTryParse] in editors.
 ({int low, int high}) rirParse(String s) {
   // Handle both hyphen '-' and en-dash '–'
   final parts = s.split(RegExp(r'[-–]'));
@@ -28,6 +29,19 @@
 /// `low == high` → `'$low'`, otherwise `'$low–$high'` (en-dash).
 String rirToString(int low, int high) {
   return low == high ? '$low' : '$low–$high';
+}
+
+/// Non-throwing variant of [rirParse]: returns null on empty / partial /
+/// non-numeric input instead of throwing. Safe to call on every keystroke
+/// in a text field.
+({int low, int high})? rirTryParse(String s) {
+  final trimmed = s.trim();
+  if (trimmed.isEmpty) return null;
+  try {
+    return rirParse(trimmed);
+  } catch (_) {
+    return null;
+  }
 }
 
 // ── Exercise ─────────────────────────────────────────────────────────────────
@@ -93,6 +107,8 @@ class Exercise {
 // ── Slot (from day_template_items) ───────────────────────────────────────────
 
 class Slot {
+  /// The row id from `day_template_items`; null for slots not loaded from DB.
+  final String? id;
   final String exerciseId;
   final int position;
   final int? workSets;
@@ -103,6 +119,7 @@ class Slot {
   final int? rirHigh;
 
   const Slot({
+    this.id,
     required this.exerciseId,
     required this.position,
     this.workSets,
@@ -115,6 +132,7 @@ class Slot {
 
   factory Slot.fromRow(Map<String, dynamic> row) {
     return Slot(
+      id: row['id'] as String?,
       exerciseId: row['exercise_id'] as String,
       position: row['position'] as int? ?? 0,
       workSets: row['target_working_sets'] as int?,
@@ -160,6 +178,7 @@ class DayTemplate {
   final int? scheduledWeekday;
   final int position;
   final List<Slot> slots;
+  final bool isTemplate;
 
   const DayTemplate({
     required this.id,
@@ -169,6 +188,81 @@ class DayTemplate {
     this.scheduledWeekday,
     required this.position,
     required this.slots,
+    this.isTemplate = false,
+  });
+}
+
+// ── Draft models (for plan editors) ──────────────────────────────────────────
+
+/// Mutable draft for a single slot in a training day. [itemId] is null for new
+/// slots; non-null for slots loaded from the DB (carry their row id for PATCH).
+class SlotDraft {
+  String? itemId;
+  String exerciseId;
+  int? workSets;
+  int? warmupSets;
+  int? repLow;
+  int? repHigh;
+  int? rirLow;
+  int? rirHigh;
+
+  SlotDraft({
+    this.itemId,
+    required this.exerciseId,
+    this.workSets,
+    this.warmupSets,
+    this.repLow,
+    this.repHigh,
+    this.rirLow,
+    this.rirHigh,
+  });
+}
+
+/// Mutable draft for a training day (DayTemplate).
+class DayDraft {
+  String name;
+  String? focus;
+  int? weekday;
+  List<SlotDraft> slots;
+
+  DayDraft({
+    required this.name,
+    this.focus,
+    this.weekday,
+    required this.slots,
+  });
+}
+
+/// Mutable draft for an exercise.
+class ExerciseDraft {
+  String? id;
+  String name;
+  String muscleGroup;
+  String? equip;
+  bool compound;
+  double? baseWeightKg;
+  double plateStepKg;
+  int? defaultRepLow;
+  int? defaultRepHigh;
+  int? defaultWarmupSets;
+  int? defaultWorkingSets;
+  int? defaultRirLow;
+  int? defaultRirHigh;
+
+  ExerciseDraft({
+    this.id,
+    required this.name,
+    required this.muscleGroup,
+    this.equip,
+    required this.compound,
+    this.baseWeightKg,
+    required this.plateStepKg,
+    this.defaultRepLow,
+    this.defaultRepHigh,
+    this.defaultWarmupSets,
+    this.defaultWorkingSets,
+    this.defaultRirLow,
+    this.defaultRirHigh,
   });
 }
 
