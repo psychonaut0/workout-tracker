@@ -3,6 +3,7 @@ import 'dart:math' show max;
 import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart' show uuid;
 
+import '../data/active_session_draft.dart';
 import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
@@ -393,12 +394,14 @@ class ActiveSessionController extends ChangeNotifier {
 
   // ── Finish ────────────────────────────────────────────────────────────────
 
-  /// Persists the session to the local PowerSync DB and clears the draft.
+  /// Persists the session to the local PowerSync DB, clears the draft store,
+  /// and clears the in-memory draft.
   ///
   /// Returns the new session id. The caller must wrap this in
   /// `db.writeTransaction((tx) => controller.finish(PowerSyncTxExecutor(tx)))`
-  /// to ensure atomicity.
-  Future<String> finish(SqlExecutor executor) async {
+  /// to ensure atomicity. Pass [draftStore] to also clear the on-disk draft
+  /// (call with the same [DraftStore] used to save the session while it was active).
+  Future<String> finish(SqlExecutor executor, {DraftStore? draftStore}) async {
     final d = draft;
     final sessionId = uuid.v4();
     final today = DateTime.now();
@@ -446,8 +449,8 @@ class ActiveSessionController extends ChangeNotifier {
 
     await persistSession(executor, write);
 
-    // Clear the draft (the draft store clear is handled by the caller who
-    // also holds a DraftStore reference; the controller clears its in-memory state).
+    // Clear the on-disk draft (if a store is provided) then the in-memory state.
+    await draftStore?.clear();
     _draft = null;
     notifyListeners();
 
