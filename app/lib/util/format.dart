@@ -1,4 +1,4 @@
-/// Formatting helpers for numeric values in the Progress views.
+// Formatting helpers for numeric values in the Progress views.
 
 /// Formats a weight/value as a bare integer if whole, or 1 decimal place
 /// (trailing `.0` stripped — mirrors `fmtKg` in ui.jsx).
