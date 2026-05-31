@@ -5,6 +5,8 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import 'day_editor.dart';
+import 'exercise_editor.dart';
+import 'exercise_library_tab.dart';
 import 'split_tab.dart';
 
 // ── Editor-route state ────────────────────────────────────────────────────
@@ -15,32 +17,6 @@ class _EditorRoute {
   const _EditorRoute({required this.kind, required this.id});
   final String kind; // 'day' | 'exercise'
   final String? id;
-}
-
-// ── Placeholder bodies (Task 5 placeholders, replaced by Task 5) ─────────────
-
-/// Placeholder for LibraryTab — replaced in Task 5.
-class _LibraryTabPlaceholder extends StatelessWidget {
-  const _LibraryTabPlaceholder({required this.onOpenEditor});
-  final void Function(_EditorRoute) onOpenEditor; // used by Task 5
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Exercises'));
-  }
-}
-
-/// Placeholder for ExerciseEditor — replaced in Task 5.
-class _ExerciseEditorPlaceholder extends StatelessWidget {
-  const _ExerciseEditorPlaceholder({required this.id});
-  final String? id;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(id == null ? 'New exercise' : 'Edit exercise'),
-    );
-  }
 }
 
 // ── PlanScreen ────────────────────────────────────────────────────────────
@@ -143,14 +119,17 @@ class _PlanScreenState extends State<PlanScreen> {
       if (_editor!.kind == 'day') {
         return DayEditor(id: _editor!.id, onBack: _onBack);
       }
-      return _ExerciseEditorPlaceholder(id: _editor!.id);
+      return ExerciseEditor(id: _editor!.id, onBack: _onBack);
     }
     if (_activeTab == 'split') {
       return SplitTab(
         onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'day', id: id)),
       );
     }
-    return _LibraryTabPlaceholder(onOpenEditor: _openEditor);
+    return LibraryTab(
+      onOpenEditor: (id) =>
+          _openEditor(_EditorRoute(kind: 'exercise', id: id)),
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
