@@ -76,6 +76,15 @@ class SessionRepository {
     return (best as num).toDouble();
   }
 
+  // ── User id ───────────────────────────────────────────────────────────────
+
+  /// Returns the user_id from any synced session row, or null if no sessions
+  /// exist yet.  Used to seed per-user data (e.g. muscle targets) when an
+  /// auth identity is not threaded through the widget tree.
+  Future<String?> anyUserId() async =>
+      (await db.getOptional('SELECT user_id FROM sessions LIMIT 1'))?['user_id']
+          as String?;
+
   // ── Session list ──────────────────────────────────────────────────────────
 
   /// A live stream of the most-recent [limit] sessions, newest first.
