@@ -60,6 +60,31 @@ abstract final class WorkoutType {
     );
   }
 
-  /// A [TextTheme] with Hanken Grotesk as the base body font.
-  static TextTheme get hankenTextTheme => GoogleFonts.hankenGroteskTextTheme();
+  /// A [TextTheme] with Hanken Grotesk as the declared font family.
+  ///
+  /// Uses the font family name directly rather than routing through
+  /// [GoogleFonts.hankenGroteskTextTheme] so that no async font-file fetches
+  /// are triggered when this getter is called (e.g. inside [buildTheme] during
+  /// tests). The [WorkoutType.body], [display], and [mono] helpers use
+  /// [GoogleFonts] at the widget level where async loading is fine.
+  static TextTheme get hankenTextTheme {
+    const family = 'HankenGrotesk';
+    return const TextTheme(
+      displayLarge: TextStyle(fontFamily: family, fontSize: 57, fontWeight: FontWeight.w400),
+      displayMedium: TextStyle(fontFamily: family, fontSize: 45, fontWeight: FontWeight.w400),
+      displaySmall: TextStyle(fontFamily: family, fontSize: 36, fontWeight: FontWeight.w400),
+      headlineLarge: TextStyle(fontFamily: family, fontSize: 32, fontWeight: FontWeight.w600),
+      headlineMedium: TextStyle(fontFamily: family, fontSize: 28, fontWeight: FontWeight.w600),
+      headlineSmall: TextStyle(fontFamily: family, fontSize: 24, fontWeight: FontWeight.w600),
+      titleLarge: TextStyle(fontFamily: family, fontSize: 22, fontWeight: FontWeight.w600),
+      titleMedium: TextStyle(fontFamily: family, fontSize: 16, fontWeight: FontWeight.w500),
+      titleSmall: TextStyle(fontFamily: family, fontSize: 14, fontWeight: FontWeight.w500),
+      bodyLarge: TextStyle(fontFamily: family, fontSize: 16, fontWeight: FontWeight.w400),
+      bodyMedium: TextStyle(fontFamily: family, fontSize: 14, fontWeight: FontWeight.w400),
+      bodySmall: TextStyle(fontFamily: family, fontSize: 12, fontWeight: FontWeight.w400),
+      labelLarge: TextStyle(fontFamily: family, fontSize: 14, fontWeight: FontWeight.w600),
+      labelMedium: TextStyle(fontFamily: family, fontSize: 12, fontWeight: FontWeight.w500),
+      labelSmall: TextStyle(fontFamily: family, fontSize: 11, fontWeight: FontWeight.w500),
+    );
+  }
 }
