@@ -22,6 +22,16 @@ const schema = Schema([
     Column.integer('is_template'),
     Column.text('created_by'),
     Column.text('created_at'),
+    Column.text('equip'),
+    Column.integer('compound'),
+    Column.text('base_weight_kg'),
+    Column.text('plate_step_kg'),
+    Column.integer('default_rep_low'),
+    Column.integer('default_rep_high'),
+    Column.integer('default_warmup_sets'),
+    Column.integer('default_working_sets'),
+    Column.integer('default_rir_low'),
+    Column.integer('default_rir_high'),
   ]),
   Table('sessions', [
     Column.text('user_id'),
@@ -30,6 +40,7 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('day_template_id'),
     Column.text('created_at'),
+    Column.integer('duration_min'),
   ]),
   Table('sets', [
     Column.text('session_id'),
@@ -62,6 +73,8 @@ const schema = Schema([
     Column.integer('is_template'),
     Column.text('created_by'),
     Column.text('created_at'),
+    Column.text('focus'),
+    Column.integer('scheduled_weekday'),
   ]),
   Table('day_template_items', [
     Column.text('day_template_id'),
@@ -78,5 +91,11 @@ const schema = Schema([
     Column.text('created_at'),
   ], indexes: [
     Index('dti_template', [IndexedColumn('day_template_id')]),
+  ]),
+  Table('muscle_targets', [
+    Column.text('user_id'),
+    Column.text('muscle'),
+    Column.integer('target_sets'),
+    Column.text('created_at'),
   ]),
 ]);
