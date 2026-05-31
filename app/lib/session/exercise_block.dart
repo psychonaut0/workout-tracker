@@ -195,43 +195,9 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // "Last time" reference row
-                  if (block.bestKg != null && block.bestKg! > 0) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: tokens.surface2,
-                        borderRadius:
-                            BorderRadius.circular(AppRadius.radius * 0.5),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(WIcons.history,
-                              size: 15, color: tokens.faint),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Best',
-                            style: WorkoutType.mono(
-                              size: 10.5,
-                              color: tokens.faint,
-                              letterSpacing: 0.06 * 10.5,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${unit.fmtWt(block.bestKg!)}${unit.uLabel}',
-                            style: WorkoutType.mono(
-                              size: 12.5,
-                              weight: FontWeight.w700,
-                              color: tokens.dim,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  // "Last · <ago>" reference row — last-session top set
+                  _LastTopRow(lastTop: block.lastTop, unit: unit, tokens: tokens),
+                  const SizedBox(height: 10),
 
                   // Column headers: SET / WEIGHT / REPS / RIR / (check btn)
                   Row(
@@ -350,6 +316,106 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
 }
 
 // ── Helper sub-widgets ────────────────────────────────────────────────────────
+
+/// Returns a human-readable "days ago" label from an ISO date string
+/// (yyyy-mm-dd) compared to today.
+///
+/// Returns "today", "yesterday", or "{n}d ago".
+String _daysAgoLabel(String isoDate) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  try {
+    final parts = isoDate.split('-');
+    if (parts.length != 3) return isoDate;
+    final date = DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+    final diff = today.difference(date).inDays;
+    if (diff == 0) return 'today';
+    if (diff == 1) return 'yesterday';
+    return '${diff}d ago';
+  } catch (_) {
+    return isoDate;
+  }
+}
+
+/// Ghosted reference row showing the last-session top set.
+///
+/// Design: `screen-log.jsx` — "Last · {ago}" label on the left, weight×reps
+/// on the right, all in faint/dim mono. If [lastTop] is null, shows a muted
+/// "No previous data" placeholder.
+class _LastTopRow extends StatelessWidget {
+  const _LastTopRow({
+    required this.lastTop,
+    required this.unit,
+    required this.tokens,
+  });
+
+  final ({double weight, int reps, String date})? lastTop;
+  final UnitService unit;
+  final WorkoutTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    if (lastTop == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: tokens.surface2,
+          borderRadius: BorderRadius.circular(AppRadius.radius * 0.5),
+        ),
+        child: Row(
+          children: [
+            Icon(WIcons.history, size: 15, color: tokens.faint),
+            const SizedBox(width: 8),
+            Text(
+              'No previous data',
+              style: WorkoutType.mono(
+                size: 10.5,
+                color: tokens.faint,
+                letterSpacing: 0.06 * 10.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final agoLabel = _daysAgoLabel(lastTop!.date);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: tokens.surface2,
+        borderRadius: BorderRadius.circular(AppRadius.radius * 0.5),
+      ),
+      child: Row(
+        children: [
+          Icon(WIcons.history, size: 15, color: tokens.faint),
+          const SizedBox(width: 8),
+          Text(
+            'LAST · ${agoLabel.toUpperCase()}',
+            style: WorkoutType.mono(
+              size: 10.5,
+              color: tokens.faint,
+              letterSpacing: 0.06 * 10.5,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '${unit.fmtWt(lastTop!.weight)}${unit.uLabel} × ${lastTop!.reps}',
+            style: WorkoutType.mono(
+              size: 12.5,
+              weight: FontWeight.w700,
+              color: tokens.dim,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _DashedBlockButton extends StatelessWidget {
   const _DashedBlockButton({

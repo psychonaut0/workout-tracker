@@ -130,6 +130,10 @@ class BlockState {
   /// at session build time). Used for live PR detection.
   double? bestKg;
 
+  /// The most-recent (last-session) top set for this exercise — weight, reps,
+  /// and ISO date. Shown as the "Last · {ago}" reference row in the UI.
+  ({double weight, int reps, String date})? lastTop;
+
   BlockState({
     required this.exercise,
     required this.resolved,
@@ -137,6 +141,7 @@ class BlockState {
     required this.workingSets,
     required this.expanded,
     this.bestKg,
+    this.lastTop,
   });
 
   /// All sets in display order: warm-ups first, then working.
@@ -167,6 +172,9 @@ class BlockState {
         'workingSets': workingSets.map((s) => s.toJson()).toList(),
         'expanded': expanded,
         'bestKg': bestKg,
+        'lastTopWeight': lastTop?.weight,
+        'lastTopReps': lastTop?.reps,
+        'lastTopDate': lastTop?.date,
       };
 
   factory BlockState.fromJson(Map<String, dynamic> json) {
@@ -196,6 +204,13 @@ class BlockState {
       rirLow: json['resolvedRirLow'] as int,
       rirHigh: json['resolvedRirHigh'] as int,
     );
+    final ltWeight = (json['lastTopWeight'] as num?)?.toDouble();
+    final ltReps = json['lastTopReps'] as int?;
+    final ltDate = json['lastTopDate'] as String?;
+    final lastTop = (ltWeight != null && ltReps != null && ltDate != null)
+        ? (weight: ltWeight, reps: ltReps, date: ltDate)
+        : null;
+
     return BlockState(
       exercise: exercise,
       resolved: resolved,
@@ -207,6 +222,7 @@ class BlockState {
           .toList(),
       expanded: json['expanded'] as bool? ?? true,
       bestKg: (json['bestKg'] as num?)?.toDouble(),
+      lastTop: lastTop,
     );
   }
 }
@@ -293,6 +309,7 @@ class ActiveSessionController extends ChangeNotifier {
         lastTopKg: lastTop?.weight,
       );
       block.bestKg = bestKg;
+      block.lastTop = lastTop;
       blocks.add(block);
     }
 
