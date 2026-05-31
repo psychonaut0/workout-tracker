@@ -4,6 +4,7 @@ import '../data/day_template_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../sync/db.dart';
+import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
 import 'placeholder_screen.dart';
 import 'session_launcher.dart' as launcher;
@@ -37,6 +38,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  String? _progressTarget;
 
   late final DayTemplateRepository _dayRepo;
   late final SessionRepository _sessionRepo;
@@ -64,13 +66,12 @@ class _AppShellState extends State<AppShell> {
     if (mounted) setState(() => _index = 0);
   }
 
-  /// Opens a root-navigator overlay for a single exercise / bodyweight stub.
-  Future<void> _openExercise(String exId) async {
-    await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const PlaceholderTab(title: 'Progress'),
-      ),
-    );
+  /// Switches to the Progress tab with the given exercise or bodyweight target.
+  void _openExercise(String exId) {
+    setState(() {
+      _progressTarget = exId;
+      _index = 1;
+    });
   }
 
   /// Opens a root-navigator overlay for the Profile placeholder.
@@ -98,7 +99,10 @@ class _AppShellState extends State<AppShell> {
                 onOpenExercise: _openExercise,
                 onOpenProfile: _openProfile,
               ),
-              const PlaceholderTab(title: 'Progress'),
+              ProgressScreen(
+                key: ValueKey(_progressTarget),
+                initialTarget: _progressTarget,
+              ),
               const PlaceholderTab(title: 'History'),
               const PlaceholderTab(title: 'Plan'),
             ],
