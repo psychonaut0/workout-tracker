@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import 'day_editor.dart';
+import 'split_tab.dart';
 
 // ── Editor-route state ────────────────────────────────────────────────────
 
@@ -15,18 +17,7 @@ class _EditorRoute {
   final String? id;
 }
 
-// ── Placeholder bodies (replaced by Tasks 4 & 5) ─────────────────────────
-
-/// Placeholder for SplitTab — replaced in Task 4.
-class _SplitTabPlaceholder extends StatelessWidget {
-  const _SplitTabPlaceholder({required this.onOpenEditor});
-  final void Function(_EditorRoute) onOpenEditor; // used by Task 4
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Split'));
-  }
-}
+// ── Placeholder bodies (Task 5 placeholders, replaced by Task 5) ─────────────
 
 /// Placeholder for LibraryTab — replaced in Task 5.
 class _LibraryTabPlaceholder extends StatelessWidget {
@@ -36,19 +27,6 @@ class _LibraryTabPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(child: Text('Exercises'));
-  }
-}
-
-/// Placeholder for DayEditor — replaced in Task 4.
-class _DayEditorPlaceholder extends StatelessWidget {
-  const _DayEditorPlaceholder({required this.id});
-  final String? id;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(id == null ? 'New training day' : 'Edit training day'),
-    );
   }
 }
 
@@ -163,12 +141,14 @@ class _PlanScreenState extends State<PlanScreen> {
   Widget _buildBody() {
     if (_editor != null) {
       if (_editor!.kind == 'day') {
-        return _DayEditorPlaceholder(id: _editor!.id);
+        return DayEditor(id: _editor!.id, onBack: _onBack);
       }
       return _ExerciseEditorPlaceholder(id: _editor!.id);
     }
     if (_activeTab == 'split') {
-      return _SplitTabPlaceholder(onOpenEditor: _openEditor);
+      return SplitTab(
+        onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'day', id: id)),
+      );
     }
     return _LibraryTabPlaceholder(onOpenEditor: _openEditor);
   }
