@@ -260,6 +260,22 @@ class SessionSummaryRow {
   }
 }
 
+// ── BodyweightEntry ───────────────────────────────────────────────────────────
+
+class BodyweightEntry {
+  final String date;
+  final double weightKg;
+
+  const BodyweightEntry({required this.date, required this.weightKg});
+
+  factory BodyweightEntry.fromRow(Map<String, dynamic> row) {
+    return BodyweightEntry(
+      date: row['date'] as String,
+      weightKg: (row['weight'] as num).toDouble(),
+    );
+  }
+}
+
 // ── MuscleTarget ──────────────────────────────────────────────────────────────
 
 class MuscleTarget {

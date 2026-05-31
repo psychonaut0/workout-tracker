@@ -1,6 +1,27 @@
 import 'package:powersync/powersync.dart';
 
+import '../util/dates.dart';
 import 'models.dart';
+import 'session_repository.dart';
+
+// ── selectNextDay ─────────────────────────────────────────────────────────────
+
+/// Pure rotation-selection logic: given an ordered list of [days] and the
+/// [lastId] of the most-recently-trained day template (or null), returns the
+/// next [DayTemplate] in the rotation.
+///
+/// Rules:
+/// - [days] empty → null.
+/// - [lastId] null (no history or custom session) → `days.first`.
+/// - [lastId] not found in [days] (unknown id) → `days.first`.
+/// - Otherwise → `days[(indexOf(lastId) + 1) % days.length]` (wraps around).
+DayTemplate? selectNextDay(List<DayTemplate> days, String? lastId) {
+  if (days.isEmpty) return null;
+  if (lastId == null) return days.first;
+  final i = days.indexWhere((d) => d.id == lastId);
+  if (i < 0) return days.first;
+  return days[(i + 1) % days.length];
+}
 
 // ── resolveSlot ───────────────────────────────────────────────────────────────
 
@@ -85,6 +106,42 @@ class DayTemplateRepository {
             );
           }).toList();
         });
+  }
+
+  // ── Rotation helpers ──────────────────────────────────────────────────────
+
+  /// Returns the next day template in position-based rotation.
+  ///
+  /// Algorithm:
+  /// 1. No days → null.
+  /// 2. No session history, or last session had no template (custom), or the
+  ///    last template id is unknown → first day.
+  /// 3. Otherwise → the successor of the most-recent session's day_template_id
+  ///    (wraps around to the first day after the last).
+  ///
+  /// The pure selection logic is exposed via [selectNextDay] so it can be
+  /// unit-tested without a live database.
+  Future<DayTemplate?> nextInRotation(SessionRepository sessionRepo) async {
+    final days = await watchDays().first;
+    if (days.isEmpty) return null;
+    final recent = await sessionRepo.watchRecentSessions(limit: 1).first;
+    final lastId = recent.isEmpty ? null : recent.first.dayTemplateId;
+    return selectNextDay(days, lastId);
+  }
+
+  /// Returns the set of day_template_ids that were trained during the week
+  /// beginning at [weekStart] (Monday 00:00).
+  ///
+  /// Custom sessions (day_template_id IS NULL) are excluded.
+  Future<Set<String>> templateIdsTrainedThisWeek({
+    required DateTime weekStart,
+  }) async {
+    final rows = await db.getAll(
+      'SELECT DISTINCT day_template_id FROM sessions '
+      'WHERE date >= ? AND day_template_id IS NOT NULL',
+      [isoDate(weekStart)],
+    );
+    return rows.map((r) => r['day_template_id'] as String).toSet();
   }
 
   /// Fetches a single day template by id, including its slots.
