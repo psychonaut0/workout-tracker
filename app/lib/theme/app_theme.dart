@@ -29,6 +29,12 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
 }
 
 /// Convenience extension so any widget can write `context.tokens`.
+///
+/// Falls back to [WorkoutTokens.dark] with the default lime accent when the
+/// theme extension is not present (e.g. in widget tests that use plain
+/// [MaterialApp] without [buildTheme]).
 extension ThemeTokens on BuildContext {
-  WorkoutTokens get tokens => Theme.of(this).extension<WorkoutTokens>()!;
+  WorkoutTokens get tokens =>
+      Theme.of(this).extension<WorkoutTokens>() ??
+      WorkoutTokens.dark(const Color(0xFFc2f53a));
 }
