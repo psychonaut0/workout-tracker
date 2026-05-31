@@ -14,6 +14,7 @@ bucket_definitions:
       - SELECT * FROM bodyweight_logs WHERE user_id = bucket.user_id
       - SELECT * FROM day_templates WHERE created_by = bucket.user_id
       - SELECT * FROM day_template_items WHERE created_by = bucket.user_id
+      - SELECT * FROM muscle_targets WHERE user_id = bucket.user_id
   templates:
     data:
       - SELECT * FROM exercises WHERE is_template = true
