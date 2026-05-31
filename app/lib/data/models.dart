@@ -1,9 +1,9 @@
-/// Domain models for the workout tracker data layer.
-///
-/// PowerSync rows arrive as `Map<String, dynamic>` with:
-/// - NUMERIC columns → TEXT (parse via `double.parse`)
-/// - boolean columns → int 0/1 (compare with `!= 0`)
-/// - dates/timestamps → TEXT (ISO-8601)
+// Domain models for the workout tracker data layer.
+//
+// PowerSync rows arrive as `Map<String, dynamic>` with:
+// - NUMERIC columns → TEXT (parse via `double.parse`)
+// - boolean columns → int 0/1 (compare with `!= 0`)
+// - dates/timestamps → TEXT (ISO-8601)
 
 // ── RIR adapter ──────────────────────────────────────────────────────────────
 
