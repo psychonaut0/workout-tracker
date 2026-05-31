@@ -16,6 +16,9 @@ dependencies:
   # ResultSet type for db.watch() streams. Transitive via powersync, declared
   # direct because home_screen imports package:sqlite3/common.dart.
   sqlite3: ^3.3.2
+  # SqliteWriteContext for PowerSyncTxExecutor in session_writer.dart.
+  # Transitive via powersync; declared direct to satisfy depend_on_referenced_packages.
+  sqlite_async: ^0.14.2
   # Token storage.
   flutter_secure_storage: ^9.2.2
   # HTTP to the Go API (login / refresh / powersync-token / sync upload).
