@@ -77,7 +77,7 @@ class DayTemplateRepository {
     // Watch day_templates; rebuild when either table changes.
     return db
         .watch(
-          'SELECT dt.id, dt.slug, dt.name, dt.focus, dt.scheduled_weekday, dt.position '
+          'SELECT dt.id, dt.slug, dt.name, dt.focus, dt.scheduled_weekday, dt.position, dt.is_template '
           'FROM day_templates dt ORDER BY dt.position',
         )
         .asyncMap((templateRows) async {
@@ -103,6 +103,7 @@ class DayTemplateRepository {
               scheduledWeekday: row['scheduled_weekday'] as int?,
               position: row['position'] as int? ?? 0,
               slots: slotsByTemplate[id] ?? [],
+              isTemplate: ((row['is_template'] as num?) ?? 0) != 0,
             );
           }).toList();
         });
@@ -147,7 +148,7 @@ class DayTemplateRepository {
   /// Fetches a single day template by id, including its slots.
   Future<DayTemplate?> byId(String id) async {
     final row = await db.getOptional(
-      'SELECT id, slug, name, focus, scheduled_weekday, position '
+      'SELECT id, slug, name, focus, scheduled_weekday, position, is_template '
       'FROM day_templates WHERE id = ?',
       [id],
     );
@@ -166,6 +167,7 @@ class DayTemplateRepository {
       scheduledWeekday: row['scheduled_weekday'] as int?,
       position: row['position'] as int? ?? 0,
       slots: itemRows.map(Slot.fromRow).toList(),
+      isTemplate: ((row['is_template'] as num?) ?? 0) != 0,
     );
   }
 }

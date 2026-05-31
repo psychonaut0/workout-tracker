@@ -31,4 +31,19 @@ class ExerciseRepository {
     final rows = await db.getAll('SELECT * FROM exercises ORDER BY name');
     return rows.map(Exercise.fromRow).toList();
   }
+
+  /// Returns a map of exercise_id → all-time best top-set weight (kg).
+  ///
+  /// Mirrors [SessionRepository.bestTopSet] but returns all exercises at once
+  /// for the library list (avoids N per-exercise queries).
+  Future<Map<String, double>> prTopSets() async {
+    final rows = await db.getAll(
+      'SELECT exercise_id, MAX(CAST(weight_kg AS REAL)) AS pr '
+      'FROM sets WHERE is_top_set = 1 AND is_warmup = 0 GROUP BY exercise_id',
+    );
+    return {
+      for (final r in rows)
+        r['exercise_id'] as String: (r['pr'] as num?)?.toDouble() ?? 0,
+    };
+  }
 }
