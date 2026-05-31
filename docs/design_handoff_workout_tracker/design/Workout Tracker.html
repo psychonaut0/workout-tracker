@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Workout Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #070708;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; font-family: 'Hanken Grotesk', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #fit { transform-origin: center center; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  .app-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+  button { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="frames/tweaks-panel.jsx"></script>
+<script type="text/babel" src="frames/ios-frame.jsx"></script>
+<script type="text/babel" src="app/data.jsx"></script>
+<script type="text/babel" src="app/ui.jsx"></script>
+<script type="text/babel" src="app/screen-today.jsx"></script>
+<script type="text/babel" src="app/screen-log.jsx"></script>
+<script type="text/babel" src="app/screen-progress.jsx"></script>
+<script type="text/babel" src="app/screen-bodyweight.jsx"></script>
+<script type="text/babel" src="app/screen-history.jsx"></script>
+<script type="text/babel" src="app/screen-plan.jsx"></script>
+<script type="text/babel" src="app/screen-profile.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accent": "#c2f53a",
+  "mode": "dark",
+  "density": "regular",
+  "corners": "rounded",
+  "displayFont": "Space Grotesk"
+}/*EDITMODE-END*/;
+
+const ACCENTS = ['#c2f53a', '#5ce6a4', '#ffc24b', '#5cc8ff'];
+
+function themeVars(t) {
+  const dark = t.mode === 'dark';
+  const pal = dark ? {
+    bg: '#0b0b0c', surface: '#131316', s2: '#191920', s3: '#262630',
+    line: 'rgba(255,255,255,0.07)', lineS: 'rgba(255,255,255,0.14)',
+    text: '#f3f3f1', dim: 'rgba(255,255,255,0.62)', faint: 'rgba(255,255,255,0.38)',
+  } : {
+    bg: '#f3f2ec', surface: '#ffffff', s2: '#f6f5ef', s3: '#e9e8e0',
+    line: 'rgba(0,0,0,0.08)', lineS: 'rgba(0,0,0,0.15)',
+    text: '#15150f', dim: 'rgba(0,0,0,0.6)', faint: 'rgba(0,0,0,0.4)',
+  };
+  const radius = { sharp: 9, rounded: 15, round: 22 }[t.corners] || 15;
+  const pad = { compact: 14, regular: 16, comfy: 20 }[t.density] || 16;
+  return {
+    '--bg': pal.bg, '--surface': pal.surface, '--surface-2': pal.s2, '--surface-3': pal.s3,
+    '--line': pal.line, '--line-strong': pal.lineS,
+    '--text': pal.text, '--dim': pal.dim, '--faint': pal.faint,
+    '--accent': t.accent, '--accent-ink': '#0b0c08',
+    '--radius': radius + 'px', '--pad': pad + 'px',
+    '--display': `'${t.displayFont}', 'Hanken Grotesk', sans-serif`,
+    '--mono': "'JetBrains Mono', ui-monospace, monospace",
+    background: pal.bg, color: pal.text,
+  };
+}
+
+function TabBar({ tab, onTab, onStart }) {
+  const items = [
+    { id: 'today', label: 'Today', icon: Icons.home },
+    { id: 'progress', label: 'Progress', icon: Icons.chart },
+  ];
+  const right = [{ id: 'history', label: 'History', icon: Icons.history }, { id: 'plan', label: 'Plan', icon: Icons.plan }];
+  const Btn = ({ it }) => {
+    const on = tab === it.id;
+    return (
+      <button onClick={() => onTab(it.id)} style={{
+        flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+        color: on ? 'var(--accent)' : 'var(--faint)', padding: '4px 0',
+      }}>
+        <span style={{ width: 23, display: 'inline-flex' }}>{it.icon}</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.04em' }}>{it.label}</span>
+      </button>
+    );
+  };
+  return (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 30,
+      paddingBottom: 26, paddingTop: 9, display: 'flex', alignItems: 'center',
+      background: 'color-mix(in srgb, var(--bg) 88%, transparent)',
+      backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+      borderTop: '1px solid var(--line)',
+    }}>
+      {items.map((it) => <Btn key={it.id} it={it} />)}
+      <div style={{ flex: 0.9, display: 'flex', justifyContent: 'center' }}>
+        <button onClick={onStart} style={{
+          width: 52, height: 52, borderRadius: 99, border: 'none', cursor: 'pointer',
+          background: 'var(--accent)', color: 'var(--accent-ink)', marginTop: -22,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 22px color-mix(in srgb, var(--accent) 45%, transparent)',
+        }}>
+          <span style={{ width: 26, display: 'inline-flex' }}>{Icons.bolt}</span>
+        </button>
+      </div>
+      {right.map((it) => <Btn key={it.id} it={it} />)}
+    </div>
+  );
+}
+
+function SummaryOverlay({ data, onDone }) {
+  const { plan, blocks, elapsed, prCount } = data;
+  const mm = Math.floor(elapsed / 60);
+  const doneSets = blocks.reduce((a, b) => a + b.sets.filter((s) => !s.isWarmup && s.done).length, 0);
+  const volume = blocks.reduce((a, b) => a + b.sets.filter((s) => s.done).reduce((x, s) => x + s.weight * s.reps, 0), 0);
+  const tops = blocks.map((b) => {
+    const done = b.sets.filter((s) => !s.isWarmup && s.done);
+    if (!done.length) return null;
+    const top = done.reduce((m, s) => (s.weight > m.weight ? s : m));
+    return { exId: b.exId, weight: top.weight, reps: top.reps };
+  }).filter(Boolean);
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 45, display: 'flex', flexDirection: 'column', paddingTop: 64 }}>
+      <div className="app-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 16px 40px' }}>
+        <div style={{ textAlign: 'center', padding: '20px 0 24px' }}>
+          <div style={{ width: 64, height: 64, borderRadius: 99, background: 'var(--accent)', color: 'var(--accent-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <span style={{ width: 32, display: 'inline-flex' }}>{Icons.check}</span>
+          </div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, color: 'var(--text)' }}>Session complete</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 12.5, color: 'var(--faint)', marginTop: 6 }}>{plan.name} · {plan.focus}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          {[['Duration', `${mm}m`], ['Sets', doneSets], ['Volume', `${(window.fromKg(volume) / 1000).toFixed(1)}${window.uLabel() === 'kg' ? 't' : 'k'}`], ['PRs', prCount]].map(([k, v], i) => (
+            <div key={i} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '13px 6px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 21, fontWeight: 700, color: i === 3 && prCount > 0 ? 'var(--accent)' : 'var(--text)', lineHeight: 1 }}>{v}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--faint)', marginTop: 6 }}>{k}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 2px 10px' }}>Top sets</div>
+          <Card pad={false} style={{ overflow: 'hidden' }}>
+            {tops.map((tp, i) => {
+              const ex = window.EX[tp.exId];
+              const best = window.SESSIONS.filter((s) => s.exercises.some((e) => e.exerciseId === tp.exId)).map((s) => s.exercises.find((e) => e.exerciseId === tp.exId).topWeight);
+              const isPr = best.length ? tp.weight > Math.max(...best) : false;
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: i < tops.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <span style={{ flex: 1, fontSize: 13.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.name}</span>
+                  {isPr && <PRBadge small />}
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{window.fmtWt(tp.weight)}<span style={{ fontSize: 10, color: 'var(--faint)' }}>{window.uLabel()}</span> <span style={{ color: 'var(--faint)', fontWeight: 400 }}>×{tp.reps}</span></span>
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+      </div>
+      <div style={{ padding: '12px 16px 34px', borderTop: '1px solid var(--line)' }}>
+        <button onClick={onDone} style={{ width: '100%', height: 52, border: 'none', borderRadius: 'var(--radius)', background: 'var(--accent)', color: 'var(--accent-ink)', cursor: 'pointer', fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700 }}>Done</button>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [tab, setTab] = useState('today');
+  const [active, setActive] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [progressEx, setProgressEx] = useState('incline-bench');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activePlan, setActivePlan] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [unit, setUnit] = useState('kg');
+  const [profile, setProfile] = useState({ name: 'Alex Rivera', server: 'https://sync.workout.dev' });
+  const [version, setVersion] = useState(0);
+  const bump = () => setVersion((v) => v + 1);
+  const [scale, setScale] = useState(1);
+
+  // keep the global display unit in sync with the setting
+  useEffect(() => { window.setDisplayUnit(unit); bump(); }, [unit]);
+
+  useEffect(() => {
+    const calc = () => setScale(Math.min(window.innerWidth / 402, window.innerHeight / 874, 1));
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
+
+  const openExercise = (exId) => { setProgressEx(exId); setTab('progress'); };
+  const CUSTOM_PLAN = { name: 'Custom workout', focus: 'Freestyle session', items: [], slug: 'custom', custom: true };
+  const startPlan = (day) => { setActivePlan(day || CUSTOM_PLAN); setActive(true); };
+  const applySetting = (patch) => {
+    if ('unit' in patch) setUnit(patch.unit);
+    if ('mode' in patch) setTweak('mode', patch.mode);
+    if ('accent' in patch) setTweak('accent', patch.accent);
+    if ('name' in patch || 'server' in patch) setProfile((p) => ({ ...p, ...patch }));
+  };
+
+  const vars = themeVars(t);
+
+  return (
+    <div id="fit" style={{ transform: `scale(${scale})` }}>
+      <IOSDevice dark={t.mode === 'dark'}>
+        <div style={{ ...vars, height: '100%', position: 'relative', display: 'flex', flexDirection: 'column', fontFamily: "'Hanken Grotesk', sans-serif" }}>
+          <div className="app-scroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 56, paddingBottom: 96, display: tab === 'plan' ? 'none' : 'block' }}>
+            {tab === 'today' && <TodayScreen onStart={startPlan} onOpenExercise={openExercise} onOpenProfile={() => setProfileOpen(true)} profileName={profile.name} />}
+            {tab === 'progress' && <ProgressScreen selected={progressEx} onSelect={setProgressEx} onOpenPicker={() => setPickerOpen(true)} onChange={bump} />}
+            {tab === 'history' && <HistoryScreen />}
+          </div>
+          {tab === 'plan' && <SettingsOverlay key="plan" onClose={() => setTab('today')} onChange={bump} />}
+
+          <TabBar tab={tab} onTab={setTab} onStart={() => startPlan(window.TODAY_PLAN)} />
+
+          {active && (
+            <ActiveSession
+              plan={activePlan || window.TODAY_PLAN}
+              onClose={() => setActive(false)}
+              onFinish={(data) => { setActive(false); setSummary(data); }}
+            />
+          )}
+          {summary && <SummaryOverlay data={summary} onDone={() => { setSummary(null); setTab('today'); }} />}
+          {profileOpen && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 44, display: 'flex', flexDirection: 'column' }}>
+              <ProfileScreen onClose={() => setProfileOpen(false)}
+                settings={{ name: profile.name, server: profile.server, unit, mode: t.mode, accent: t.accent }}
+                onSet={applySetting} />
+            </div>
+          )}
+          <ExerciseSheet open={pickerOpen} selected={progressEx} onSelect={setProgressEx} onClose={() => setPickerOpen(false)} showBodyweight />
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection label="Theme" />
+            <TweakColor label="Accent" value={t.accent} options={ACCENTS} onChange={(v) => setTweak('accent', v)} />
+            <TweakRadio label="Mode" value={t.mode} options={['dark', 'light']} onChange={(v) => setTweak('mode', v)} />
+            <TweakSection label="Layout" />
+            <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']} onChange={(v) => setTweak('density', v)} />
+            <TweakRadio label="Corners" value={t.corners} options={['sharp', 'rounded', 'round']} onChange={(v) => setTweak('corners', v)} />
+            <TweakSection label="Type" />
+            <TweakSelect label="Display font" value={t.displayFont} options={['Space Grotesk', 'Hanken Grotesk']} onChange={(v) => setTweak('displayFont', v)} />
+          </TweaksPanel>
+        </div>
+      </IOSDevice>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
