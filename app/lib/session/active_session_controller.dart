@@ -444,7 +444,8 @@ class ActiveSessionController extends ChangeNotifier {
     final today = DateTime.now();
     final dateIso =
         '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final splitLabel = '${d.name} · ${d.focus}'; // middot separator
+    final splitLabel =
+        d.focus.isEmpty ? d.name : '${d.name} · ${d.focus}'; // omit empty focus
 
     // Collect all sets: warm-ups (is_warmup=true) then working, per block,
     // with set_number restarting per exercise.
