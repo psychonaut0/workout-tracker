@@ -35,29 +35,29 @@ class RirPicker extends StatelessWidget {
     final tokens = context.tokens;
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: List.generate(4, (r) {
         final selected = value == r;
-        return GestureDetector(
-          key: Key('rir-$r'),
-          behavior: HitTestBehavior.opaque,
-          onTap: () => onChanged(r),
-          child: Container(
-            width: 22,
-            height: 30,
-            margin: const EdgeInsets.only(right: 3),
-            decoration: BoxDecoration(
-              color: selected ? tokens.accent : tokens.surface3,
-              borderRadius:
-                  BorderRadius.circular(AppRadius.radius * 0.35),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '$r',
-              style: WorkoutType.mono(
-                size: 12,
-                weight: FontWeight.w700,
-                color: selected ? tokens.accentInk : tokens.dim,
+        return Expanded(
+          child: GestureDetector(
+            key: Key('rir-$r'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(r),
+            child: Container(
+              height: 30,
+              margin: EdgeInsets.only(right: r < 3 ? 3 : 0),
+              decoration: BoxDecoration(
+                color: selected ? tokens.accent : tokens.surface3,
+                borderRadius:
+                    BorderRadius.circular(AppRadius.radius * 0.35),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '$r',
+                style: WorkoutType.mono(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: selected ? tokens.accentInk : tokens.dim,
+                ),
               ),
             ),
           ),
