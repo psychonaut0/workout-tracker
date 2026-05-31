@@ -4,6 +4,7 @@ import '../data/day_template_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../sync/db.dart';
+import '../ui/history_screen.dart';
 import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
 import 'placeholder_screen.dart';
@@ -103,7 +104,7 @@ class _AppShellState extends State<AppShell> {
                 key: ValueKey(_progressTarget),
                 initialTarget: _progressTarget,
               ),
-              const PlaceholderTab(title: 'History'),
+              const HistoryScreen(),
               const PlaceholderTab(title: 'Plan'),
             ],
           ),
