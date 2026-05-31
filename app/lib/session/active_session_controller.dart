@@ -306,6 +306,21 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Seeds an empty session with no blocks (custom / ad-hoc workout).
+  ///
+  /// Used by the launcher's "Start empty" option before pushing
+  /// [ActiveSessionScreen].
+  void seedEmpty({required String name, required String focus}) {
+    _draft = SessionDraft(
+      templateId: null,
+      name: name,
+      focus: focus,
+      startedAt: DateTime.now(),
+      blocks: [],
+    );
+    notifyListeners();
+  }
+
   /// Seeds the controller directly — for use in tests only.
   @visibleForTesting
   void seedForTest(SessionDraft draft) {
