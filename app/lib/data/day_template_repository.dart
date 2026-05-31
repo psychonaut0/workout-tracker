@@ -4,6 +4,193 @@ import '../util/dates.dart';
 import 'models.dart';
 import 'session_repository.dart';
 
+// ── dayTemplateUpsertOp ───────────────────────────────────────────────────────
+
+/// Pure builder: returns the SQL + args for a day_templates INSERT or UPDATE.
+///
+/// - INSERT when [existingId] is null (uses [newId] with [position]).
+/// - UPDATE when [existingId] is non-null (updates name/focus/weekday only;
+///   position is NOT updated on a plain edit).
+///
+/// OMIT is_template / created_by / slug / notes / user_id / created_at.
+({String sql, List<Object?> args}) dayTemplateUpsertOp(
+  String? existingId,
+  String newId,
+  String name,
+  String? focus,
+  int? weekday,
+  int position,
+) {
+  if (existingId == null) {
+    return (
+      sql: 'INSERT INTO day_templates (id, name, focus, scheduled_weekday, position) '
+          'VALUES (?, ?, ?, ?, ?)',
+      args: [newId, name, focus, weekday, position],
+    );
+  } else {
+    return (
+      sql: 'UPDATE day_templates SET name = ?, focus = ?, scheduled_weekday = ? '
+          'WHERE id = ?',
+      args: [name, focus, weekday, existingId],
+    );
+  }
+}
+
+// ── slotUpsertOp ─────────────────────────────────────────────────────────────
+
+/// Pure builder: returns the SQL + args for a day_template_items INSERT or UPDATE.
+///
+/// - INSERT when [itemId] is null (uses [newId]; includes day + exercise + targets).
+/// - UPDATE when [itemId] is non-null (updates position + targets only; NOT
+///   exercise_id or day_template_id).
+///
+/// OMIT is_template / created_by / user_id / created_at.
+({String sql, List<Object?> args}) slotUpsertOp(
+  String? itemId,
+  String newId,
+  String dayId,
+  String exerciseId,
+  int position, {
+  int? workSets,
+  int? warmupSets,
+  int? repLow,
+  int? repHigh,
+  int? rirLow,
+  int? rirHigh,
+}) {
+  if (itemId == null) {
+    return (
+      sql: 'INSERT INTO day_template_items '
+          '(id, day_template_id, exercise_id, position, target_working_sets, '
+          'target_warmup_sets, target_rep_low, target_rep_high, target_rir_low, target_rir_high) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [
+        newId,
+        dayId,
+        exerciseId,
+        position,
+        workSets,
+        warmupSets,
+        repLow,
+        repHigh,
+        rirLow,
+        rirHigh,
+      ],
+    );
+  } else {
+    return (
+      sql: 'UPDATE day_template_items SET '
+          'position = ?, target_working_sets = ?, target_warmup_sets = ?, '
+          'target_rep_low = ?, target_rep_high = ?, target_rir_low = ?, target_rir_high = ? '
+          'WHERE id = ?',
+      args: [
+        position,
+        workSets,
+        warmupSets,
+        repLow,
+        repHigh,
+        rirLow,
+        rirHigh,
+        itemId,
+      ],
+    );
+  }
+}
+
+// ── reconcileDay ─────────────────────────────────────────────────────────────
+
+/// Pure function: given the day state and draft, returns an ordered list of
+/// SQL ops to execute in a single writeTransaction.
+///
+/// **INVARIANT (new/clone path):** the day_templates INSERT is always FIRST,
+/// followed by all slot ops — required because the server verifies parent
+/// ownership before accepting items.
+///
+/// [existingId] null → INSERT the day; non-null → UPDATE the day.
+/// [loadedSlots] must contain the current DB slots (with itemId set).
+/// [nextPosition] is used only for INSERT (new day).
+/// [newSlotId] is a factory function `(index) → String` for generating new ids.
+List<({String sql, List<Object?> args})> reconcileDay({
+  required String? existingId,
+  required String newDayId,
+  required DayDraft draft,
+  required List<SlotDraft> loadedSlots,
+  required int nextPosition,
+  required String Function(int) newSlotId,
+}) {
+  final ops = <({String sql, List<Object?> args})>[];
+
+  // 1. Day op first.
+  final dayOp = dayTemplateUpsertOp(
+    existingId,
+    newDayId,
+    draft.name,
+    draft.focus,
+    draft.weekday,
+    nextPosition,
+  );
+  ops.add(dayOp);
+
+  final effectiveDayId = existingId ?? newDayId;
+
+  if (existingId == null) {
+    // New day: INSERT all slots in order.
+    for (var i = 0; i < draft.slots.length; i++) {
+      final s = draft.slots[i];
+      ops.add(slotUpsertOp(
+        null,
+        newSlotId(i),
+        effectiveDayId,
+        s.exerciseId,
+        i + 1,
+        workSets: s.workSets,
+        warmupSets: s.warmupSets,
+        repLow: s.repLow,
+        repHigh: s.repHigh,
+        rirLow: s.rirLow,
+        rirHigh: s.rirHigh,
+      ));
+    }
+  } else {
+    // Edit: reconcile slots.
+    final draftItemIds = draft.slots
+        .where((s) => s.itemId != null)
+        .map((s) => s.itemId!)
+        .toSet();
+
+    // DELETE loaded slots absent from draft.
+    for (final loaded in loadedSlots) {
+      if (loaded.itemId != null && !draftItemIds.contains(loaded.itemId)) {
+        ops.add((
+          sql: 'DELETE FROM day_template_items WHERE id = ?',
+          args: [loaded.itemId],
+        ));
+      }
+    }
+
+    // INSERT/UPDATE draft slots in order (1-based positions).
+    var slotIndex = 0;
+    for (final s in draft.slots) {
+      slotIndex++;
+      ops.add(slotUpsertOp(
+        s.itemId,
+        newSlotId(slotIndex),
+        effectiveDayId,
+        s.exerciseId,
+        slotIndex,
+        workSets: s.workSets,
+        warmupSets: s.warmupSets,
+        repLow: s.repLow,
+        repHigh: s.repHigh,
+        rirLow: s.rirLow,
+        rirHigh: s.rirHigh,
+      ));
+    }
+  }
+
+  return ops;
+}
+
 // ── selectNextDay ─────────────────────────────────────────────────────────────
 
 /// Pure rotation-selection logic: given an ordered list of [days] and the
@@ -143,6 +330,75 @@ class DayTemplateRepository {
       [isoDate(weekStart)],
     );
     return rows.map((r) => r['day_template_id'] as String).toSet();
+  }
+
+  /// Saves a training day (create or update) from [draft].
+  ///
+  /// All ops execute in a single [db.writeTransaction] — the day PUT is always
+  /// FIRST so the server can verify parent ownership before accepting items.
+  ///
+  /// [id] null → new/cloned day (INSERT); non-null → owned day (UPDATE).
+  Future<void> saveDay({String? id, required DayDraft draft}) async {
+    await db.writeTransaction((tx) async {
+      // Determine next position (for INSERT only).
+      int nextPosition = 1;
+      List<SlotDraft> loadedSlots = [];
+
+      if (id == null) {
+        // New day: compute position = MAX(position)+1.
+        final row = await tx.getOptional(
+          'SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM day_templates',
+        );
+        nextPosition = (row?['next_pos'] as int?) ?? 1;
+      } else {
+        // Edit: load existing slots for reconcile.
+        final itemRows = await tx.getAll(
+          'SELECT * FROM day_template_items WHERE day_template_id = ? ORDER BY position',
+          [id],
+        );
+        loadedSlots = itemRows.map((r) => SlotDraft(
+          itemId: r['id'] as String?,
+          exerciseId: r['exercise_id'] as String,
+          workSets: r['target_working_sets'] as int?,
+          warmupSets: r['target_warmup_sets'] as int?,
+          repLow: r['target_rep_low'] as int?,
+          repHigh: r['target_rep_high'] as int?,
+          rirLow: r['target_rir_low'] as int?,
+          rirHigh: r['target_rir_high'] as int?,
+        )).toList();
+      }
+
+      final newDayId = id ?? uuid.v4();
+
+      final ops = reconcileDay(
+        existingId: id,
+        newDayId: newDayId,
+        draft: draft,
+        loadedSlots: loadedSlots,
+        nextPosition: nextPosition,
+        newSlotId: (_) => uuid.v4(),
+      );
+
+      for (final op in ops) {
+        await tx.execute(op.sql, op.args);
+      }
+    });
+  }
+
+  /// Deletes an owned training day and all its slots in one writeTransaction.
+  ///
+  /// Local SQLite has no cascade, so items must be deleted before the day row.
+  Future<void> deleteDay(String id) async {
+    await db.writeTransaction((tx) async {
+      await tx.execute(
+        'DELETE FROM day_template_items WHERE day_template_id = ?',
+        [id],
+      );
+      await tx.execute(
+        'DELETE FROM day_templates WHERE id = ?',
+        [id],
+      );
+    });
   }
 
   /// Fetches a single day template by id, including its slots.
