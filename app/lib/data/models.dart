@@ -276,6 +276,27 @@ class BodyweightEntry {
   }
 }
 
+// ── HistorySessionRow ─────────────────────────────────────────────────────────
+
+class HistorySessionRow {
+  final String id, date;
+  final String? splitLabel;
+  final int? durationMin;
+  final int exerciseCount;
+  final int prCount;
+  final double tonnageKg; // sum of non-warmup weight*reps
+  HistorySessionRow({required this.id, required this.date, this.splitLabel, this.durationMin, required this.exerciseCount, required this.prCount, required this.tonnageKg});
+  factory HistorySessionRow.fromRow(Map<String, dynamic> r) => HistorySessionRow(
+        id: r['id'] as String,
+        date: r['date'] as String,
+        splitLabel: r['split_label'] as String?,
+        durationMin: (r['duration_min'] as num?)?.toInt(),
+        exerciseCount: (r['ex_count'] as num?)?.toInt() ?? 0,
+        prCount: (r['pr_count'] as num?)?.toInt() ?? 0,
+        tonnageKg: (r['tonnage'] as num?)?.toDouble() ?? 0,
+      );
+}
+
 // ── ProgressPoint ─────────────────────────────────────────────────────────────
 
 class ProgressPoint {
