@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Weight unit the user has selected. Everything is stored internally in kg;
 /// this service converts at the view layer only.
 enum Unit { kg, lb }
 
-/// Reactive unit service. Persistence to shared_preferences is deferred to
-/// the Profile plan; default is kg.
+/// Reactive unit service backed by shared_preferences.
 class UnitService extends ChangeNotifier {
   Unit _unit = Unit.kg;
 
@@ -14,10 +14,22 @@ class UnitService extends ChangeNotifier {
   /// lb conversion factor: 1 kg = 2.2046226 lb.
   static const double lbFactor = 2.2046226;
 
-  /// Switch the active unit. Notifies listeners only when changed.
+  /// Read the persisted unit preference. Defaults to kg.
+  /// Call once at startup before providing the service.
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString('unit');
+    _unit = stored == Unit.lb.name ? Unit.lb : Unit.kg;
+    notifyListeners();
+  }
+
+  /// Switch the active unit and persist. Notifies listeners only when changed.
   void setUnit(Unit u) {
     if (u == _unit) return;
     _unit = u;
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setString('unit', u.name))
+        .ignore(); // best-effort; callers should await load() for the next read
     notifyListeners();
   }
 

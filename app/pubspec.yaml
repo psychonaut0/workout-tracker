@@ -30,6 +30,8 @@ dependencies:
   google_fonts: ^6.2.1
   # Reactive state management (UnitService, ActiveSessionController).
   provider: ^6.1.2
+  # Client-local settings persistence (unit, theme, accent, serverUrl).
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:
