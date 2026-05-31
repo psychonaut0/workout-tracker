@@ -23,6 +23,10 @@ dependencies:
   # App-support dir for the local DB file.
   path_provider: ^2.1.4
   path: ^1.9.0
+  # Google Fonts for Space Grotesk / Hanken Grotesk / JetBrains Mono.
+  google_fonts: ^6.2.1
+  # Reactive state management (UnitService, ActiveSessionController).
+  provider: ^6.1.2
 
 dev_dependencies:
   flutter_test:
