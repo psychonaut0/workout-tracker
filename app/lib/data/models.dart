@@ -1,0 +1,283 @@
+/// Domain models for the workout tracker data layer.
+///
+/// PowerSync rows arrive as `Map<String, dynamic>` with:
+/// - NUMERIC columns → TEXT (parse via `double.parse`)
+/// - boolean columns → int 0/1 (compare with `!= 0`)
+/// - dates/timestamps → TEXT (ISO-8601)
+
+// ── RIR adapter ──────────────────────────────────────────────────────────────
+
+/// Parses a RIR display string into a `(low, high)` record.
+///
+/// `'1'` → `(low: 1, high: 1)`, `'0–1'` or `'1–0'` → `(low: 0, high: 1)`.
+/// Normalizes so `low <= high`.
+({int low, int high}) rirParse(String s) {
+  // Handle both hyphen '-' and en-dash '–'
+  final parts = s.split(RegExp(r'[-–]'));
+  if (parts.length == 1) {
+    final v = int.parse(parts[0].trim());
+    return (low: v, high: v);
+  }
+  final a = int.parse(parts[0].trim());
+  final b = int.parse(parts[1].trim());
+  return a <= b ? (low: a, high: b) : (low: b, high: a);
+}
+
+/// Converts a RIR (low, high) pair to a display string.
+///
+/// `low == high` → `'$low'`, otherwise `'$low–$high'` (en-dash).
+String rirToString(int low, int high) {
+  return low == high ? '$low' : '$low–$high';
+}
+
+// ── Exercise ─────────────────────────────────────────────────────────────────
+
+class Exercise {
+  final String id;
+  final String name;
+  final String slug;
+  final String muscleGroup;
+  final String? equip;
+  final bool compound;
+  final double? baseWeightKg;
+  final double plateStepKg;
+  final int? defaultRepLow;
+  final int? defaultRepHigh;
+  final int? defaultWarmupSets;
+  final int? defaultWorkingSets;
+  final int? defaultRirLow;
+  final int? defaultRirHigh;
+  final bool isTemplate;
+
+  const Exercise({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.muscleGroup,
+    this.equip,
+    required this.compound,
+    this.baseWeightKg,
+    required this.plateStepKg,
+    this.defaultRepLow,
+    this.defaultRepHigh,
+    this.defaultWarmupSets,
+    this.defaultWorkingSets,
+    this.defaultRirLow,
+    this.defaultRirHigh,
+    required this.isTemplate,
+  });
+
+  factory Exercise.fromRow(Map<String, dynamic> row) {
+    final baseWt = row['base_weight_kg'];
+    final plateStep = row['plate_step_kg'];
+    return Exercise(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      slug: row['slug'] as String? ?? '',
+      muscleGroup: row['muscle_group'] as String? ?? '',
+      equip: row['equip'] as String?,
+      compound: (row['compound'] as int? ?? 0) != 0,
+      baseWeightKg: baseWt != null ? double.parse(baseWt.toString()) : null,
+      plateStepKg: plateStep != null ? double.parse(plateStep.toString()) : 2.5,
+      defaultRepLow: row['default_rep_low'] as int?,
+      defaultRepHigh: row['default_rep_high'] as int?,
+      defaultWarmupSets: row['default_warmup_sets'] as int?,
+      defaultWorkingSets: row['default_working_sets'] as int?,
+      defaultRirLow: row['default_rir_low'] as int?,
+      defaultRirHigh: row['default_rir_high'] as int?,
+      isTemplate: (row['is_template'] as int? ?? 0) != 0,
+    );
+  }
+}
+
+// ── Slot (from day_template_items) ───────────────────────────────────────────
+
+class Slot {
+  final String exerciseId;
+  final int position;
+  final int? workSets;
+  final int? warmupSets;
+  final int? repLow;
+  final int? repHigh;
+  final int? rirLow;
+  final int? rirHigh;
+
+  const Slot({
+    required this.exerciseId,
+    required this.position,
+    this.workSets,
+    this.warmupSets,
+    this.repLow,
+    this.repHigh,
+    this.rirLow,
+    this.rirHigh,
+  });
+
+  factory Slot.fromRow(Map<String, dynamic> row) {
+    return Slot(
+      exerciseId: row['exercise_id'] as String,
+      position: row['position'] as int? ?? 0,
+      workSets: row['target_working_sets'] as int?,
+      warmupSets: row['target_warmup_sets'] as int?,
+      repLow: row['target_rep_low'] as int?,
+      repHigh: row['target_rep_high'] as int?,
+      rirLow: row['target_rir_low'] as int?,
+      rirHigh: row['target_rir_high'] as int?,
+    );
+  }
+}
+
+// ── ResolvedSlot ─────────────────────────────────────────────────────────────
+
+/// A fully-resolved slot: all fields are non-null (fallback chain applied).
+class ResolvedSlot {
+  final Exercise exercise;
+  final int workSets;
+  final int warmupSets;
+  final int repLow;
+  final int repHigh;
+  final int rirLow;
+  final int rirHigh;
+
+  const ResolvedSlot({
+    required this.exercise,
+    required this.workSets,
+    required this.warmupSets,
+    required this.repLow,
+    required this.repHigh,
+    required this.rirLow,
+    required this.rirHigh,
+  });
+}
+
+// ── DayTemplate ──────────────────────────────────────────────────────────────
+
+class DayTemplate {
+  final String id;
+  final String? slug;
+  final String name;
+  final String? focus;
+  final int? scheduledWeekday;
+  final int position;
+  final List<Slot> slots;
+
+  const DayTemplate({
+    required this.id,
+    this.slug,
+    required this.name,
+    this.focus,
+    this.scheduledWeekday,
+    required this.position,
+    required this.slots,
+  });
+}
+
+// ── LoggedSet ────────────────────────────────────────────────────────────────
+
+class LoggedSet {
+  final String id;
+  final String exerciseId;
+  final int setNumber;
+  final double weightKg;
+  final int reps;
+  final int? rir;
+  final bool isWarmup;
+  final bool isTopSet;
+  final bool isPr;
+
+  const LoggedSet({
+    required this.id,
+    required this.exerciseId,
+    required this.setNumber,
+    required this.weightKg,
+    required this.reps,
+    this.rir,
+    required this.isWarmup,
+    required this.isTopSet,
+    required this.isPr,
+  });
+
+  factory LoggedSet.fromRow(Map<String, dynamic> row) {
+    final wt = row['weight_kg'];
+    return LoggedSet(
+      id: row['id'] as String,
+      exerciseId: row['exercise_id'] as String,
+      setNumber: row['set_number'] as int? ?? 0,
+      weightKg: wt != null ? double.parse(wt.toString()) : 0.0,
+      reps: row['reps'] as int? ?? 0,
+      rir: row['rir'] as int?,
+      isWarmup: (row['is_warmup'] as int? ?? 0) != 0,
+      isTopSet: (row['is_top_set'] as int? ?? 0) != 0,
+      isPr: (row['is_pr'] as int? ?? 0) != 0,
+    );
+  }
+}
+
+// ── ExerciseBlockData ─────────────────────────────────────────────────────────
+
+/// Aggregated data for one exercise within a session (for the summary/history views).
+class ExerciseBlockData {
+  final String exerciseId;
+  final List<LoggedSet> sets;
+  final double topWeight;
+  final int topReps;
+  final bool isPr;
+
+  const ExerciseBlockData({
+    required this.exerciseId,
+    required this.sets,
+    required this.topWeight,
+    required this.topReps,
+    required this.isPr,
+  });
+}
+
+// ── SessionSummaryRow ─────────────────────────────────────────────────────────
+
+class SessionSummaryRow {
+  final String id;
+  final String date;
+  final String? splitLabel;
+  final String? dayTemplateId;
+  final int? durationMin;
+
+  const SessionSummaryRow({
+    required this.id,
+    required this.date,
+    this.splitLabel,
+    this.dayTemplateId,
+    this.durationMin,
+  });
+
+  factory SessionSummaryRow.fromRow(Map<String, dynamic> row) {
+    return SessionSummaryRow(
+      id: row['id'] as String,
+      date: row['date'] as String? ?? '',
+      splitLabel: row['split_label'] as String?,
+      dayTemplateId: row['day_template_id'] as String?,
+      durationMin: row['duration_min'] as int?,
+    );
+  }
+}
+
+// ── MuscleTarget ──────────────────────────────────────────────────────────────
+
+class MuscleTarget {
+  final String id;
+  final String muscle;
+  final int targetSets;
+
+  const MuscleTarget({
+    required this.id,
+    required this.muscle,
+    required this.targetSets,
+  });
+
+  factory MuscleTarget.fromRow(Map<String, dynamic> row) {
+    return MuscleTarget(
+      id: row['id'] as String,
+      muscle: row['muscle'] as String,
+      targetSets: row['target_sets'] as int? ?? 0,
+    );
+  }
+}
