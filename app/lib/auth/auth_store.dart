@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 
 /// Base URL of the Go API server. On Linux desktop (the foundations validation
 /// target) the host can reach the container directly on localhost.
-const String apiBaseUrl = 'http://localhost:8080';
+/// Set from SettingsService at startup before openDatabase/connectSync.
+String apiBaseUrl = 'http://localhost:8080';
 
 /// Holds and persists the auth tokens, and knows how to login / refresh /
 /// logout against the Go API. The PowerSync connector reads from this:
@@ -19,20 +20,26 @@ class AuthStore {
 
   static const _kAccess = 'access_token';
   static const _kRefresh = 'refresh_token';
+  static const _kEmail = 'email';
 
   final FlutterSecureStorage _storage;
   final http.Client _http;
 
   String? _accessToken;
   String? _refreshToken;
+  String? _email;
 
   String? get accessToken => _accessToken;
+
+  /// The email used to log in, persisted across app restarts.
+  String? get email => _email;
 
   /// Load any persisted tokens at startup. Returns true if we have a refresh
   /// token (i.e. the user was previously logged in).
   Future<bool> load() async {
     _accessToken = await _storage.read(key: _kAccess);
     _refreshToken = await _storage.read(key: _kRefresh);
+    _email = await _storage.read(key: _kEmail);
     return _refreshToken != null;
   }
 
@@ -46,7 +53,9 @@ class AuthStore {
     if (res.statusCode != 200) {
       throw Exception('login failed (${res.statusCode}): ${res.body}');
     }
+    _email = email;
     await _persistTokens(jsonDecode(res.body) as Map<String, dynamic>);
+    await _storage.write(key: _kEmail, value: email);
   }
 
   /// POST /auth/refresh — rotates both tokens. Returns the fresh access token,
@@ -87,8 +96,10 @@ class AuthStore {
     }
     _accessToken = null;
     _refreshToken = null;
+    _email = null;
     await _storage.delete(key: _kAccess);
     await _storage.delete(key: _kRefresh);
+    await _storage.delete(key: _kEmail);
   }
 
   Future<void> _persistTokens(Map<String, dynamic> body) async {
