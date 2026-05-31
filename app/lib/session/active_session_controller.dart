@@ -349,6 +349,11 @@ class ActiveSessionController extends ChangeNotifier {
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
+  /// Notifies listeners after a caller mutates a [SetState] directly
+  /// (e.g. weight/reps/RIR changed by a stepper — the set is mutated in-place
+  /// by the UI and this method propagates the rebuild).
+  void markChanged() => notifyListeners();
+
   /// Toggles [set] within [block] between done and not done.
   void toggleDone(BlockState block, SetState set) {
     set.done = !set.done;
