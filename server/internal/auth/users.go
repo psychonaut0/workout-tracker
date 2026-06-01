@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,6 +33,7 @@ func NewUserStore(pool *pgxpool.Pool) *UserStore {
 
 // FindByEmail returns the user with the given email, or ErrUserNotFound.
 func (s *UserStore) FindByEmail(ctx context.Context, email string) (*User, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
 	var u User
 	err := s.pool.QueryRow(ctx,
 		`SELECT id::text, password_hash FROM users WHERE email = $1`, email,
@@ -47,6 +49,7 @@ func (s *UserStore) FindByEmail(ctx context.Context, email string) (*User, error
 
 // Create inserts a new user and returns its id. ErrEmailTaken on duplicate email.
 func (s *UserStore) Create(ctx context.Context, email, passwordHash string) (string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
 	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id::text`,
