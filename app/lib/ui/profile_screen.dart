@@ -15,6 +15,9 @@ import '../units/unit_service.dart';
 import '../widgets/plan_form.dart';
 import 'login_screen.dart';
 
+/// First-sign-in reconciliation choice when local data already exists.
+enum _ReconcileChoice { keep, discard }
+
 // ── Group + Row helpers (mirror screen-profile.jsx) ──────────────────────────
 
 class _Group extends StatelessWidget {
@@ -322,6 +325,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Persist the URL only now that login succeeded.
           await settings.setServerUrl(url);
           apiBaseUrl = url;
+
+          // Reconcile local data before enabling sync. If anything exists on
+          // this device (a session's user_id, or any exercise), ask whether to
+          // keep it (merge) or use the account's data (discard local).
+          final hasLocal =
+              (await SessionRepository(db).anyUserId()) != null ||
+              (await db.getOptional('SELECT 1 FROM exercises LIMIT 1')) != null;
+
+          if (hasLocal) {
+            // The captured NavigatorState outlives the async gaps; guard its
+            // context before using it so we don't trip
+            // use_build_context_synchronously.
+            if (!navigator.mounted) return;
+            final choice = await showDialog<_ReconcileChoice>(
+              context: navigator.context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('You have local data'),
+                content: const Text(
+                  'This device already has workout data. Keep it and merge with '
+                  "your account, or replace it with the account's data?",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pop(ctx, _ReconcileChoice.discard),
+                    child: const Text("Use the account's data"),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, _ReconcileChoice.keep),
+                    child: const Text('Keep my data'),
+                  ),
+                ],
+              ),
+            );
+
+            // Dialog dismissed (barrier/back) → cancel: stay local, no sync.
+            if (choice == null) return;
+
+            if (choice == _ReconcileChoice.discard) {
+              await disconnectAndClear();
+            }
+          }
+
           await settings.setSyncEnabled(true);
           await connectSync(widget.auth);
           navigator.pop();

@@ -466,3 +466,86 @@ func TestUpload_PatchSessionDurationAndDayTemplateFocus(t *testing.T) {
 		t.Errorf("name: got %s, want Push Day (must be preserved by PATCH)", name)
 	}
 }
+
+// TestUpload_OneBadOpDoesNotDropTheBatch: a constraint-violating op must not poison
+// the whole batch. The first op (a user exercise PUT colliding with a template's
+// global unique slug) fails; the second op (a valid bodyweight log) must still
+// persist, and the response must stay 2xx.
+func TestUpload_OneBadOpDoesNotDropTheBatch(t *testing.T) {
+	pool := uploadTestPool(t)
+	h := NewUploadHandler(pool)
+	user := seedUploadUser(t, pool)
+	ctx := context.Background()
+
+	// Seed a template exercise that owns slug "dup-collide-slug".
+	tmplID := "11111111-1111-1111-1111-111111111111"
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO exercises (id, name, slug, muscle_group, is_template) VALUES ($1::uuid,'Tmpl','dup-collide-slug','back',true)`,
+		tmplID); err != nil {
+		t.Fatalf("seed template: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid`, tmplID) })
+
+	bwID := "22222222-2222-2222-2222-222222222222"
+	exID := "33333333-3333-3333-3333-333333333333"
+	body := `{"batch":[` +
+		`{"op":"PUT","table":"exercises","id":"` + exID + `","data":{"id":"` + exID + `","name":"Dup","slug":"dup-collide-slug","muscle_group":"back"}},` +
+		`{"op":"PUT","table":"bodyweight_logs","id":"` + bwID + `","data":{"id":"` + bwID + `","date":"2026-06-01","weight_kg":"80.00"}}` +
+		`]}`
+	rec := postUpload(t, h, user, body)
+	if rec.Code/100 != 2 {
+		t.Fatalf("want 2xx, got %d: %s", rec.Code, rec.Body.String())
+	}
+	// The valid op (bodyweight) MUST have persisted despite the earlier bad op.
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM bodyweight_logs WHERE id=$1::uuid`, bwID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("bodyweight op was lost (batch poisoned): count=%d", n)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM bodyweight_logs WHERE id=$1::uuid`, bwID) })
+}
+
+func TestApplyExercise_SuffixesCollidingSlug(t *testing.T) {
+	pool := uploadTestPool(t)
+	h := NewUploadHandler(pool)
+	user := seedUploadUser(t, pool)
+	ctx := context.Background()
+
+	tmplID := "44444444-4444-4444-4444-444444444444"
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO exercises (id, name, slug, muscle_group, is_template) VALUES ($1::uuid,'Tmpl Squat','back-squat','quads',true)`,
+		tmplID); err != nil {
+		t.Fatalf("seed template: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid`, tmplID) })
+
+	exID := "55555555-5555-5555-5555-555555555555"
+	body := `{"batch":[{"op":"PUT","table":"exercises","id":"` + exID + `","data":{"id":"` + exID + `","name":"Back Squat","slug":"back-squat","muscle_group":"quads"}}]}`
+	rec := postUpload(t, h, user, body)
+	if rec.Code/100 != 2 {
+		t.Fatalf("want 2xx, got %d: %s", rec.Code, rec.Body.String())
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid`, exID) })
+
+	var slug, createdBy string
+	var isTemplate bool
+	if err := pool.QueryRow(ctx,
+		`SELECT slug, created_by::text, is_template FROM exercises WHERE id=$1::uuid`, exID).
+		Scan(&slug, &createdBy, &isTemplate); err != nil {
+		t.Fatalf("user exercise not inserted: %v", err)
+	}
+	if slug != "back-squat-"+exID[:8] {
+		t.Fatalf("want suffixed slug back-squat-%s, got %q", exID[:8], slug)
+	}
+	if createdBy != user || isTemplate {
+		t.Fatalf("ownership wrong: created_by=%s is_template=%v", createdBy, isTemplate)
+	}
+	// Template slug untouched.
+	var tmplSlug string
+	_ = pool.QueryRow(ctx, `SELECT slug FROM exercises WHERE id=$1::uuid`, tmplID).Scan(&tmplSlug)
+	if tmplSlug != "back-squat" {
+		t.Fatalf("template slug changed to %q", tmplSlug)
+	}
+}

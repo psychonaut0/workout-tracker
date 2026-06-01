@@ -185,6 +185,8 @@ Expected: the user's seeded exercises (≈24 + any custom) are now present (vs 1
 
 - [ ] **Step 3: Record findings** in this plan file under a "Spike findings" note: did the queue flush on connect? did rows round-trip? If the model held, proceed. If not (e.g. local rows got wiped instead of uploaded), document the actual behavior and adjust Tasks 5-6's reconciliation approach before implementing them. No commit (or commit only the plan-file findings note).
 
+**Spike findings (2026-06-01):** Model CONFIRMED, so Tasks 5-6 proceed as designed. Evidence: (1) earlier on-device attach showed the offline upload queue flushing on `connect()` (exercise PUT ops hit the server, retrying) and templates syncing DOWN — i.e. PowerSync uploads the queue on connect + additive download, no pre-emptive wipe; (2) the wedge was solely the two bugs (batch-poisoning + slug collision), now fixed and proven by the Task 1/2 server tests. The definitive live re-check (phone's wedged seeded-exercise queue flushing post-deploy) is deferred to Task 7 — the phone was disconnected during the spike. No model revision needed.
+
 ---
 
 ## Task 4: Server — `/auth/register` endpoint

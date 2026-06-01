@@ -3,15 +3,17 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"workout-tracker/server/internal/auth"
 )
 
-// UserFinder looks up users for login.
+// UserFinder looks up and creates users.
 type UserFinder interface {
 	FindByEmail(ctx context.Context, email string) (*auth.User, error)
+	Create(ctx context.Context, email, passwordHash string) (string, error)
 }
 
 // RefreshManager issues, rotates, and revokes refresh tokens.
@@ -75,6 +77,39 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.issueTokens(w, r, user.ID)
+}
+
+type registerRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Register creates a new user and issues tokens (same response as Login).
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req registerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" || req.Password == "" {
+		writeJSONError(w, http.StatusBadRequest, "email and password are required")
+		return
+	}
+	if len(req.Password) < 8 {
+		writeJSONError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not hash password")
+		return
+	}
+	id, err := h.cfg.Users.Create(r.Context(), req.Email, hash)
+	if err != nil {
+		if errors.Is(err, auth.ErrEmailTaken) {
+			writeJSONError(w, http.StatusConflict, "email already registered")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "could not create user")
+		return
+	}
+	h.issueTokens(w, r, id)
 }
 
 type refreshRequest struct {

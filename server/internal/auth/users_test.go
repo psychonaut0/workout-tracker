@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -44,6 +45,55 @@ func TestUserStore_FindByEmail(t *testing.T) {
 	}
 	if u.PasswordHash != "hash" || u.ID == "" {
 		t.Errorf("unexpected user: %+v", u)
+	}
+}
+
+func TestUserStore_Create(t *testing.T) {
+	pool := testPool(t)
+	s := NewUserStore(pool)
+	ctx := context.Background()
+	email := "reg-" + randomSuffix() + "@example.com"
+
+	id, err := s.Create(ctx, email, "hash-abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == "" {
+		t.Fatal("empty id")
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM users WHERE id=$1::uuid`, id) })
+
+	// duplicate email -> ErrEmailTaken
+	if _, err := s.Create(ctx, email, "hash-def"); !errors.Is(err, ErrEmailTaken) {
+		t.Fatalf("want ErrEmailTaken, got %v", err)
+	}
+}
+
+func TestUserStore_EmailCaseInsensitive(t *testing.T) {
+	pool := testPool(t)
+	s := NewUserStore(pool)
+	ctx := context.Background()
+	suffix := randomSuffix()
+	base := "Mixed-" + suffix + "@Example.com"
+
+	id, err := s.Create(ctx, base, "hash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM users WHERE id=$1::uuid`, id) })
+
+	// lookup with different case finds the same user
+	u, err := s.FindByEmail(ctx, "mixed-"+suffix+"@example.com")
+	if err != nil {
+		t.Fatalf("case-insensitive lookup failed: %v", err)
+	}
+	if u.ID != id {
+		t.Fatalf("got %s want %s", u.ID, id)
+	}
+
+	// creating the same email in a different case is a duplicate
+	if _, err := s.Create(ctx, "MIXED-"+suffix+"@EXAMPLE.COM", "hash2"); !errors.Is(err, ErrEmailTaken) {
+		t.Fatalf("want ErrEmailTaken on case-variant duplicate, got %v", err)
 	}
 }
 
