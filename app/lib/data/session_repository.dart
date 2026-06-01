@@ -16,6 +16,31 @@ import 'top_set_backfill.dart';
       args: [weightKg, reps, rir, id]
     );
 
+({String sql, List<Object?> args}) insertSetOp(String id,
+        {required String sessionId,
+        required String exerciseId,
+        required int setNumber,
+        required String weightKg,
+        required int reps,
+        required int? rir,
+        required bool isWarmup}) =>
+    (
+      sql: 'INSERT INTO sets (id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, is_top_set, is_pr) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [
+        id,
+        sessionId,
+        exerciseId,
+        setNumber,
+        weightKg,
+        reps,
+        isWarmup ? null : rir,
+        isWarmup ? 1 : 0,
+        0,
+        0
+      ]
+    );
+
 ({String sql, List<Object?> args}) deleteSetOp(String id) =>
     (sql: 'DELETE FROM sets WHERE id = ?', args: [id]);
 
@@ -218,6 +243,36 @@ class SessionRepository {
             tx, g['session_id'] as String, g['exercise_id'] as String);
       }
     });
+  }
+
+  /// Appends a set to (sessionId, exerciseId); re-derives the group's top set.
+  /// Returns the new set's id.
+  Future<String> addSet(
+    String sessionId,
+    String exerciseId, {
+    required String weightKg,
+    required int reps,
+    required int? rir,
+    required bool isWarmup,
+  }) async {
+    final id = uuid.v4();
+    await db.writeTransaction((tx) async {
+      final row = await tx.getOptional(
+          'SELECT MAX(set_number) AS m FROM sets WHERE session_id = ? AND exercise_id = ?',
+          [sessionId, exerciseId]);
+      final nextNum = ((row?['m'] as int?) ?? 0) + 1;
+      final op = insertSetOp(id,
+          sessionId: sessionId,
+          exerciseId: exerciseId,
+          setNumber: nextNum,
+          weightKg: weightKg,
+          reps: reps,
+          rir: rir,
+          isWarmup: isWarmup);
+      await tx.execute(op.sql, op.args);
+      await _recomputeTopSet(tx, sessionId, exerciseId);
+    });
+    return id;
   }
 
   /// Deletes a single set by id, then re-derives the group's is_top_set so
