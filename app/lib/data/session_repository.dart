@@ -2,6 +2,24 @@ import 'package:powersync/powersync.dart';
 
 import 'models.dart';
 
+// ── Mutation builders (pure) ──────────────────────────────────────────────────
+//
+// These build the SQL + args for editing logged history. They never touch
+// is_top_set / is_pr — the server recomputes those on sync.
+
+({String sql, List<Object?> args}) updateSetOp(String id,
+        {required String weightKg, required int reps, required int? rir}) =>
+    (
+      sql: 'UPDATE sets SET weight_kg = ?, reps = ?, rir = ? WHERE id = ?',
+      args: [weightKg, reps, rir, id]
+    );
+
+({String sql, List<Object?> args}) deleteSetOp(String id) =>
+    (sql: 'DELETE FROM sets WHERE id = ?', args: [id]);
+
+({String sql, List<Object?> args}) deleteSessionOp(String id) =>
+    (sql: 'DELETE FROM sessions WHERE id = ?', args: [id]);
+
 /// Repository for sessions and sets — history reads, last/best top-set lookups.
 ///
 /// Local SQLite CAN JOIN freely; only the PowerSync sync-rules cannot. All
@@ -159,5 +177,34 @@ class SessionRepository {
         isPr: topSet.isPr,
       );
     }).toList();
+  }
+
+  // ── Edit / delete (history) ───────────────────────────────────────────────
+
+  /// Updates a single set's weight/reps/rir. Never writes is_top_set/is_pr —
+  /// the server recomputes those on sync.
+  Future<void> updateSet(
+    String id, {
+    required String weightKg,
+    required int reps,
+    required int? rir,
+  }) async {
+    final op = updateSetOp(id, weightKg: weightKg, reps: reps, rir: rir);
+    await db.writeTransaction((tx) => tx.execute(op.sql, op.args));
+  }
+
+  /// Deletes a single set by id.
+  Future<void> deleteSet(String id) async {
+    final op = deleteSetOp(id);
+    await db.writeTransaction((tx) => tx.execute(op.sql, op.args));
+  }
+
+  /// Deletes a whole session and its sets.
+  Future<void> deleteSession(String id) async {
+    await db.writeTransaction((tx) async {
+      await tx.execute(
+          'DELETE FROM sets WHERE session_id = ?', [id]); // clean local view
+      await tx.execute('DELETE FROM sessions WHERE id = ?', [id]);
+    });
   }
 }
