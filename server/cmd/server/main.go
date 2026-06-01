@@ -64,6 +64,14 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Apply embedded migrations on startup so a fresh deploy / DR-restored CT
+	// self-provisions its schema (and the powersync publication + role).
+	if err := db.Migrate(ctx, cfg.DatabaseURL); err != nil {
+		logger.Error("migrations failed", "err", err)
+		os.Exit(1)
+	}
+	logger.Info("migrations applied")
+
 	uploadHandler := api.NewUploadHandler(pool)
 
 	authHandler := api.NewAuthHandler(api.AuthConfig{
