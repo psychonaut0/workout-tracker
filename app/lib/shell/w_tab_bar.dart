@@ -177,8 +177,9 @@ class _FabButton extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: t.accent.withValues(alpha: 0.45),
-              blurRadius: 22,
-              spreadRadius: 0,
+              blurRadius: 16,
+              spreadRadius: -2,
+              offset: const Offset(0, 8),
             ),
           ],
         ),

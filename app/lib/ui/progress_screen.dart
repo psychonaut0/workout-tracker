@@ -191,7 +191,7 @@ class _LiftView extends StatelessWidget {
         equipStr.isNotEmpty ? '$muscleStr · $equipStr' : muscleStr;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, 8 + MediaQuery.paddingOf(context).top, 16, 96),
       children: [
         // (1) Title block
         Padding(
