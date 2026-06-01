@@ -10,6 +10,7 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import 'exercise_sheet.dart';
 import '../util/dates.dart';
 import '../util/group_by_week.dart';
 import '../widgets/card.dart';
@@ -563,9 +564,32 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
       builder: (_) => _SetEditorSheet(
         block: block,
         exercise: exercise,
+        sessionId: widget.session.id,
         sessionRepo: widget.sessionRepo,
         units: widget.units,
       ),
+    );
+    if (mounted) _reload();
+  }
+
+  /// Picks an exercise and seeds one working set so it appears in the session.
+  /// The user then taps the new block to edit/add more sets.
+  Future<void> _addExercise() async {
+    final exId = await showExerciseSheet(
+      context,
+      exercises: widget.catalogMap.values.toList(),
+      current: null,
+      showBodyweight: false,
+    );
+    if (exId == null || exId == kBodyweightSentinel) return;
+    final ex = widget.catalogMap[exId];
+    await widget.sessionRepo.addSet(
+      widget.session.id,
+      exId,
+      weightKg: '0.00',
+      reps: ex?.defaultRepLow ?? 8,
+      rir: null,
+      isWarmup: false,
     );
     if (mounted) _reload();
   }
@@ -636,6 +660,30 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
                   onTap: () => _editExercise(block),
                 ),
               const SizedBox(height: 6),
+              // Add-exercise affordance.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _addExercise,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(WIcons.plus, size: 14, color: tokens.accent),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Add exercise',
+                        style: WorkoutType.mono(
+                          size: 11,
+                          weight: FontWeight.w600,
+                          color: tokens.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Divider(color: tokens.line, height: 1, thickness: 1),
               const SizedBox(height: 8),
               // Delete-session affordance.
@@ -777,12 +825,14 @@ class _SetEditorSheet extends StatefulWidget {
   const _SetEditorSheet({
     required this.block,
     required this.exercise,
+    required this.sessionId,
     required this.sessionRepo,
     required this.units,
   });
 
   final ExerciseBlockData block;
   final Exercise exercise;
+  final String sessionId;
   final SessionRepository sessionRepo;
   final UnitService units;
 
@@ -838,6 +888,41 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     await widget.sessionRepo.deleteSet(s.id);
     if (!mounted) return;
     setState(() => _sets.removeWhere((e) => e.id == s.id));
+  }
+
+  /// Appends a new working set, seeded from the last working set (or the
+  /// heaviest existing set) so the user usually only needs minor tweaks.
+  Future<void> _addSet() async {
+    final working = _sets.where((s) => !s.isWarmup).toList();
+    final last = working.isNotEmpty
+        ? working.last
+        : (_sets.isNotEmpty ? _sets.last : null);
+
+    final double w = last?.weightKg ??
+        (_sets.isEmpty
+            ? 0.0
+            : _sets
+                .map((s) => s.weightKg)
+                .reduce((a, b) => a >= b ? a : b));
+    final int r = last?.reps ?? (widget.exercise.defaultRepLow ?? 8);
+    final int? rir = working.isNotEmpty ? working.last.rir : null;
+
+    final newId = await widget.sessionRepo.addSet(
+      widget.sessionId,
+      widget.exercise.id,
+      weightKg: w.toStringAsFixed(2),
+      reps: r,
+      rir: rir,
+      isWarmup: false,
+    );
+    if (!mounted) return;
+    setState(() => _sets.add(_EditableSet(
+          id: newId,
+          weightKg: w,
+          reps: r,
+          rir: rir,
+          isWarmup: false,
+        )));
   }
 
   @override
@@ -919,6 +1004,30 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                         onChanged: () => _persist(_sets[i]),
                         onDelete: () => _deleteSet(_sets[i]),
                       ),
+                    const SizedBox(height: 6),
+                    // Add-set affordance.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _addSet,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(WIcons.plus, size: 14, color: tokens.accent),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Add set',
+                              style: WorkoutType.mono(
+                                size: 11,
+                                weight: FontWeight.w600,
+                                color: tokens.accent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
