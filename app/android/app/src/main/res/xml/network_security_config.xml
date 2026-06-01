@@ -8,5 +8,6 @@
         <domain includeSubdomains="true">tail1552c5.ts.net</domain>
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">lan</domain>
     </domain-config>
 </network-security-config>
