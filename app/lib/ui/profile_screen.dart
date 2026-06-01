@@ -13,6 +13,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../widgets/plan_form.dart';
+import 'login_screen.dart';
 
 // ── Group + Row helpers (mirror screen-profile.jsx) ──────────────────────────
 
@@ -302,6 +303,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     widget.onClose();
   }
 
+  // ── Sign-in flow (when signed out) ─────────────────────────────────────────
+
+  Future<void> _signIn(SettingsService settings) async {
+    final url = _serverCtrl.text.trim();
+    // Login (auth_store) hits the global apiBaseUrl, so it must point at the
+    // entered URL before we push LoginScreen. We do NOT persist it yet —
+    // settings.setServerUrl is deferred into onLoggedIn so abandoning login
+    // leaves no persisted change.
+    apiBaseUrl = url;
+    if (!mounted) return;
+
+    final navigator = Navigator.of(context);
+    await navigator.push(MaterialPageRoute(
+      builder: (_) => LoginScreen(
+        auth: widget.auth,
+        onLoggedIn: () async {
+          // Persist the URL only now that login succeeded.
+          await settings.setServerUrl(url);
+          apiBaseUrl = url;
+          await settings.setSyncEnabled(true);
+          await connectSync(widget.auth);
+          navigator.pop();
+        },
+      ),
+    ));
+
+    if (mounted) setState(() {});
+  }
+
   // ── Sign-out flow ─────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
@@ -347,6 +377,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final serverChanged =
         _serverCtrl.text.trim() != settings.serverUrl &&
         _serverCtrl.text.trim().isNotEmpty;
+
+    final signedIn = widget.auth.email != null;
 
     return Scaffold(
       backgroundColor: tokens.bg,
@@ -470,13 +502,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: 7,
                             height: 7,
                             decoration: BoxDecoration(
-                              color: tokens.accent,
+                              color: signedIn ? tokens.accent : tokens.faint,
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Connected',
+                            signedIn ? 'Connected' : 'Not connected',
                             style: WorkoutType.mono(
                               size: 11,
                               weight: FontWeight.w600,
@@ -505,11 +537,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          PrimaryBtn(
-                            'Apply / Switch server',
-                            enabled: serverChanged,
-                            onTap: () => _applyServer(settings),
-                          ),
+                          if (signedIn)
+                            PrimaryBtn(
+                              'Apply / Switch server',
+                              enabled: serverChanged,
+                              onTap: () => _applyServer(settings),
+                            )
+                          else
+                            PrimaryBtn(
+                              'Sign in to sync',
+                              enabled: true,
+                              onTap: () => _signIn(settings),
+                            ),
                         ],
                       ),
                     ),
@@ -517,22 +556,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
                 // ── Account ─────────────────────────────────────────────────
-                _Group(
-                  label: 'Account',
-                  children: [
-                    _Row(
-                      icon: WIcons.user,
-                      title: 'Signed in',
-                      sub: widget.auth.email ?? '–',
-                    ),
-                    _Row(
-                      icon: WIcons.logout,
-                      title: 'Sign out',
-                      danger: true,
-                      onTap: _signOut,
-                    ),
-                  ],
-                ),
+                if (signedIn)
+                  _Group(
+                    label: 'Account',
+                    children: [
+                      _Row(
+                        icon: WIcons.user,
+                        title: 'Signed in',
+                        sub: widget.auth.email ?? '–',
+                      ),
+                      _Row(
+                        icon: WIcons.logout,
+                        title: 'Sign out',
+                        danger: true,
+                        onTap: _signOut,
+                      ),
+                    ],
+                  ),
 
                 // ── Version footer ───────────────────────────────────────────
                 Padding(

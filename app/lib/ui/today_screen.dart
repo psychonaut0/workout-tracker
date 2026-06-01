@@ -68,9 +68,6 @@ class _TodayScreenState extends State<TodayScreen> {
   late final SessionRepository _sessions;
   late final ExerciseRepository _exercises;
 
-  // ── Async state: seeded once ──────────────────────────────────────────────────
-  bool _seeded = false;
-
   // ── nextInRotation resolved once; refreshed reactively via stream ─────────────
   DayTemplate? _nextDay;
   bool _rotationLoaded = false;
@@ -122,21 +119,6 @@ class _TodayScreenState extends State<TodayScreen> {
         });
       }
     });
-
-    // Seed muscle targets once, guarded against repeat.
-    _seedOnce();
-  }
-
-  Future<void> _seedOnce() async {
-    if (_seeded) return;
-    _seeded = true;
-    try {
-      final userId = await _sessions.anyUserId();
-      if (userId == null) return; // No sessions yet — skip silently.
-      await _targets.seedDefaultsIfEmpty(userId);
-    } catch (_) {
-      // Seed failure is non-fatal; dashboard handles empty targets gracefully.
-    }
   }
 
   @override

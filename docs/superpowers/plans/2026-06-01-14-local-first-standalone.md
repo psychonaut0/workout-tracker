@@ -86,8 +86,8 @@ Expected: FAIL — `identity_service.dart` not found / `IdentityService` undefin
 Create `app/lib/identity/identity_service.dart`:
 ```dart
 import 'package:flutter/foundation.dart';
+import 'package:powersync/powersync.dart' show uuid; // shared uuid singleton (project convention)
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 /// Owns the device-local identity for the standalone (server-optional) app.
 ///
@@ -124,7 +124,7 @@ class IdentityService extends ChangeNotifier {
       _currentUserId = adopted;
       _onboardingComplete = true;
     } else {
-      _currentUserId = const Uuid().v4();
+      _currentUserId = uuid.v4();
       _onboardingComplete = false;
     }
     await prefs.setString(_kUserId, _currentUserId);
@@ -140,7 +140,7 @@ class IdentityService extends ChangeNotifier {
 }
 ```
 
-Confirm `uuid` is a dependency (it is — used by repos). If `make -C app test` reports `uuid` not found, add `uuid: ^4.0.0` under dependencies in `app/pubspec.yaml` and run `make -C app get`.
+`uuid` here is the singleton re-exported by `package:powersync/powersync.dart` (the project convention — see `muscle_target_repository.dart:1` `import 'package:powersync/powersync.dart' show PowerSyncDatabase, uuid;`). Do NOT add a direct `package:uuid` dependency.
 
 - [ ] **Step 4: Add `syncEnabled` to `SettingsService`**
 
@@ -232,7 +232,7 @@ Expected: FAIL — `catalog_seed.dart` not found.
 READ `server/db/migrations/00005_seed_template_exercises.sql` (slug, name, muscle_group) and `server/db/migrations/00019_seed_exercise_traits.sql` (equip, compound, base_weight_kg, plate_step_kg, default_rep_low/high, default_warmup_sets, default_working_sets, default_rir_low/high), joining on slug. These two files are the canonical source of the 24-exercise catalog — port them verbatim. Create `app/lib/data/catalog_seed.dart`:
 
 ```dart
-import 'package:uuid/uuid.dart';
+import 'package:powersync/powersync.dart' show uuid; // shared uuid singleton (project convention)
 
 import 'session_writer.dart';
 
@@ -288,7 +288,6 @@ const List<StarterExercise> starterExercises = [
 /// lets the server stamp ownership — stamps created_by + is_template LOCALLY,
 /// because in standalone mode there is no server.
 Future<void> seedStarterCatalog(SqlExecutor exec, String userId) async {
-  const uuid = Uuid();
   final nowIso = DateTime.now().toUtc().toIso8601String();
   for (final e in starterExercises) {
     await exec.execute(

@@ -16,11 +16,13 @@ class SettingsService extends ChangeNotifier {
   Color _accent = accents[0];
   String _profileName = 'Athlete';
   String _serverUrl = 'http://localhost:8080';
+  bool _syncEnabled = false;
 
   String get mode => _mode;
   Color get accent => _accent;
   String get profileName => _profileName;
   String get serverUrl => _serverUrl;
+  bool get syncEnabled => _syncEnabled;
 
   /// Derived brightness from the stored mode string.
   Brightness get brightness =>
@@ -36,6 +38,7 @@ class SettingsService extends ChangeNotifier {
     _mode = prefs.getString(_kMode) ?? 'dark';
     _profileName = prefs.getString(_kProfileName) ?? 'Athlete';
     _serverUrl = prefs.getString(_kServerUrl) ?? 'http://localhost:8080';
+    _syncEnabled = prefs.getBool('settings.sync_enabled') ?? false;
 
     // Accent: stored as ARGB int via toARGB32(). Reconstruct via Color.fromARGB
     // (not Color(int) — deprecated in Flutter 3.44). Fall back to accents[0]
@@ -88,6 +91,14 @@ class SettingsService extends ChangeNotifier {
     _serverUrl = url;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kServerUrl, url);
+    notifyListeners();
+  }
+
+  /// Enable or disable background sync and persist.
+  Future<void> setSyncEnabled(bool value) async {
+    _syncEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('settings.sync_enabled', value);
     notifyListeners();
   }
 }

@@ -2,12 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_store.dart';
+import 'data/catalog_seed.dart';
+import 'data/muscle_target_repository.dart';
+import 'data/session_repository.dart';
+import 'data/session_writer.dart';
+import 'identity/identity_service.dart';
 import 'settings/settings_service.dart';
 import 'shell/app_shell.dart';
 import 'sync/db.dart';
 import 'theme/app_theme.dart';
-import 'ui/login_screen.dart';
+import 'ui/onboarding_screen.dart';
 import 'units/unit_service.dart';
+
+enum HomeRoute { onboarding, shell }
+
+HomeRoute homeRouteFor({required bool onboardingComplete}) =>
+    onboardingComplete ? HomeRoute.shell : HomeRoute.onboarding;
+
+bool shouldConnectSync({required bool syncEnabled, required bool loggedIn}) =>
+    syncEnabled && loggedIn;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,15 +36,23 @@ Future<void> main() async {
 
   final auth = AuthStore();
   await openDatabase();
+
+  final identity = IdentityService();
+  await identity.init(
+    probeExistingUserId: () => SessionRepository(db).anyUserId(),
+  );
+
   final loggedIn = await auth.load();
-  if (loggedIn) {
-    await connectSync(auth); // resume sync on a remembered session
+  if (shouldConnectSync(
+      syncEnabled: settingsService.syncEnabled, loggedIn: loggedIn)) {
+    await connectSync(auth); // resume sync only for an opted-in remembered session
   }
+
   runApp(App(
     auth: auth,
-    startLoggedIn: loggedIn,
     settingsService: settingsService,
     unitService: unitService,
+    identity: identity,
   ));
 }
 
@@ -39,32 +60,39 @@ class App extends StatefulWidget {
   const App({
     super.key,
     required this.auth,
-    required this.startLoggedIn,
     required this.settingsService,
     required this.unitService,
+    required this.identity,
   });
 
   final AuthStore auth;
-  final bool startLoggedIn;
   final SettingsService settingsService;
   final UnitService unitService;
+  final IdentityService identity;
 
   @override
   State<App> createState() => _AppState();
 }
 
 class _AppState extends State<App> {
-  late bool _loggedIn = widget.startLoggedIn;
-
-  Future<void> _onLoggedIn() async {
-    await connectSync(widget.auth);
-    setState(() => _loggedIn = true);
-  }
-
   Future<void> _onLogout() async {
     await disconnectAndClear();
     await widget.auth.logout();
-    setState(() => _loggedIn = false);
+    await widget.settingsService.setSyncEnabled(false);
+    setState(() {}); // returns to the local app shell, not a login wall
+  }
+
+  Future<void> _onOnboardingChosen(
+      BuildContext ctx, OnboardingChoice choice) async {
+    if (choice == OnboardingChoice.starter) {
+      await db.writeTransaction(
+        (tx) => seedStarterCatalog(
+            PowerSyncTxExecutor(tx), widget.identity.currentUserId),
+      );
+      await MuscleTargetRepository(db)
+          .seedDefaultsIfEmpty(widget.identity.currentUserId);
+    }
+    await widget.identity.completeOnboarding(); // notifies → re-route to shell
   }
 
   @override
@@ -73,6 +101,7 @@ class _AppState extends State<App> {
       providers: [
         ChangeNotifierProvider.value(value: widget.unitService),
         ChangeNotifierProvider.value(value: widget.settingsService),
+        ChangeNotifierProvider.value(value: widget.identity),
       ],
       // Builder is required so that ctx.watch<SettingsService>() is a
       // descendant of the MultiProvider (calling watch in _AppState.build()
@@ -81,12 +110,16 @@ class _AppState extends State<App> {
       child: Builder(
         builder: (ctx) {
           final s = ctx.watch<SettingsService>();
+          final identity = ctx.watch<IdentityService>();
           return MaterialApp(
             title: 'workout-tracker',
             theme: buildTheme(s.brightness, s.accentColor),
-            home: _loggedIn
-                ? AppShell(onLogout: _onLogout, auth: widget.auth)
-                : LoginScreen(auth: widget.auth, onLoggedIn: _onLoggedIn),
+            home: homeRouteFor(
+                        onboardingComplete: identity.onboardingComplete) ==
+                    HomeRoute.onboarding
+                ? OnboardingScreen(
+                    onChosen: (choice) => _onOnboardingChosen(ctx, choice))
+                : AppShell(onLogout: _onLogout, auth: widget.auth),
           );
         },
       ),
