@@ -274,6 +274,17 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 		workingSets, _ := str(op.Data, "default_working_sets")
 		rirLow, _ := str(op.Data, "default_rir_low")
 		rirHigh, _ := str(op.Data, "default_rir_high")
+		if slug != "" {
+			var taken bool
+			if err := tx.QueryRow(ctx,
+				`SELECT EXISTS(SELECT 1 FROM exercises WHERE slug = $1 AND id <> $2::uuid)`,
+				slug, op.ID).Scan(&taken); err != nil {
+				return err
+			}
+			if taken && len(op.ID) >= 8 {
+				slug = slug + "-" + op.ID[:8]
+			}
+		}
 		_, err := tx.Exec(ctx,
 			`INSERT INTO exercises
 			   (id, name, slug, muscle_group, equip, compound, base_weight_kg, plate_step_kg,
