@@ -37,6 +37,7 @@ func NewRouter(d Deps) *chi.Mux {
 	}
 	if d.Auth != nil {
 		r.Post("/auth/login", d.Auth.Login)
+		r.Post("/auth/register", d.Auth.Register)
 		r.Post("/auth/refresh", d.Auth.Refresh)
 		r.Post("/auth/logout", d.Auth.Logout)
 		if d.Verifier != nil {

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -44,6 +45,27 @@ func TestUserStore_FindByEmail(t *testing.T) {
 	}
 	if u.PasswordHash != "hash" || u.ID == "" {
 		t.Errorf("unexpected user: %+v", u)
+	}
+}
+
+func TestUserStore_Create(t *testing.T) {
+	pool := testPool(t)
+	s := NewUserStore(pool)
+	ctx := context.Background()
+	email := "reg-" + randomSuffix() + "@example.com"
+
+	id, err := s.Create(ctx, email, "hash-abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == "" {
+		t.Fatal("empty id")
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM users WHERE id=$1::uuid`, id) })
+
+	// duplicate email -> ErrEmailTaken
+	if _, err := s.Create(ctx, email, "hash-def"); !errors.Is(err, ErrEmailTaken) {
+		t.Fatalf("want ErrEmailTaken, got %v", err)
 	}
 }
 

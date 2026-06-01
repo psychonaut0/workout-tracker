@@ -15,12 +15,18 @@ import (
 // --- fakes ---
 
 type fakeUsers struct {
-	user *auth.User
-	err  error
+	user      *auth.User
+	err       error
+	createID  string
+	createErr error
 }
 
 func (f *fakeUsers) FindByEmail(_ context.Context, _ string) (*auth.User, error) {
 	return f.user, f.err
+}
+
+func (f *fakeUsers) Create(_ context.Context, _, _ string) (string, error) {
+	return f.createID, f.createErr
 }
 
 type fakeRefresh struct {
@@ -94,6 +100,51 @@ func TestLogin_RejectsUnknownUser(t *testing.T) {
 	h.Login(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status: got %d, want 401", rec.Code)
+	}
+}
+
+func TestRegister(t *testing.T) {
+	// success
+	h := newHandler(t, &fakeUsers{createID: "new-user-1"}, &fakeRefresh{issue: "refresh-xyz"})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/register",
+		strings.NewReader(`{"email":"a@b.com","password":"password123"}`))
+	h.Register(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200", rec.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["access_token"] == "" || body["refresh_token"] != "refresh-xyz" {
+		t.Errorf("unexpected body: %v", body)
+	}
+
+	// short password -> 400
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/auth/register",
+		strings.NewReader(`{"email":"a@b.com","password":"short"}`))
+	h.Register(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("short password: got %d, want 400", rec.Code)
+	}
+
+	// missing fields -> 400
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/auth/register",
+		strings.NewReader(`{"email":"a@b.com"}`))
+	h.Register(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing password: got %d, want 400", rec.Code)
+	}
+
+	// duplicate email -> 409
+	hDup := newHandler(t, &fakeUsers{createErr: auth.ErrEmailTaken}, &fakeRefresh{})
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/auth/register",
+		strings.NewReader(`{"email":"a@b.com","password":"password123"}`))
+	hDup.Register(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("duplicate email: got %d, want 409", rec.Code)
 	}
 }
 
