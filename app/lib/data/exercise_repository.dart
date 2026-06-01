@@ -96,6 +96,22 @@ String uniqueSlug(String name, String id) {
   }
 }
 
+/// Drops a synced template exercise when the user already owns a non-template
+/// exercise with the same (case-insensitive) name — so the catalog isn't
+/// doubled after sync attach. Owned rows (is_template==0) always win.
+List<Map<String, Object?>> dedupeCatalog(List<Map<String, Object?>> rows) {
+  final ownedNames = <String>{};
+  for (final r in rows) {
+    if ((r['is_template'] as int? ?? 0) == 0) {
+      ownedNames.add((r['name'] as String).toLowerCase());
+    }
+  }
+  return rows.where((r) {
+    final isTemplate = (r['is_template'] as int? ?? 0) != 0;
+    return !(isTemplate && ownedNames.contains((r['name'] as String).toLowerCase()));
+  }).toList();
+}
+
 /// Repository for the exercises table (template catalog + custom exercises).
 ///
 /// All methods accept the app-wide [PowerSyncDatabase] injected at construction.
@@ -108,9 +124,10 @@ class ExerciseRepository {
   ///
   /// Emits a new list on every local DB change (sync down, user edits).
   Stream<List<Exercise>> watchCatalog() {
-    return db
-        .watch('SELECT * FROM exercises ORDER BY name')
-        .map((rs) => rs.map(Exercise.fromRow).toList());
+    return db.watch('SELECT * FROM exercises ORDER BY name').map((rs) {
+      final rows = rs.map((r) => Map<String, Object?>.from(r)).toList();
+      return dedupeCatalog(rows).map(Exercise.fromRow).toList();
+    });
   }
 
   /// Fetches a single exercise by id, or null if not found.
