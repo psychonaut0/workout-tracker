@@ -452,28 +452,31 @@ class ActiveSessionController extends ChangeNotifier {
     final sets = <SetWrite>[];
     for (final block in d.blocks) {
       var setNum = 1;
-      for (final s in block.warmupSets) {
-        sets.add(SetWrite(
-          id: s.id,
-          exerciseId: block.exercise.id,
-          setNumber: setNum++,
-          weightKg: s.weightKg.toStringAsFixed(2),
-          reps: s.reps,
-          rir: null, // warm-up RIR is never written
-          isWarmup: true,
+      final blockSets = <SetWrite>[];
+      for (final s in block.warmupSets.where((s) => s.done)) {
+        blockSets.add(SetWrite(
+          id: s.id, exerciseId: block.exercise.id, setNumber: setNum++,
+          weightKg: s.weightKg.toStringAsFixed(2), reps: s.reps, rir: null, isWarmup: true,
         ));
       }
-      for (final s in block.workingSets) {
-        sets.add(SetWrite(
-          id: s.id,
-          exerciseId: block.exercise.id,
-          setNumber: setNum++,
-          weightKg: s.weightKg.toStringAsFixed(2),
-          reps: s.reps,
-          rir: s.rir,
-          isWarmup: false,
+      for (final s in block.workingSets.where((s) => s.done)) {
+        blockSets.add(SetWrite(
+          id: s.id, exerciseId: block.exercise.id, setNumber: setNum++,
+          weightKg: s.weightKg.toStringAsFixed(2), reps: s.reps, rir: s.rir, isWarmup: false,
         ));
       }
+      final topIdx = topSetIndex(blockSets);
+      if (topIdx >= 0) {
+        final top = blockSets[topIdx];
+        final topWeight = double.tryParse(top.weightKg) ?? 0;
+        final isPr = block.bestKg != null && topWeight > block.bestKg!;
+        blockSets[topIdx] = SetWrite(
+          id: top.id, exerciseId: top.exerciseId, setNumber: top.setNumber,
+          weightKg: top.weightKg, reps: top.reps, rir: top.rir, isWarmup: top.isWarmup,
+          isTopSet: true, isPr: isPr,
+        );
+      }
+      sets.addAll(blockSets);
     }
 
     final write = SessionWrite(
