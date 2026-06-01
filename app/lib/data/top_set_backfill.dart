@@ -1,5 +1,30 @@
 import 'package:powersync/powersync.dart';
 
+/// The id of the heaviest non-warmup set among [groupRows] (all from ONE
+/// (session,exercise) group), tie-break weight DESC (numeric), reps DESC,
+/// set_number ASC, id ASC. Returns null if there is no non-warmup set.
+/// Unlike [topSetIdsToStamp], this does NOT skip groups that already have a
+/// flagged top set — callers that re-derive want the true winner regardless.
+String? heaviestNonWarmupId(List<Map<String, Object?>> groupRows) {
+  Map<String, Object?>? best;
+  for (final r in groupRows) {
+    if ((r['is_warmup'] as int? ?? 0) != 0) continue;
+    if (best == null) { best = r; continue; }
+    final rw = double.tryParse(r['weight_kg']?.toString() ?? '') ?? 0;
+    final bw = double.tryParse(best['weight_kg']?.toString() ?? '') ?? 0;
+    final rr = r['reps'] as int? ?? 0, br = best['reps'] as int? ?? 0;
+    final rn = r['set_number'] as int? ?? 0, bn = best['set_number'] as int? ?? 0;
+    final rid = r['id'] as String, bid = best['id'] as String;
+    if (rw > bw ||
+        (rw == bw && rr > br) ||
+        (rw == bw && rr == br && rn < bn) ||
+        (rw == bw && rr == br && rn == bn && rid.compareTo(bid) < 0)) {
+      best = r;
+    }
+  }
+  return best?['id'] as String?;
+}
+
 /// Given raw `sets` rows, return the ids to stamp is_top_set=1: for each
 /// (session, exercise) group with NO non-warmup set already flagged, the
 /// heaviest non-warmup set (tie-break weight DESC, reps DESC, set_number ASC,
@@ -15,22 +40,8 @@ Set<String> topSetIdsToStamp(List<Map<String, Object?>> rows) {
     final working = g.where((r) => (r['is_warmup'] as int? ?? 0) == 0).toList();
     if (working.isEmpty) continue;
     if (working.any((r) => (r['is_top_set'] as int? ?? 0) == 1)) continue;
-    Map<String, Object?>? best;
-    for (final r in working) {
-      if (best == null) { best = r; continue; }
-      final rw = double.tryParse(r['weight_kg']?.toString() ?? '') ?? 0;
-      final bw = double.tryParse(best['weight_kg']?.toString() ?? '') ?? 0;
-      final rr = r['reps'] as int? ?? 0, br = best['reps'] as int? ?? 0;
-      final rn = r['set_number'] as int? ?? 0, bn = best['set_number'] as int? ?? 0;
-      final rid = r['id'] as String, bid = best['id'] as String;
-      if (rw > bw ||
-          (rw == bw && rr > br) ||
-          (rw == bw && rr == br && rn < bn) ||
-          (rw == bw && rr == br && rn == bn && rid.compareTo(bid) < 0)) {
-        best = r;
-      }
-    }
-    out.add(best!['id'] as String);
+    final id = heaviestNonWarmupId(working);
+    if (id != null) out.add(id);
   }
   return out;
 }

@@ -32,4 +32,14 @@ void main() {
     ];
     expect(topSetIdsToStamp(rows), {'a', 'b'});
   });
+  test('heaviestNonWarmupId picks heaviest ignoring warmups; null if none', () {
+    expect(heaviestNonWarmupId([
+      {'id': 'a', 'weight_kg': '60.00', 'reps': 8, 'set_number': 1, 'is_warmup': 0},
+      {'id': 'b', 'weight_kg': '80.00', 'reps': 5, 'set_number': 2, 'is_warmup': 0},
+      {'id': 'w', 'weight_kg': '99.00', 'reps': 5, 'set_number': 0, 'is_warmup': 1},
+    ]), 'b');
+    expect(heaviestNonWarmupId([
+      {'id': 'w', 'weight_kg': '99.00', 'reps': 5, 'set_number': 1, 'is_warmup': 1},
+    ]), isNull);
+  });
 }

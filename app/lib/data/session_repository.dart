@@ -1,6 +1,8 @@
 import 'package:powersync/powersync.dart';
+import 'package:sqlite_async/sqlite_async.dart';
 
 import 'models.dart';
+import 'top_set_backfill.dart';
 
 // ── Mutation builders (pure) ──────────────────────────────────────────────────
 //
@@ -181,8 +183,25 @@ class SessionRepository {
 
   // ── Edit / delete (history) ───────────────────────────────────────────────
 
-  /// Updates a single set's weight/reps/rir. Never writes is_top_set/is_pr —
-  /// the server recomputes those on sync.
+  /// Re-derive is_top_set for one (session,exercise) group: clear all, then flag
+  /// the heaviest non-warmup set. Keeps Progress correct after offline edits.
+  Future<void> _recomputeTopSet(
+      SqliteWriteContext tx, String sessionId, String exerciseId) async {
+    final rows = await tx.getAll(
+        'SELECT id, weight_kg, reps, set_number, is_warmup FROM sets WHERE session_id = ? AND exercise_id = ?',
+        [sessionId, exerciseId]);
+    await tx.execute(
+        'UPDATE sets SET is_top_set = 0 WHERE session_id = ? AND exercise_id = ?',
+        [sessionId, exerciseId]);
+    final topId = heaviestNonWarmupId(
+        rows.map((r) => Map<String, Object?>.from(r)).toList());
+    if (topId != null) {
+      await tx.execute('UPDATE sets SET is_top_set = 1 WHERE id = ?', [topId]);
+    }
+  }
+
+  /// Updates a single set's weight/reps/rir, then re-derives the group's
+  /// is_top_set so offline Progress stays correct. Leaves is_pr alone.
   Future<void> updateSet(
     String id, {
     required String weightKg,
@@ -190,13 +209,30 @@ class SessionRepository {
     required int? rir,
   }) async {
     final op = updateSetOp(id, weightKg: weightKg, reps: reps, rir: rir);
-    await db.writeTransaction((tx) => tx.execute(op.sql, op.args));
+    await db.writeTransaction((tx) async {
+      await tx.execute(op.sql, op.args);
+      final g = await tx.getOptional(
+          'SELECT session_id, exercise_id FROM sets WHERE id = ?', [id]);
+      if (g != null) {
+        await _recomputeTopSet(
+            tx, g['session_id'] as String, g['exercise_id'] as String);
+      }
+    });
   }
 
-  /// Deletes a single set by id.
+  /// Deletes a single set by id, then re-derives the group's is_top_set so
+  /// offline Progress stays correct.
   Future<void> deleteSet(String id) async {
-    final op = deleteSetOp(id);
-    await db.writeTransaction((tx) => tx.execute(op.sql, op.args));
+    await db.writeTransaction((tx) async {
+      final g = await tx.getOptional(
+          'SELECT session_id, exercise_id FROM sets WHERE id = ?',
+          [id]); // BEFORE delete
+      await tx.execute(deleteSetOp(id).sql, deleteSetOp(id).args);
+      if (g != null) {
+        await _recomputeTopSet(
+            tx, g['session_id'] as String, g['exercise_id'] as String);
+      }
+    });
   }
 
   /// Deletes a whole session and its sets.
