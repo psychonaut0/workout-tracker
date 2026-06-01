@@ -58,6 +58,22 @@ class AuthStore {
     await _storage.write(key: _kEmail, value: email);
   }
 
+  /// POST /auth/register. On 200 behaves like login (tokens + email persisted).
+  /// Throws on failure (e.g. 409 email already registered).
+  Future<void> register(String email, String password) async {
+    final res = await _http.post(
+      Uri.parse('$apiBaseUrl/auth/register'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('register failed (${res.statusCode}): ${res.body}');
+    }
+    _email = email;
+    await _persistTokens(jsonDecode(res.body) as Map<String, dynamic>);
+    await _storage.write(key: _kEmail, value: email);
+  }
+
   /// POST /auth/refresh — rotates both tokens. Returns the fresh access token,
   /// or null if the refresh token is invalid/expired (caller should log out).
   Future<String?> refresh() async {

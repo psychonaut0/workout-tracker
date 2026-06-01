@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController(text: 'me@example.com');
   final _password = TextEditingController(text: 'devpassword');
   bool _busy = false;
+  bool _registering = false;
   String? _error;
 
   Future<void> _submit() async {
@@ -25,7 +26,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      await widget.auth.login(_email.text.trim(), _password.text);
+      final email = _email.text.trim();
+      if (_registering) {
+        await widget.auth.register(email, _password.text);
+      } else {
+        await widget.auth.login(email, _password.text);
+      }
       await widget.onLoggedIn();
     } catch (e) {
       setState(() => _error = '$e');
@@ -65,7 +71,22 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(_error!, style: const TextStyle(color: Colors.red)),
             ElevatedButton(
               onPressed: _busy ? null : _submit,
-              child: Text(_busy ? '...' : 'Log in'),
+              child: Text(
+                _busy
+                    ? '...'
+                    : (_registering ? 'Create account' : 'Log in'),
+              ),
+            ),
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() {
+                        _registering = !_registering;
+                        _error = null;
+                      }),
+              child: Text(
+                _registering ? 'Have an account? Sign in' : 'Create account',
+              ),
             ),
           ],
         ),
