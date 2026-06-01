@@ -73,10 +73,22 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	prExercises := map[string]struct{}{}
 
 	for _, op := range req.Batch {
+		if _, err := tx.Exec(ctx, "SAVEPOINT op_sp"); err != nil {
+			writeJSONError(w, http.StatusServiceUnavailable, "transient db error")
+			return
+		}
 		err := applyOp(ctx, tx, userID, op, topGroups, prExercises)
 		if err == nil {
+			if _, rerr := tx.Exec(ctx, "RELEASE SAVEPOINT op_sp"); rerr != nil {
+				writeJSONError(w, http.StatusServiceUnavailable, "transient db error")
+				return
+			}
 			applied++
 			continue
+		}
+		if _, rerr := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT op_sp"); rerr != nil {
+			writeJSONError(w, http.StatusServiceUnavailable, "transient db error")
+			return
 		}
 		if isTransient(err) {
 			writeJSONError(w, http.StatusServiceUnavailable, "transient db error")
