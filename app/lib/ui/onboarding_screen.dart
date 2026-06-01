@@ -6,10 +6,29 @@ enum OnboardingChoice { empty, starter }
 /// starter set of exercises (+ default muscle targets). Everything seeded is
 /// editable/deletable later. [onChosen] performs the seeding + marks onboarding
 /// complete; this widget only collects the choice.
-class OnboardingScreen extends StatelessWidget {
+class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onChosen});
 
   final Future<void> Function(OnboardingChoice choice) onChosen;
+
+  @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  bool _busy = false;
+
+  Future<void> _choose(OnboardingChoice choice) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onChosen(choice);
+    } finally {
+      // On success the shell replaces this widget; the mounted guard makes a
+      // failed seed re-enable the buttons so the user can retry.
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +49,8 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               FilledButton(
-                onPressed: () => onChosen(OnboardingChoice.starter),
+                onPressed:
+                    _busy ? null : () => _choose(OnboardingChoice.starter),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 14),
                   child: Text('Add starter exercises'),
@@ -38,7 +58,7 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: () => onChosen(OnboardingChoice.empty),
+                onPressed: _busy ? null : () => _choose(OnboardingChoice.empty),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 14),
                   child: Text('Start empty'),

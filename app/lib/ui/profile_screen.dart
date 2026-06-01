@@ -307,7 +307,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _signIn(SettingsService settings) async {
     final url = _serverCtrl.text.trim();
-    await settings.setServerUrl(url);
+    // Login (auth_store) hits the global apiBaseUrl, so it must point at the
+    // entered URL before we push LoginScreen. We do NOT persist it yet —
+    // settings.setServerUrl is deferred into onLoggedIn so abandoning login
+    // leaves no persisted change.
     apiBaseUrl = url;
     if (!mounted) return;
 
@@ -316,6 +319,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (_) => LoginScreen(
         auth: widget.auth,
         onLoggedIn: () async {
+          // Persist the URL only now that login succeeded.
+          await settings.setServerUrl(url);
+          apiBaseUrl = url;
           await settings.setSyncEnabled(true);
           await connectSync(widget.auth);
           navigator.pop();

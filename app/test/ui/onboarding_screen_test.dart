@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/ui/onboarding_screen.dart';
@@ -24,5 +26,23 @@ void main() {
     await tester.tap(find.text('Start empty'));
     await tester.pumpAndSettle();
     expect(chosen, OnboardingChoice.empty);
+  });
+
+  testWidgets('a second tap while the first is in flight does not re-fire', (tester) async {
+    var calls = 0;
+    final completer = Completer<void>();
+    await tester.pumpWidget(MaterialApp(
+      home: OnboardingScreen(onChosen: (c) async {
+        calls++;
+        await completer.future; // keep the first call in-flight
+      }),
+    ));
+    await tester.tap(find.text('Add starter exercises'));
+    await tester.pump(); // let setState(_busy=true) apply
+    await tester.tap(find.text('Add starter exercises'), warnIfMissed: false);
+    await tester.pump();
+    expect(calls, 1);
+    completer.complete();
+    await tester.pumpAndSettle();
   });
 }
