@@ -193,6 +193,7 @@ class _DayEditorState extends State<DayEditor> {
       context,
       exercises: _catalog,
       current: null,
+      showBodyweight: false,
     );
     if (r == null || r == kBodyweightSentinel) return;
 

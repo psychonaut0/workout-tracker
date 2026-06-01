@@ -23,12 +23,17 @@ Future<String?> showExerciseSheet(
   BuildContext context, {
   required List<Exercise> exercises,
   required String? current,
+  bool showBodyweight = true,
 }) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _ExerciseSheet(exercises: exercises, current: current),
+    builder: (_) => _ExerciseSheet(
+      exercises: exercises,
+      current: current,
+      showBodyweight: showBodyweight,
+    ),
   );
 }
 
@@ -38,10 +43,12 @@ class _ExerciseSheet extends StatefulWidget {
   const _ExerciseSheet({
     required this.exercises,
     required this.current,
+    required this.showBodyweight,
   });
 
   final List<Exercise> exercises;
   final String? current;
+  final bool showBodyweight;
 
   @override
   State<_ExerciseSheet> createState() => _ExerciseSheetState();
@@ -85,79 +92,87 @@ class _ExerciseSheetState extends State<_ExerciseSheet> {
     final grouped = _group(filtered);
     final muscles = orderedMuscles(grouped.keys);
 
+    // Whether the pinned Bodyweight block is shown at all.
+    final showBodyweight = widget.showBodyweight && _showBodyweight;
+
     // Count matching exercise rows (not bodyweight).
     final exerciseCount = muscles.fold<int>(0, (n, m) => n + grouped[m]!.length);
-    final hasResults = exerciseCount > 0 || _showBodyweight;
+    final hasResults = exerciseCount > 0 || showBodyweight;
 
-    // The sheet occupies at most 84% of screen height.
-    final maxHeight = MediaQuery.of(context).size.height * 0.84;
-
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      decoration: BoxDecoration(
-        color: tokens.surface2,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppRadius.radius * 1.5),
-        ),
-        border: Border(
-          top: BorderSide(color: tokens.lineStrong, width: 1),
-        ),
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Fixed header (grabber + title + search) ──────────────────
-          _SheetHeader(
-            tokens: tokens,
-            query: _query,
-            onQueryChanged: (v) => setState(() => _query = v),
-            onClearQuery: () => setState(() => _query = ''),
-            onDone: () => Navigator.of(context).pop(),
-          ),
-
-          // ── Scrollable list ──────────────────────────────────────────
-          Flexible(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 30),
-              children: [
-                if (!hasResults)
-                  _EmptyState(query: _query.trim(), tokens: tokens),
-
-                // Bodyweight pinned row
-                if (_showBodyweight) ...[
-                  _SectionLabel(label: 'Tracking', tokens: tokens),
-                  _BodyweightRow(
-                    selected: widget.current == kBodyweightSentinel,
-                    tokens: tokens,
-                    onTap: () =>
-                        Navigator.of(context).pop(kBodyweightSentinel),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
-                // Exercise groups
-                for (final muscle in muscles) ...[
-                  _SectionLabel(
-                    label: muscleLabel(muscle).toUpperCase(),
-                    tokens: tokens,
-                  ),
-                  for (final ex in grouped[muscle]!) ...[
-                    _ExerciseRow(
-                      exercise: ex,
-                      selected: ex.id == widget.current,
-                      tokens: tokens,
-                      onTap: () => Navigator.of(context).pop(ex.id),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  const SizedBox(height: 14),
-                ],
-              ],
+    return DraggableScrollableSheet(
+      initialChildSize: 0.84,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: tokens.surface2,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppRadius.radius * 1.5),
+            ),
+            border: Border(
+              top: BorderSide(color: tokens.lineStrong, width: 1),
             ),
           ),
-        ],
-      ),
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Fixed header (grabber + title + search) ──────────────
+              _SheetHeader(
+                tokens: tokens,
+                query: _query,
+                onQueryChanged: (v) => setState(() => _query = v),
+                onClearQuery: () => setState(() => _query = ''),
+                onDone: () => Navigator.of(context).pop(),
+              ),
+
+              // ── Scrollable list ──────────────────────────────────────
+              Flexible(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 30),
+                  children: [
+                    if (!hasResults)
+                      _EmptyState(query: _query.trim(), tokens: tokens),
+
+                    // Bodyweight pinned row
+                    if (showBodyweight) ...[
+                      _SectionLabel(label: 'Tracking', tokens: tokens),
+                      _BodyweightRow(
+                        selected: widget.current == kBodyweightSentinel,
+                        tokens: tokens,
+                        onTap: () =>
+                            Navigator.of(context).pop(kBodyweightSentinel),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    // Exercise groups
+                    for (final muscle in muscles) ...[
+                      _SectionLabel(
+                        label: muscleLabel(muscle).toUpperCase(),
+                        tokens: tokens,
+                      ),
+                      for (final ex in grouped[muscle]!) ...[
+                        _ExerciseRow(
+                          exercise: ex,
+                          selected: ex.id == widget.current,
+                          tokens: tokens,
+                          onTap: () => Navigator.of(context).pop(ex.id),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      const SizedBox(height: 14),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
