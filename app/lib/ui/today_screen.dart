@@ -174,7 +174,7 @@ class _TodayScreenState extends State<TodayScreen> {
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 8,
+        top: 8 + MediaQuery.paddingOf(context).top,
         bottom: 96,
       ),
       children: [
@@ -282,9 +282,10 @@ class _TodayScreenState extends State<TodayScreen> {
         final bwUnit = hasBw ? units.uLabel : null;
         final sparkValues = lastUpTo18.map((e) => e.weightKg).toList();
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch, // was .start
+            children: [
             // Bodyweight tile
             Expanded(
               child: StatTile(
@@ -337,6 +338,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
             ),
           ],
+          ),
         );
       },
     );

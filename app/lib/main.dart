@@ -6,6 +6,7 @@ import 'data/catalog_seed.dart';
 import 'data/muscle_target_repository.dart';
 import 'data/session_repository.dart';
 import 'data/session_writer.dart';
+import 'data/top_set_backfill.dart';
 import 'identity/identity_service.dart';
 import 'settings/settings_service.dart';
 import 'shell/app_shell.dart';
@@ -41,6 +42,8 @@ Future<void> main() async {
   await identity.init(
     probeExistingUserId: () => SessionRepository(db).anyUserId(),
   );
+
+  await backfillTopSets(db);
 
   final loggedIn = await auth.load();
   if (shouldConnectSync(

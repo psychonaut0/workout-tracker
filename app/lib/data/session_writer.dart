@@ -50,6 +50,10 @@ class SetWrite {
 
   final bool isWarmup;
 
+  final bool isTopSet;
+
+  final bool isPr;
+
   const SetWrite({
     required this.id,
     required this.exerciseId,
@@ -58,6 +62,8 @@ class SetWrite {
     required this.reps,
     required this.rir,
     required this.isWarmup,
+    this.isTopSet = false,
+    this.isPr = false,
   });
 }
 
@@ -85,12 +91,35 @@ class SessionWrite {
 /// Writes [write] to the database via [executor]: one `sessions` INSERT +
 /// one `sets` INSERT per set.
 ///
-/// The server stamps `user_id` and recomputes `is_top_set`/`is_pr`; this
-/// function never writes those columns.
+/// The server stamps `user_id`; `is_top_set`/`is_pr` are stamped client-side
+/// (see [topSetIndex]) so offline-logged data is correct before sync.
 ///
 /// **Atomicity:** always call this inside `db.writeTransaction` via
 /// [PowerSyncTxExecutor]; that ensures the session row and all set rows commit
 /// as one local transaction and are uploaded as one CRUD batch.
+
+/// Index into [sets] of the top set for ONE exercise: heaviest non-warmup set,
+/// tie-break weight DESC, reps DESC, set_number ASC, id ASC (mirrors the server).
+/// Returns -1 if there is no non-warmup set. weightKg is TEXT → compare numerically.
+int topSetIndex(List<SetWrite> sets) {
+  var best = -1;
+  for (var i = 0; i < sets.length; i++) {
+    final s = sets[i];
+    if (s.isWarmup) continue;
+    if (best == -1) { best = i; continue; }
+    final b = sets[best];
+    final sw = double.tryParse(s.weightKg) ?? 0;
+    final bw = double.tryParse(b.weightKg) ?? 0;
+    if (sw > bw ||
+        (sw == bw && s.reps > b.reps) ||
+        (sw == bw && s.reps == b.reps && s.setNumber < b.setNumber) ||
+        (sw == bw && s.reps == b.reps && s.setNumber == b.setNumber && s.id.compareTo(b.id) < 0)) {
+      best = i;
+    }
+  }
+  return best;
+}
+
 Future<void> persistSession(SqlExecutor executor, SessionWrite write) async {
   // 1. Insert the session row.
   await executor.execute(
@@ -108,8 +137,8 @@ Future<void> persistSession(SqlExecutor executor, SessionWrite write) async {
   // 2. Insert each set.
   for (final s in write.sets) {
     await executor.execute(
-      'INSERT INTO sets (id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup) '
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO sets (id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, is_top_set, is_pr) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         s.id,
         write.id,
@@ -119,6 +148,8 @@ Future<void> persistSession(SqlExecutor executor, SessionWrite write) async {
         s.reps,
         s.isWarmup ? null : s.rir, // warm-up RIR → null
         s.isWarmup ? 1 : 0,
+        s.isTopSet ? 1 : 0,
+        s.isPr ? 1 : 0,
       ],
     );
   }

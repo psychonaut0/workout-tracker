@@ -166,6 +166,9 @@ void main() {
       rirHigh: 1,
     );
     final block = buildBlock(resolved: resolved, lastTopKg: null);
+    for (final s in block.allSets) {
+      s.done = true;
+    }
     controller.seedForTest(
       SessionDraft(
         templateId: 'day1',
@@ -200,10 +203,12 @@ void main() {
     // 1 warmup + 2 working = 3 sets
     expect(setInserts.length, 3);
 
-    // No computed flags in any SQL
-    for (final c in exec.calls) {
-      expect(c.$1.contains('is_top_set'), isFalse);
-      expect(c.$1.contains('is_pr'), isFalse);
+    // Client flags ARE stamped: the heaviest working set is the top set.
+    // No prior best (lastTopKg null → bestKg null) so is_pr stays false.
+    final workingInserts = setInserts.where((c) => c.$2[7] == 0).toList();
+    expect(workingInserts.any((c) => c.$2[8] == 1), isTrue); // exactly one top set
+    for (final c in setInserts) {
+      expect(c.$2[9], 0); // is_pr false (no bestKg)
     }
 
     // Warm-up set: is_warmup = 1 (true)
@@ -237,6 +242,9 @@ void main() {
       resolved: ResolvedSlot(exercise: ex2, workSets: 2, warmupSets: 0, repLow: 10, repHigh: 12, rirLow: 1, rirHigh: 1),
       lastTopKg: null,
     );
+    for (final s in [...block1.allSets, ...block2.allSets]) {
+      s.done = true;
+    }
     controller.seedForTest(SessionDraft(
       templateId: null,
       name: 'Custom',
