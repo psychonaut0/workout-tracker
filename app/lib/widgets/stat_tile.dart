@@ -99,6 +99,8 @@ class StatTile extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               sub!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: WorkoutType.mono(
                 size: 10.5,
                 color: tokens.dim,

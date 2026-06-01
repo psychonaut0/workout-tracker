@@ -315,7 +315,7 @@ class _TodayScreenState extends State<TodayScreen> {
                       return StatTile(
                         label: 'Sets / wk',
                         value: '$sets',
-                        sub: 'across $muscles muscles',
+                        sub: '$muscles muscles',
                       );
                     },
                   );
