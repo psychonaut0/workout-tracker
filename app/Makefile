@@ -4,7 +4,7 @@
 FLUTTER := fvm flutter
 DART := fvm dart
 
-.PHONY: help install get scaffold-linux scaffold-android analyze test fmt format build build-apk run run-android doctor devices clean
+.PHONY: help install get scaffold-linux scaffold-android analyze test fmt format build build-apk build-apk-release run run-android doctor devices clean
 
 help:
 	@echo "Targets (run from repo root as 'make -C app <target>'):"
@@ -18,6 +18,7 @@ help:
 	@echo "  format         Verify formatting, fail if changes needed (CI)"
 	@echo "  build          Build the Linux desktop bundle (compiles native libs)"
 	@echo "  build-apk         Build a debug APK"
+	@echo "  build-apk-release Build a signed release APK (needs android/key.properties)"
 	@echo "  run            Run on the Linux desktop target"
 	@echo "  run-android       Run on a connected Android device"
 	@echo "  doctor         flutter doctor -v"
@@ -53,6 +54,9 @@ build:
 
 build-apk:
 	$(FLUTTER) build apk --debug
+
+build-apk-release:
+	$(FLUTTER) build apk --release
 
 run:
 	$(FLUTTER) run -d linux
