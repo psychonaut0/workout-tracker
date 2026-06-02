@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.psy.workout_tracker"
+    namespace = "io.github.psychonaut0.reps"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "dev.psy.workout_tracker"
+        applicationId = "io.github.psychonaut0.reps"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
