@@ -107,8 +107,9 @@ class _WDialogBody<T> extends StatelessWidget {
                     style: WorkoutType.body(size: 14, color: tokens.dim)),
               ),
               const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   for (var i = 0; i < actions.length; i++)
                     TextButton(

@@ -13,6 +13,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../widgets/plan_form.dart';
+import '../widgets/w_dialog.dart';
 import 'login_screen.dart';
 
 /// First-sign-in reconciliation choice when local data already exists.
@@ -273,24 +274,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final url = _serverCtrl.text.trim();
     if (url.isEmpty || !url.startsWith('http')) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Switch server?'),
-        content: const Text(
-          'This signs you out and clears local data on this device.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Switch'),
-          ),
-        ],
-      ),
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Switch server?',
+      message: 'This signs you out and clears local data on this device.',
+      confirmLabel: 'Switch',
+      destructive: true,
     );
 
     if (confirmed != true) return;
@@ -338,26 +327,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // context before using it so we don't trip
             // use_build_context_synchronously.
             if (!navigator.mounted) return;
-            final choice = await showDialog<_ReconcileChoice>(
-              context: navigator.context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('You have local data'),
-                content: const Text(
+            final choice = await showWDialog<_ReconcileChoice>(
+              navigator.context,
+              title: 'You have local data',
+              message:
                   'This device already has workout data. Keep it and merge with '
                   "your account, or replace it with the account's data?",
+              actions: const [
+                WDialogAction(
+                  label: "Use the account's data",
+                  value: _ReconcileChoice.discard,
+                  destructive: true,
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.pop(ctx, _ReconcileChoice.discard),
-                    child: const Text("Use the account's data"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, _ReconcileChoice.keep),
-                    child: const Text('Keep my data'),
-                  ),
-                ],
-              ),
+                WDialogAction(label: 'Keep my data', value: _ReconcileChoice.keep),
+              ],
             );
 
             // Dialog dismissed (barrier/back) → cancel: stay local, no sync.
@@ -381,22 +364,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Sign-out flow ─────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You will need to sign in again to access your data.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Sign out?',
+      message: 'You will need to sign in again to access your data.',
+      confirmLabel: 'Sign out',
     );
 
     if (confirmed != true) return;

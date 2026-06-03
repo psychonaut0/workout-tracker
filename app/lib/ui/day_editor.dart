@@ -11,6 +11,7 @@ import '../theme/typography.dart';
 import '../util/dates.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
+import '../widgets/w_dialog.dart';
 import 'exercise_sheet.dart';
 
 // ── _SlotState ────────────────────────────────────────────────────────────────
@@ -242,24 +243,13 @@ class _DayEditorState extends State<DayEditor> {
 
   Future<void> _delete() async {
     if (_editId == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete training day?'),
-        content: const Text(
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Delete training day?',
+      message:
           'This will also remove all exercises in this day. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      destructive: true,
     );
     if (confirmed != true) return;
     await _dayRepo.deleteDay(_editId!);
