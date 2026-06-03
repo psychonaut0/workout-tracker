@@ -357,10 +357,13 @@ class _TodayScreenState extends State<TodayScreen> {
                     builder: (context, musclesSnap) {
                       final sets = setsSnap.data ?? 0;
                       final muscles = musclesSnap.data ?? 0;
-                      return StatTile(
-                        label: 'Sets / wk',
-                        value: '$sets',
-                        sub: '$muscles muscles',
+                      return CountUp(
+                        value: sets,
+                        builder: (v) => StatTile(
+                          label: 'Sets / wk',
+                          value: '$v',
+                          sub: '$muscles muscles',
+                        ),
                       );
                     },
                   );
@@ -374,10 +377,13 @@ class _TodayScreenState extends State<TodayScreen> {
                 stream: _stats.watchPrsThisWeek(weekStart: ws),
                 builder: (context, prsSnap) {
                   final prs = prsSnap.data ?? 0;
-                  return StatTile(
-                    label: 'PRs / wk',
-                    value: '$prs',
-                    sub: 'new top sets',
+                  return CountUp(
+                    value: prs,
+                    builder: (v) => StatTile(
+                      label: 'PRs / wk',
+                      value: '$v',
+                      sub: 'new top sets',
+                    ),
                   );
                 },
               ),

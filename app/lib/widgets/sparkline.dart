@@ -1,8 +1,8 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/motion.dart';
 
 /// A tiny polyline sparkline, ported from `ui.jsx` → `Sparkline`.
 ///
@@ -35,12 +35,16 @@ class Sparkline extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: CustomPaint(
-        painter: _SparklinePainter(
-          values: values,
-          stroke: color,
-          canvasWidth: width,
-          canvasHeight: height,
+      child: MountProgress(
+        duration: Motion.base,
+        builder: (_, t) => CustomPaint(
+          painter: _SparklinePainter(
+            values: values,
+            stroke: color,
+            canvasWidth: width,
+            canvasHeight: height,
+            progress: t,
+          ),
         ),
       ),
     );
@@ -53,12 +57,17 @@ class _SparklinePainter extends CustomPainter {
     required this.stroke,
     required this.canvasWidth,
     required this.canvasHeight,
+    this.progress = 1.0,
   });
 
   final List<double> values;
   final Color stroke;
   final double canvasWidth;
   final double canvasHeight;
+
+  /// One-shot mount progress 0→1. Strokes the line on; the end dot appears at
+  /// completion. Identical to a static render at 1.0.
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -73,10 +82,11 @@ class _SparklinePainter extends CustomPainter {
     double xOf(int i) => (i / (n - 1)) * w;
     double yOf(double v) => h - 2 - ((v - lo) / sp) * (h - 4);
 
-    // Build polyline points.
-    final points = [
-      for (var i = 0; i < n; i++) Offset(xOf(i), yOf(values[i])),
-    ];
+    // Build the polyline as a Path so it can be stroked on via PathMetric.
+    final linePath = Path()..moveTo(xOf(0), yOf(values[0]));
+    for (var i = 1; i < n; i++) {
+      linePath.lineTo(xOf(i), yOf(values[i]));
+    }
 
     final linePaint = Paint()
       ..color = stroke
@@ -85,26 +95,29 @@ class _SparklinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    canvas.drawPoints(
-      PointMode.polygon,
-      points,
-      linePaint,
-    );
+    // Draw only the first `progress` fraction of the line's length. At t=1 the
+    // extracted path equals the full polyline.
+    for (final m in linePath.computeMetrics()) {
+      canvas.drawPath(m.extractPath(0, m.length * progress), linePaint);
+    }
 
-    // Filled dot at the last data point.
-    final dotPaint = Paint()
-      ..color = stroke
-      ..style = PaintingStyle.fill;
+    // Filled dot at the last data point — only once the line fully arrives.
+    if (progress >= 1.0) {
+      final dotPaint = Paint()
+        ..color = stroke
+        ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(
-      Offset(xOf(n - 1), yOf(values[n - 1])),
-      2.0,
-      dotPaint,
-    );
+      canvas.drawCircle(
+        Offset(xOf(n - 1), yOf(values[n - 1])),
+        2.0,
+        dotPaint,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(_SparklinePainter old) =>
+      old.progress != progress ||
       old.values != values ||
       old.stroke != stroke ||
       old.canvasWidth != canvasWidth ||

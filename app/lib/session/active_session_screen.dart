@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/active_session_draft.dart';
@@ -46,13 +47,41 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
   DateTime? _restStart;
   int _restTotal = 0;
 
+  // Haptic guards: fire once per countdown. Re-armed (cleared) when +30s pushes
+  // remaining back above the respective threshold.
+  bool _tickHapticFired = false; // 3s remaining → selectionClick
+  bool _buzzHapticFired = false; // 0s remaining → vibrate
+
   @override
   void initState() {
     super.initState();
     // 1-second ticker that forces a rebuild for the elapsed counter and rest timer.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      _handleRestHaptics();
+      setState(() {});
     });
+  }
+
+  /// Fires countdown haptics at the 3s and 0s thresholds, once each, and
+  /// re-arms the guards if +30s lifts remaining back above a threshold.
+  void _handleRestHaptics() {
+    if (!_restActive || _restStart == null) return;
+    final elapsed = DateTime.now().difference(_restStart!).inSeconds;
+    final remaining = _restTotal - elapsed;
+
+    // Re-arm guards when +30s pushes remaining back above the thresholds.
+    if (remaining > 3) _tickHapticFired = false;
+    if (remaining > 0) _buzzHapticFired = false;
+
+    if (remaining <= 3 && remaining > 0 && !_tickHapticFired) {
+      _tickHapticFired = true;
+      HapticFeedback.selectionClick();
+    }
+    if (remaining <= 0 && !_buzzHapticFired) {
+      _buzzHapticFired = true;
+      HapticFeedback.vibrate();
+    }
   }
 
   @override
@@ -68,6 +97,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       _restActive = true;
       _restStart = DateTime.now();
       _restTotal = totalSeconds;
+      _tickHapticFired = false;
+      _buzzHapticFired = false;
     });
   }
 

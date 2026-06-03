@@ -12,6 +12,59 @@ class Motion {
       MediaQuery.of(context).disableAnimations ? Duration.zero : d;
 }
 
+/// Animated integer count-up: 0→value on first build, old→new on changes
+/// (TweenAnimationBuilder's natural retargeting). Renders via [builder] so the
+/// final formatted output is identical to a static render.
+class CountUp extends StatelessWidget {
+  const CountUp({super.key, required this.value, required this.builder});
+  final int value;
+  final Widget Function(int value) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<int>(
+      tween: IntTween(begin: 0, end: value),
+      duration: Motion.of(context, Motion.slow),
+      curve: Motion.curve,
+      builder: (_, v, __) => builder(v),
+    );
+  }
+}
+
+/// Drives a one-shot 0→1 progress on mount (reduced-motion → instantly 1).
+///
+/// Mount-driven so it never re-plays when a parent stream rebuilds the subtree
+/// (as long as the widget keeps its identity / key). [builder] receives the
+/// curved progress `t`; at `t == 1` it must render identically to a static draw.
+class MountProgress extends StatefulWidget {
+  const MountProgress({super.key, required this.duration, required this.builder});
+  final Duration duration;
+  final Widget Function(BuildContext context, double t) builder;
+
+  @override
+  State<MountProgress> createState() => _MountProgressState();
+}
+
+class _MountProgressState extends State<MountProgress>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: widget.duration)..forward();
+  late final CurvedAnimation _a = CurvedAnimation(parent: _c, curve: Motion.curve);
+
+  @override
+  void dispose() {
+    _a.dispose();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.builder(context, 1.0);
+    return AnimatedBuilder(animation: _a, builder: (ctx, _) => widget.builder(ctx, _a.value));
+  }
+}
+
 /// One-shot fade + 12px rise on first mount, staggered by [index]. Never
 /// re-plays on rebuilds.
 class StaggeredEntrance extends StatefulWidget {

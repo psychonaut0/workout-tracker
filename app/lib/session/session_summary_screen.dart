@@ -379,15 +379,27 @@ class _StatTiles extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _Tile(
-            label: 'Duration',
-            value: '${durationMin}m',
-            tokens: tokens),
+        Expanded(
+          child: CountUp(
+            value: durationMin,
+            builder: (v) => _TileInner(
+              label: 'Duration',
+              value: '${v}m',
+              tokens: tokens,
+            ),
+          ),
+        ),
         const SizedBox(width: 12),
-        _Tile(
-            label: 'Sets',
-            value: '$totalSets',
-            tokens: tokens),
+        Expanded(
+          child: CountUp(
+            value: totalSets,
+            builder: (v) => _TileInner(
+              label: 'Sets',
+              value: '$v',
+              tokens: tokens,
+            ),
+          ),
+        ),
         const SizedBox(width: 12),
         _Tile(
             label: 'Volume',
@@ -396,12 +408,11 @@ class _StatTiles extends StatelessWidget {
         const SizedBox(width: 12),
         // PR count ticks up from 0 on mount.
         Expanded(
-          child: TweenAnimationBuilder<int>(
-            tween: IntTween(begin: 0, end: prCount),
-            duration: Motion.slow,
-            builder: (context, value, _) => _TileInner(
+          child: CountUp(
+            value: prCount,
+            builder: (v) => _TileInner(
               label: 'PRs',
-              value: '$value',
+              value: '$v',
               tokens: tokens,
               highlight: prCount > 0,
             ),

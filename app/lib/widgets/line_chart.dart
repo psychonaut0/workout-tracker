@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/motion.dart';
 import '../util/format.dart';
 
 /// A progression line chart ported from `ui.jsx` `LineChart`.
@@ -36,16 +37,20 @@ class LineChart extends StatelessWidget {
     final tokens = context.tokens;
     return LayoutBuilder(
       builder: (context, constraints) {
-        return CustomPaint(
-          size: Size(constraints.maxWidth, height),
-          painter: _LineChartPainter(
-            series: series,
-            unit: unit,
-            showReps: showReps,
-            accent: tokens.accent,
-            bg: tokens.bg,
-            faint: tokens.faint,
-            text: tokens.text,
+        return MountProgress(
+          duration: const Duration(milliseconds: 450),
+          builder: (_, t) => CustomPaint(
+            size: Size(constraints.maxWidth, height),
+            painter: _LineChartPainter(
+              series: series,
+              unit: unit,
+              showReps: showReps,
+              accent: tokens.accent,
+              bg: tokens.bg,
+              faint: tokens.faint,
+              text: tokens.text,
+              progress: t,
+            ),
           ),
         );
       },
@@ -62,6 +67,7 @@ class _LineChartPainter extends CustomPainter {
     required this.bg,
     required this.faint,
     required this.text,
+    this.progress = 1.0,
   });
 
   final List<({String date, double value, int reps, bool isPr})> series;
@@ -71,6 +77,11 @@ class _LineChartPainter extends CustomPainter {
   final Color bg;
   final Color faint;
   final Color text;
+
+  /// One-shot mount progress 0→1. Axes/grid/labels render fully from t=0;
+  /// only the data line, area fill, and point dots draw in. At 1.0 the render
+  /// is identical to a static chart.
+  final double progress;
 
   // Padding constants (ported from ui.jsx pad object)
   static const double _padT = 18;
@@ -142,7 +153,11 @@ class _LineChartPainter extends CustomPainter {
     final areaGradient = ui.Gradient.linear(
       Offset(0, _padT),
       Offset(0, _padT + ih),
-      [accent.withValues(alpha: 0.22), accent.withValues(alpha: 0)],
+      // Fade the fill in with progress so it never pops; identical at t=1.
+      [
+        accent.withValues(alpha: 0.22 * progress),
+        accent.withValues(alpha: 0),
+      ],
     );
     canvas.drawPath(areaPath, Paint()..shader = areaGradient);
 
@@ -151,18 +166,23 @@ class _LineChartPainter extends CustomPainter {
     for (var i = 1; i < n; i++) {
       linePath.lineTo(xAt(i), yAt(series[i].value));
     }
-    canvas.drawPath(
-      linePath,
-      Paint()
-        ..color = accent
-        ..strokeWidth = 2.4
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke,
-    );
+    final linePaint = Paint()
+      ..color = accent
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    // Stroke the line on by progress fraction of its arc length. At t=1 the
+    // extracted path equals the full path, so the render is unchanged.
+    for (final m in linePath.computeMetrics()) {
+      canvas.drawPath(m.extractPath(0, m.length * progress), linePaint);
+    }
 
     // ── per-point dots (skip last — handled separately) ───────────────────────
     for (var i = 0; i < n - 1; i++) {
+      // Reveal each dot once the stroke has reached its x-fraction.
+      if (i / (n - 1) > progress) continue;
+
       final cx = xAt(i);
       final cy = yAt(series[i].value);
 
@@ -215,6 +235,10 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // ── last point: r9 accent@0.16 halo + r4.5 dot + floating value label ─────
+    // The endpoint sits at x-fraction 1.0, so only reveal it once the stroke
+    // has fully arrived (avoids the dot + label floating ahead of the line).
+    if (progress < 1.0) return;
+
     final last = series[n - 1];
     final lastX = xAt(n - 1);
     final lastY = yAt(last.value);
@@ -293,7 +317,8 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LineChartPainter old) {
-    return old.series != series ||
+    return old.progress != progress ||
+        old.series != series ||
         old.unit != unit ||
         old.showReps != showReps ||
         old.accent != accent ||
