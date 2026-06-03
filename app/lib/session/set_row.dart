@@ -90,22 +90,52 @@ class SetRow extends StatelessWidget {
             const SizedBox(width: 6),
 
             // ── Main content ─────────────────────────────────────────────
+            // The two states' subtrees fully diverge (steppers row vs static
+            // value + badges). Cross-fade + rise between them; AnimatedSize
+            // absorbs any height delta.
             Expanded(
-              child: done
-                  ? _DoneContent(
-                      set: set,
-                      unit: unit,
-                      isLivePr: isLivePr,
-                      isLiveTop: isLiveTop,
-                      tokens: tokens,
-                    )
-                  : _EditContent(
-                      set: set,
-                      exercise: exercise,
-                      unit: unit,
-                      tokens: tokens,
-                      onChanged: onChanged,
+              child: AnimatedSize(
+                duration: Motion.of(context, Motion.base),
+                curve: Motion.curve,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: Motion.of(context, Motion.base),
+                  switchInCurve: Motion.curve,
+                  switchOutCurve: Motion.curve,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween(
+                        begin: const Offset(0, 0.08),
+                        end: Offset.zero,
+                      ).animate(anim),
+                      child: child,
                     ),
+                  ),
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [...previous, if (current != null) current],
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey(done),
+                    child: done
+                        ? _DoneContent(
+                            set: set,
+                            unit: unit,
+                            isLivePr: isLivePr,
+                            isLiveTop: isLiveTop,
+                            tokens: tokens,
+                          )
+                        : _EditContent(
+                            set: set,
+                            exercise: exercise,
+                            unit: unit,
+                            tokens: tokens,
+                            onChanged: onChanged,
+                          ),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 6),
 
