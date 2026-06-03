@@ -3,9 +3,14 @@
 /// import-compatibility contract; bump it on breaking schema changes.
 library;
 
-/// Lossless full-backup envelope. Strips `user_id` from every row (an import
-/// re-stamps it; keeps the file portable across devices/accounts). Rows are
-/// otherwise passed through as stored (kg canonical, ids kept).
+/// Identity columns stripped from full-export rows: both are user UUIDs the
+/// server re-stamps on import, so exporting them only leaks identity.
+const _identityColumns = {'user_id', 'created_by'};
+
+/// Lossless full-backup envelope. Strips the identity columns from every row
+/// (an import re-stamps them; keeps the file portable across devices and
+/// accounts). Rows are otherwise passed through as stored (kg canonical,
+/// ids kept).
 Map<String, dynamic> buildFullExport({
   required Map<String, List<Map<String, Object?>>> tables,
   required Map<String, Object?> settings,
@@ -23,7 +28,7 @@ Map<String, dynamic> buildFullExport({
           for (final row in entry.value)
             {
               for (final col in row.entries)
-                if (col.key != 'user_id') col.key: col.value,
+                if (!_identityColumns.contains(col.key)) col.key: col.value,
             },
         ],
     },

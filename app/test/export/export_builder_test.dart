@@ -26,7 +26,7 @@ void main() {
           {'id': 'e1', 'name': 'Bench', 'slug': 'bench'});
     });
 
-    test('strips user_id from every row of every table', () {
+    test('strips user_id and created_by from every row of every table', () {
       final out = buildFullExport(
         tables: {
           'sessions': [
@@ -36,6 +36,9 @@ void main() {
           'sets': [
             {'id': 'x1', 'user_id': 'u1', 'session_id': 's1', 'reps': 8},
           ],
+          'exercises': [
+            {'id': 'e1', 'name': 'Bench', 'created_by': 'u1'},
+          ],
         },
         settings: const {},
         exportedAt: DateTime(2026, 6, 3),
@@ -44,10 +47,12 @@ void main() {
       for (final rows in data.values) {
         for (final row in rows as List) {
           expect((row as Map).containsKey('user_id'), isFalse);
+          expect(row.containsKey('created_by'), isFalse);
         }
       }
       // Other columns intact.
       expect(((data['sets'] as List).single as Map)['reps'], 8);
+      expect(((data['exercises'] as List).single as Map)['name'], 'Bench');
     });
 
     test('does not mutate the input rows', () {
