@@ -19,6 +19,7 @@ import '../widgets/card.dart';
 import '../widgets/pr_badge.dart';
 import '../widgets/rir_picker.dart';
 import '../widgets/stepper.dart';
+import '../widgets/w_dialog.dart';
 
 /// The History tab — sessions grouped by ISO week, expandable to per-exercise
 /// top sets.
@@ -621,25 +622,13 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
   }
 
   Future<void> _deleteSession() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete session?'),
-        content: const Text(
-          'This permanently removes the session and all its sets. '
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Delete session?',
+      message: 'This permanently removes the session and all its sets. '
           'This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      destructive: true,
     );
     if (confirmed != true) return;
     // The watchSessionStats stream updates the list automatically afterwards.
@@ -679,11 +668,14 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
               Divider(color: tokens.line, height: 1, thickness: 1),
               const SizedBox(height: 8),
               for (final block in blocks)
-                _BlockRow(
-                  block: block,
-                  catalogMap: widget.catalogMap,
-                  units: widget.units,
-                  onTap: () => _editExercise(block),
+                Reveal(
+                  key: ValueKey(block.exerciseId),
+                  child: _BlockRow(
+                    block: block,
+                    catalogMap: widget.catalogMap,
+                    units: widget.units,
+                    onTap: () => _editExercise(block),
+                  ),
                 ),
               const SizedBox(height: 6),
               // Add-exercise affordance.
@@ -893,22 +885,12 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
       );
 
   Future<void> _deleteSet(_EditableSet s) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete set?'),
-        content: const Text('This permanently removes this set.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Delete set?',
+      message: 'This permanently removes this set.',
+      confirmLabel: 'Delete',
+      destructive: true,
     );
     if (confirmed != true) return;
     await widget.sessionRepo.deleteSet(s.id);
@@ -1020,16 +1002,28 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    for (var i = 0; i < _sets.length; i++)
-                      _EditRow(
-                        set: _sets[i],
-                        // 1-based index across working sets; W for warm-ups.
-                        workIndex: _workIndexOf(i),
-                        exercise: widget.exercise,
-                        units: widget.units,
-                        onChanged: () => _persist(_sets[i]),
-                        onDelete: () => _deleteSet(_sets[i]),
+                    AnimatedSize(
+                      duration: Motion.of(context, Motion.base),
+                      curve: Motion.curve,
+                      alignment: Alignment.topCenter,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < _sets.length; i++)
+                            Reveal(
+                              key: ValueKey(_sets[i].id),
+                              child: _EditRow(
+                                set: _sets[i],
+                                // 1-based index across working sets; W for warm-ups.
+                                workIndex: _workIndexOf(i),
+                                exercise: widget.exercise,
+                                units: widget.units,
+                                onChanged: () => _persist(_sets[i]),
+                                onDelete: () => _deleteSet(_sets[i]),
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
                     const SizedBox(height: 6),
                     // Add-set affordance.
                     GestureDetector(

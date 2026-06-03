@@ -48,8 +48,17 @@ class MountProgress extends StatefulWidget {
 class _MountProgressState extends State<MountProgress>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: widget.duration)..forward();
+      AnimationController(vsync: this, duration: widget.duration);
   late final CurvedAnimation _a = CurvedAnimation(parent: _c, curve: Motion.curve);
+
+  @override
+  void initState() {
+    super.initState();
+    // Construct + start while the element is active: under reduced motion
+    // build() never touches the late fields, so a lazy first touch in
+    // dispose() would create the ticker on a deactivated element and throw.
+    _c.forward();
+  }
 
   @override
   void dispose() {
@@ -85,6 +94,11 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   @override
   void initState() {
     super.initState();
+    // Construct the controller while the element is active (no-op stop):
+    // under reduced motion build() never touches the late fields, so a lazy
+    // first touch in dispose() would create the ticker on a deactivated
+    // element and throw.
+    _c.stop();
     Future.delayed(Duration(milliseconds: 30 * widget.index), () {
       if (mounted) _c.forward();
     });
@@ -110,6 +124,70 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
         ),
         child: widget.child,
       ),
+    );
+  }
+}
+
+/// One-shot fade + 12px rise on first mount — [StaggeredEntrance] without the
+/// stagger. Use on newly added list rows (keyed by the row's stable id) so
+/// inserts ease in; never re-plays on rebuilds while the key is stable.
+class Reveal extends StatefulWidget {
+  const Reveal({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: Motion.base);
+  late final CurvedAnimation _a = CurvedAnimation(parent: _c, curve: Motion.curve);
+
+  @override
+  void initState() {
+    super.initState();
+    _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _a.dispose();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return FadeTransition(
+      opacity: _a,
+      child: AnimatedBuilder(
+        animation: _a,
+        builder: (_, child) => Transform.translate(
+          offset: Offset(0, 12 * (1 - _a.value)),
+          child: child,
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Cross-fades [child] when [unitKey] changes (kg ↔ lb re-renders) and swaps
+/// in place when only the content changes. Wrap high-visibility weight values.
+class UnitSwap extends StatelessWidget {
+  const UnitSwap({super.key, required this.unitKey, required this.child});
+  final Object unitKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: Motion.of(context, Motion.fast),
+      switchInCurve: Motion.curve,
+      switchOutCurve: Motion.curve,
+      child: KeyedSubtree(key: ValueKey(unitKey), child: child),
     );
   }
 }

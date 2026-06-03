@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
@@ -264,32 +265,43 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
                   ),
 
                   // Set rows
-                  ...block.allSets.asMap().entries.map((entry) {
-                    final s = entry.value;
-                    final workIdx = s.isWarmup
-                        ? -1
-                        : block.workingSets.indexOf(s) + 1;
+                  AnimatedSize(
+                    duration: Motion.of(context, Motion.base),
+                    curve: Motion.curve,
+                    alignment: Alignment.topCenter,
+                    child: Column(
+                      children: [
+                        ...block.allSets.asMap().entries.map((entry) {
+                          final s = entry.value;
+                          final workIdx = s.isWarmup
+                              ? -1
+                              : block.workingSets.indexOf(s) + 1;
 
-                    // Compute live flags: this set is the top working set
-                    final isLiveTop = s.done &&
-                        !s.isWarmup &&
-                        completedTop > 0 &&
-                        s.weightKg == completedTop;
-                    final isLivePrSet = isLiveTop && isLivePr;
+                          // Compute live flags: this set is the top working set
+                          final isLiveTop = s.done &&
+                              !s.isWarmup &&
+                              completedTop > 0 &&
+                              s.weightKg == completedTop;
+                          final isLivePrSet = isLiveTop && isLivePr;
 
-                    return SetRow(
-                      key: ValueKey(s.id),
-                      set: s,
-                      exercise: ex,
-                      workIndex: workIdx,
-                      unit: unit,
-                      isLiveTop: isLiveTop,
-                      isLivePr: isLivePrSet,
-                      onChanged: (updated) =>
-                          widget.onSetChanged(block, updated),
-                      onToggleDone: () => widget.onToggleDone(block, s),
-                    );
-                  }),
+                          return Reveal(
+                            key: ValueKey(s.id),
+                            child: SetRow(
+                              set: s,
+                              exercise: ex,
+                              workIndex: workIdx,
+                              unit: unit,
+                              isLiveTop: isLiveTop,
+                              isLivePr: isLivePrSet,
+                              onChanged: (updated) =>
+                                  widget.onSetChanged(block, updated),
+                              onToggleDone: () => widget.onToggleDone(block, s),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 8),
 

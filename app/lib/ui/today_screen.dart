@@ -333,17 +333,20 @@ class _TodayScreenState extends State<TodayScreen> {
             children: [
             // Bodyweight tile
             Expanded(
-              child: StatTile(
-                label: 'Bodyweight',
-                value: bwValue,
-                unit: bwUnit,
-                spark: sparkValues.length >= 2
-                    ? Sparkline(
-                        values: sparkValues,
-                        stroke: tokens.dim,
-                      )
-                    : null,
-                onTap: () => widget.onOpenExercise('__bodyweight__'),
+              child: UnitSwap(
+                unitKey: bwUnit ?? '',
+                child: StatTile(
+                  label: 'Bodyweight',
+                  value: bwValue,
+                  unit: bwUnit,
+                  spark: sparkValues.length >= 2
+                      ? Sparkline(
+                          values: sparkValues,
+                          stroke: tokens.dim,
+                        )
+                      : null,
+                  onTap: () => widget.onOpenExercise('__bodyweight__'),
+                ),
               ),
             ),
             const SizedBox(width: 10),

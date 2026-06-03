@@ -6,11 +6,13 @@ import '../data/models.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
+import '../widgets/w_dialog.dart';
 import 'exercise_sheet.dart';
 
 // ── _SlotState ────────────────────────────────────────────────────────────────
@@ -242,24 +244,13 @@ class _DayEditorState extends State<DayEditor> {
 
   Future<void> _delete() async {
     if (_editId == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete training day?'),
-        content: const Text(
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Delete training day?',
+      message:
           'This will also remove all exercises in this day. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      destructive: true,
     );
     if (confirmed != true) return;
     await _dayRepo.deleteDay(_editId!);
@@ -338,20 +329,22 @@ class _DayEditorState extends State<DayEditor> {
               isTemplate: true,
             ),
           );
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: _SlotRow(
-              key: ValueKey(slot.exerciseId),
-              index: index,
-              total: _slots.length,
-              slot: slot,
-              exercise: ex,
-              tokens: tokens,
-              expanded: _expandedExId == slot.exerciseId,
-              onToggle: () => _toggleSlot(slot.exerciseId),
-              onMove: (dir) => _moveSlot(index, dir),
-              onRemove: () => _removeSlot(index),
-              onChanged: () => setState(() {}),
+          return Reveal(
+            key: ValueKey(slot.exerciseId),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: _SlotRow(
+                index: index,
+                total: _slots.length,
+                slot: slot,
+                exercise: ex,
+                tokens: tokens,
+                expanded: _expandedExId == slot.exerciseId,
+                onToggle: () => _toggleSlot(slot.exerciseId),
+                onMove: (dir) => _moveSlot(index, dir),
+                onRemove: () => _removeSlot(index),
+                onChanged: () => setState(() {}),
+              ),
             ),
           );
         }),
@@ -416,7 +409,6 @@ class _CloneBanner extends StatelessWidget {
 
 class _SlotRow extends StatefulWidget {
   const _SlotRow({
-    super.key,
     required this.index,
     required this.total,
     required this.slot,

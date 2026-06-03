@@ -8,6 +8,7 @@ import '../data/progress_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
@@ -335,10 +336,13 @@ class _BigStatRow extends StatelessWidget {
         Expanded(
           child: WCard(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-            child: BigStat(
-              label: 'Current',
-              value: fmtVal(last),
-              unit: currentUnit.isNotEmpty ? currentUnit : null,
+            child: UnitSwap(
+              unitKey: currentUnit,
+              child: BigStat(
+                label: 'Current',
+                value: fmtVal(last),
+                unit: currentUnit.isNotEmpty ? currentUnit : null,
+              ),
             ),
           ),
         ),
@@ -346,11 +350,14 @@ class _BigStatRow extends StatelessWidget {
         Expanded(
           child: WCard(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-            child: BigStat(
-              label: 'Best',
-              value: fmtVal(best),
-              unit: unit.isNotEmpty ? unit : null,
-              accent: true,
+            child: UnitSwap(
+              unitKey: unit,
+              child: BigStat(
+                label: 'Best',
+                value: fmtVal(best),
+                unit: unit.isNotEmpty ? unit : null,
+                accent: true,
+              ),
             ),
           ),
         ),
@@ -358,10 +365,13 @@ class _BigStatRow extends StatelessWidget {
         Expanded(
           child: WCard(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-            child: BigStat(
-              label: '12wk Δ',
-              value: series.length >= 2 ? signedDelta(delta) : '—',
-              unit: unit.isNotEmpty ? unit : null,
+            child: UnitSwap(
+              unitKey: unit,
+              child: BigStat(
+                label: '12wk Δ',
+                value: series.length >= 2 ? signedDelta(delta) : '—',
+                unit: unit.isNotEmpty ? unit : null,
+              ),
             ),
           ),
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/motion.dart';
+
 enum OnboardingChoice { empty, starter }
 
 /// First-launch screen: lets the user start with an empty library or seed a
@@ -41,27 +43,38 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Welcome', style: t.headlineMedium),
+              StaggeredEntrance(
+                  index: 0, child: Text('Welcome', style: t.headlineMedium)),
               const SizedBox(height: 12),
-              Text(
-                'How would you like to start? You can change everything later.',
-                style: t.bodyMedium,
+              StaggeredEntrance(
+                index: 1,
+                child: Text(
+                  'How would you like to start? You can change everything later.',
+                  style: t.bodyMedium,
+                ),
               ),
               const SizedBox(height: 32),
-              FilledButton(
-                onPressed:
-                    _busy ? null : () => _choose(OnboardingChoice.starter),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Add starter exercises'),
+              StaggeredEntrance(
+                index: 2,
+                child: FilledButton(
+                  onPressed:
+                      _busy ? null : () => _choose(OnboardingChoice.starter),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Text('Add starter exercises'),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _busy ? null : () => _choose(OnboardingChoice.empty),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Start empty'),
+              StaggeredEntrance(
+                index: 3,
+                child: OutlinedButton(
+                  onPressed:
+                      _busy ? null : () => _choose(OnboardingChoice.empty),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Text('Start empty'),
+                  ),
                 ),
               ),
             ],

@@ -10,9 +10,11 @@ import '../data/session_writer.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/w_dialog.dart';
 import 'active_session_controller.dart';
 import 'exercise_block.dart';
 import 'exercise_picker_sheet.dart';
@@ -129,31 +131,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.tokens.surface2,
-        title: Text('Discard workout?',
-            style: WorkoutType.display(size: 18, color: context.tokens.text)),
-        content: Text(
-          'Your logged sets will be lost.',
-          style: WorkoutType.body(size: 14, color: context.tokens.dim),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Keep going',
-                style: WorkoutType.mono(
-                    size: 13, color: context.tokens.accent)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Discard',
-                style:
-                    WorkoutType.mono(size: 13, color: context.tokens.danger)),
-          ),
-        ],
-      ),
+    final confirmed = await showWConfirm(
+      context,
+      title: 'Discard workout?',
+      message: 'Your logged sets will be lost.',
+      cancelLabel: 'Keep going',
+      confirmLabel: 'Discard',
+      destructive: true,
     );
 
     if (confirmed == true) {
@@ -261,58 +245,37 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
 
                     // Exercise blocks
                     for (final block in draft.blocks)
-                      ExerciseBlock(
+                      Reveal(
                         key: ValueKey(block.exercise.id),
-                        block: block,
-                        unit: unit,
-                        onToggleDone: (b, s) {
-                          final wasDone = s.done;
-                          controller.toggleDone(b, s);
-                          // Start rest timer when a working set is completed
-                          if (!wasDone && !s.isWarmup) {
-                            _startRest(b.exercise.compound ? 180 : 90);
-                          }
-                        },
-                        onSetChanged: (b, s) => controller.markChanged(),
-                        onAddSet: (b) => controller.addSet(b),
-                        onRemoveBlock: (b) async {
-                          final hasDone = b.allSets.any((s) => s.done);
-                          if (hasDone) {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                backgroundColor: tokens.surface2,
-                                title: Text('Remove exercise?',
-                                    style: WorkoutType.display(
-                                        size: 18, color: tokens.text)),
-                                content: Text(
-                                  'Logged sets will be lost.',
-                                  style: WorkoutType.body(
-                                      size: 14, color: tokens.dim),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(false),
-                                    child: Text('Cancel',
-                                        style: WorkoutType.mono(
-                                            size: 13, color: tokens.dim)),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(true),
-                                    child: Text('Remove',
-                                        style: WorkoutType.mono(
-                                            size: 13, color: tokens.danger)),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirmed == true) controller.removeBlock(b);
-                          } else {
-                            controller.removeBlock(b);
-                          }
-                        },
+                        child: ExerciseBlock(
+                          block: block,
+                          unit: unit,
+                          onToggleDone: (b, s) {
+                            final wasDone = s.done;
+                            controller.toggleDone(b, s);
+                            // Start rest timer when a working set is completed
+                            if (!wasDone && !s.isWarmup) {
+                              _startRest(b.exercise.compound ? 180 : 90);
+                            }
+                          },
+                          onSetChanged: (b, s) => controller.markChanged(),
+                          onAddSet: (b) => controller.addSet(b),
+                          onRemoveBlock: (b) async {
+                            final hasDone = b.allSets.any((s) => s.done);
+                            if (hasDone) {
+                              final confirmed = await showWConfirm(
+                                context,
+                                title: 'Remove exercise?',
+                                message: 'Logged sets will be lost.',
+                                confirmLabel: 'Remove',
+                                destructive: true,
+                              );
+                              if (confirmed == true) controller.removeBlock(b);
+                            } else {
+                              controller.removeBlock(b);
+                            }
+                          },
+                        ),
                       ),
 
                     const SizedBox(height: 10),
