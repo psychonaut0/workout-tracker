@@ -1,0 +1,32 @@
+# flutter_launcher_icons config for "Reps"
+# Recommended path: let this package generate every native size for you.
+#
+#   1. Add to pubspec.yaml dev_dependencies:
+#        dev_dependencies:
+#          flutter_launcher_icons: ^0.14.1
+#   2. Copy the two source images into your project, e.g. assets/icon/
+#        flutter_icons/source/reps-icon-1024.png        -> assets/icon/reps-icon-1024.png
+#        flutter_icons/source/reps-foreground-1024.png   -> assets/icon/reps-foreground-1024.png
+#   3. Copy this block into pubspec.yaml (or keep this file and run with -f).
+#   4. Run:
+#        dart run flutter_launcher_icons
+#
+flutter_launcher_icons:
+  image_path: "assets/icon/reps-icon-1024.png"
+  remove_alpha_ios: true            # App Store icons must have no alpha
+
+  android: true
+  adaptive_icon_background: "#0B0B0C"
+  adaptive_icon_foreground: "assets/icon/reps-foreground-1024.png"
+  min_sdk_android: 21
+
+  ios: true
+
+  web:
+    generate: true
+    background_color: "#0b0b0c"
+    theme_color: "#c2f53a"
+
+  windows:
+    generate: true
+    icon_size: 256
