@@ -6,6 +6,7 @@ import '../data/models.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
@@ -328,20 +329,22 @@ class _DayEditorState extends State<DayEditor> {
               isTemplate: true,
             ),
           );
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: _SlotRow(
-              key: ValueKey(slot.exerciseId),
-              index: index,
-              total: _slots.length,
-              slot: slot,
-              exercise: ex,
-              tokens: tokens,
-              expanded: _expandedExId == slot.exerciseId,
-              onToggle: () => _toggleSlot(slot.exerciseId),
-              onMove: (dir) => _moveSlot(index, dir),
-              onRemove: () => _removeSlot(index),
-              onChanged: () => setState(() {}),
+          return Reveal(
+            key: ValueKey(slot.exerciseId),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: _SlotRow(
+                index: index,
+                total: _slots.length,
+                slot: slot,
+                exercise: ex,
+                tokens: tokens,
+                expanded: _expandedExId == slot.exerciseId,
+                onToggle: () => _toggleSlot(slot.exerciseId),
+                onMove: (dir) => _moveSlot(index, dir),
+                onRemove: () => _removeSlot(index),
+                onChanged: () => setState(() {}),
+              ),
             ),
           );
         }),
@@ -406,7 +409,6 @@ class _CloneBanner extends StatelessWidget {
 
 class _SlotRow extends StatefulWidget {
   const _SlotRow({
-    super.key,
     required this.index,
     required this.total,
     required this.slot,

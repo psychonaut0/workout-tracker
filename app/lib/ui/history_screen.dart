@@ -668,11 +668,14 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
               Divider(color: tokens.line, height: 1, thickness: 1),
               const SizedBox(height: 8),
               for (final block in blocks)
-                _BlockRow(
-                  block: block,
-                  catalogMap: widget.catalogMap,
-                  units: widget.units,
-                  onTap: () => _editExercise(block),
+                Reveal(
+                  key: ValueKey(block.exerciseId),
+                  child: _BlockRow(
+                    block: block,
+                    catalogMap: widget.catalogMap,
+                    units: widget.units,
+                    onTap: () => _editExercise(block),
+                  ),
                 ),
               const SizedBox(height: 6),
               // Add-exercise affordance.
@@ -999,16 +1002,28 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    for (var i = 0; i < _sets.length; i++)
-                      _EditRow(
-                        set: _sets[i],
-                        // 1-based index across working sets; W for warm-ups.
-                        workIndex: _workIndexOf(i),
-                        exercise: widget.exercise,
-                        units: widget.units,
-                        onChanged: () => _persist(_sets[i]),
-                        onDelete: () => _deleteSet(_sets[i]),
+                    AnimatedSize(
+                      duration: Motion.of(context, Motion.base),
+                      curve: Motion.curve,
+                      alignment: Alignment.topCenter,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < _sets.length; i++)
+                            Reveal(
+                              key: ValueKey(_sets[i].id),
+                              child: _EditRow(
+                                set: _sets[i],
+                                // 1-based index across working sets; W for warm-ups.
+                                workIndex: _workIndexOf(i),
+                                exercise: widget.exercise,
+                                units: widget.units,
+                                onChanged: () => _persist(_sets[i]),
+                                onDelete: () => _deleteSet(_sets[i]),
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
                     const SizedBox(height: 6),
                     // Add-set affordance.
                     GestureDetector(

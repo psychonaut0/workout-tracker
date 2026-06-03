@@ -10,6 +10,7 @@ import '../data/session_writer.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
@@ -244,35 +245,37 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
 
                     // Exercise blocks
                     for (final block in draft.blocks)
-                      ExerciseBlock(
+                      Reveal(
                         key: ValueKey(block.exercise.id),
-                        block: block,
-                        unit: unit,
-                        onToggleDone: (b, s) {
-                          final wasDone = s.done;
-                          controller.toggleDone(b, s);
-                          // Start rest timer when a working set is completed
-                          if (!wasDone && !s.isWarmup) {
-                            _startRest(b.exercise.compound ? 180 : 90);
-                          }
-                        },
-                        onSetChanged: (b, s) => controller.markChanged(),
-                        onAddSet: (b) => controller.addSet(b),
-                        onRemoveBlock: (b) async {
-                          final hasDone = b.allSets.any((s) => s.done);
-                          if (hasDone) {
-                            final confirmed = await showWConfirm(
-                              context,
-                              title: 'Remove exercise?',
-                              message: 'Logged sets will be lost.',
-                              confirmLabel: 'Remove',
-                              destructive: true,
-                            );
-                            if (confirmed == true) controller.removeBlock(b);
-                          } else {
-                            controller.removeBlock(b);
-                          }
-                        },
+                        child: ExerciseBlock(
+                          block: block,
+                          unit: unit,
+                          onToggleDone: (b, s) {
+                            final wasDone = s.done;
+                            controller.toggleDone(b, s);
+                            // Start rest timer when a working set is completed
+                            if (!wasDone && !s.isWarmup) {
+                              _startRest(b.exercise.compound ? 180 : 90);
+                            }
+                          },
+                          onSetChanged: (b, s) => controller.markChanged(),
+                          onAddSet: (b) => controller.addSet(b),
+                          onRemoveBlock: (b) async {
+                            final hasDone = b.allSets.any((s) => s.done);
+                            if (hasDone) {
+                              final confirmed = await showWConfirm(
+                                context,
+                                title: 'Remove exercise?',
+                                message: 'Logged sets will be lost.',
+                                confirmLabel: 'Remove',
+                                destructive: true,
+                              );
+                              if (confirmed == true) controller.removeBlock(b);
+                            } else {
+                              controller.removeBlock(b);
+                            }
+                          },
+                        ),
                       ),
 
                     const SizedBox(height: 10),
