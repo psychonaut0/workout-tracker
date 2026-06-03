@@ -9,8 +9,10 @@ import 'data/session_writer.dart';
 import 'data/top_set_backfill.dart';
 import 'identity/identity_service.dart';
 import 'session/session_manager.dart';
+import 'session/workout_notification.dart';
 import 'settings/settings_service.dart';
 import 'shell/app_shell.dart';
+import 'shell/session_launcher.dart';
 import 'sync/db.dart';
 import 'theme/app_theme.dart';
 import 'ui/onboarding_screen.dart';
@@ -49,6 +51,12 @@ Future<void> main() async {
   await backfillTopSets(db);
 
   final sessionManager = SessionManager();
+  final workoutNotification = WorkoutNotification();
+  await workoutNotification.init(onTap: () {
+    final ctx = appNavigatorKey.currentContext;
+    if (ctx != null) openActiveSession(ctx, sessionManager);
+  });
+  sessionManager.notifier = workoutNotification;
   await sessionManager.resumeFromDraft();
 
   final loggedIn = await auth.load();
