@@ -12,6 +12,7 @@ import '../data/session_repository.dart';
 import '../data/stats_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../theme/icons.dart';
@@ -179,38 +180,82 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
       children: [
         // ── 1. Greeting header ────────────────────────────────────────────────
-        _GreetingHeader(
-          dateLabel: '${fmtDate(isoDate(now), weekday: true)} · $restOrTrain',
-          onTapProfile: widget.onOpenProfile,
+        StaggeredEntrance(
+          index: 0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _GreetingHeader(
+                dateLabel:
+                    '${fmtDate(isoDate(now), weekday: true)} · $restOrTrain',
+                onTapProfile: widget.onOpenProfile,
+              ),
+              const SizedBox(height: 18),
+            ],
+          ),
         ),
-        const SizedBox(height: 18),
 
         // ── 2. SplitCard hero ─────────────────────────────────────────────────
-        if (_rotationLoaded) ...[
-          _buildSplitCard(),
-          const SizedBox(height: 22),
-        ] else ...[
-          // Loading placeholder — avoids layout jump when data arrives.
-          const SizedBox(height: 290),
-          const SizedBox(height: 22),
-        ],
+        StaggeredEntrance(
+          index: 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_rotationLoaded) ...[
+                _buildSplitCard(),
+                const SizedBox(height: 22),
+              ] else ...[
+                // Loading placeholder — avoids layout jump when data arrives.
+                const SizedBox(height: 290),
+                const SizedBox(height: 22),
+              ],
+            ],
+          ),
+        ),
 
         // ── 3. This week ──────────────────────────────────────────────────────
-        SectionLabel(label: 'This week'),
-        const SizedBox(height: 10),
-        _buildWeekStrip(ws),
-        const SizedBox(height: 22),
+        StaggeredEntrance(
+          index: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SectionLabel(label: 'This week'),
+              const SizedBox(height: 10),
+              _buildWeekStrip(ws),
+              const SizedBox(height: 22),
+            ],
+          ),
+        ),
 
         // ── 4. Stat tiles ──────────────────────────────────────────────────────
-        _buildStatTiles(units, tokens, ws),
-        const SizedBox(height: 22),
+        StaggeredEntrance(
+          index: 3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildStatTiles(units, tokens, ws),
+              const SizedBox(height: 22),
+            ],
+          ),
+        ),
 
         // ── 5. Recent PRs ──────────────────────────────────────────────────────
-        _buildRecentPrs(units, tokens),
-        const SizedBox(height: 22),
+        StaggeredEntrance(
+          index: 4,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildRecentPrs(units, tokens),
+              const SizedBox(height: 22),
+            ],
+          ),
+        ),
 
         // ── 6. Weekly volume ───────────────────────────────────────────────────
-        _buildWeeklyVolume(ws, tokens),
+        StaggeredEntrance(
+          index: 5,
+          child: _buildWeeklyVolume(ws, tokens),
+        ),
       ],
     );
   }

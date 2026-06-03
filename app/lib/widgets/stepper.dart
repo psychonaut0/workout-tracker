@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 
@@ -39,6 +41,10 @@ class WStepper extends StatefulWidget {
 class _WStepperState extends State<WStepper> {
   late double _internalValue;
 
+  /// Direction of the most recent value change, used to slide the label in the
+  /// direction of change (true = value went up).
+  bool _up = true;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +57,7 @@ class _WStepperState extends State<WStepper> {
     // Keep internal value in sync when the parent provides a new value
     // (e.g. after an undo or external reset).
     if (widget.value != old.value) {
+      _up = widget.value > old.value;
       _internalValue = widget.value;
     }
   }
@@ -61,7 +68,11 @@ class _WStepperState extends State<WStepper> {
   void _step(int dir) {
     final next = _round2(_internalValue + dir * widget.step);
     final clamped = next < 0 ? 0.0 : next;
-    setState(() => _internalValue = clamped);
+    setState(() {
+      _up = clamped > _internalValue;
+      _internalValue = clamped;
+    });
+    HapticFeedback.selectionClick();
     widget.onChanged(clamped);
   }
 
@@ -101,14 +112,28 @@ class _WStepperState extends State<WStepper> {
         const SizedBox(width: 4),
         Expanded(
           child: Center(
-            child: Text(
-              widget.format(_internalValue),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: WorkoutType.mono(
-                size: 15,
-                weight: FontWeight.w700,
-                color: tokens.text,
+            child: AnimatedSwitcher(
+              duration: Motion.of(context, Motion.fast),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: Offset(0, _up ? 0.4 : -0.4),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: Text(
+                widget.format(_internalValue),
+                key: ValueKey(widget.format(_internalValue)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: WorkoutType.mono(
+                  size: 15,
+                  weight: FontWeight.w700,
+                  color: tokens.text,
+                ),
               ),
             ),
           ),

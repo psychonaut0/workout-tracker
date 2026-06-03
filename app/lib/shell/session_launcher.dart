@@ -8,6 +8,7 @@ import '../data/session_repository.dart';
 import '../session/active_session_controller.dart';
 import '../session/active_session_screen.dart';
 import '../sync/db.dart';
+import '../theme/motion.dart';
 
 /// Starts an active session, optionally pre-loaded from a [DayTemplate].
 ///
@@ -35,11 +36,25 @@ Future<void> startSession(
   if (!context.mounted) return;
 
   await Navigator.of(context, rootNavigator: true).push<void>(
-    MaterialPageRoute<void>(
-      builder: (_) => ChangeNotifierProvider<ActiveSessionController>.value(
+    PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 250),
+      reverseTransitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (_, __, ___) =>
+          ChangeNotifierProvider<ActiveSessionController>.value(
         value: controller,
         child: const ActiveSessionScreen(),
       ),
+      transitionsBuilder: (_, anim, __, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Motion.curve);
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween(begin: const Offset(0, 0.06), end: Offset.zero)
+                .animate(curved),
+            child: child,
+          ),
+        );
+      },
     ),
   );
 }
