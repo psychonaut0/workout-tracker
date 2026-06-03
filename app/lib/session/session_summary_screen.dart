@@ -379,15 +379,27 @@ class _StatTiles extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _Tile(
-            label: 'Duration',
-            value: '${durationMin}m',
-            tokens: tokens),
+        Expanded(
+          child: CountUp(
+            value: durationMin,
+            builder: (v) => _TileInner(
+              label: 'Duration',
+              value: '${v}m',
+              tokens: tokens,
+            ),
+          ),
+        ),
         const SizedBox(width: 12),
-        _Tile(
-            label: 'Sets',
-            value: '$totalSets',
-            tokens: tokens),
+        Expanded(
+          child: CountUp(
+            value: totalSets,
+            builder: (v) => _TileInner(
+              label: 'Sets',
+              value: '$v',
+              tokens: tokens,
+            ),
+          ),
+        ),
         const SizedBox(width: 12),
         _Tile(
             label: 'Volume',

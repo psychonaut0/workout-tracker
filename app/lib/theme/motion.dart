@@ -12,6 +12,25 @@ class Motion {
       MediaQuery.of(context).disableAnimations ? Duration.zero : d;
 }
 
+/// Animated integer count-up: 0→value on first build, old→new on changes
+/// (TweenAnimationBuilder's natural retargeting). Renders via [builder] so the
+/// final formatted output is identical to a static render.
+class CountUp extends StatelessWidget {
+  const CountUp({super.key, required this.value, required this.builder});
+  final int value;
+  final Widget Function(int value) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<int>(
+      tween: IntTween(begin: 0, end: value),
+      duration: Motion.of(context, Motion.slow),
+      curve: Motion.curve,
+      builder: (_, v, __) => builder(v),
+    );
+  }
+}
+
 /// One-shot fade + 12px rise on first mount, staggered by [index]. Never
 /// re-plays on rebuilds.
 class StaggeredEntrance extends StatefulWidget {

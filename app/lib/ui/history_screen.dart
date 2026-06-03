@@ -7,6 +7,7 @@ import '../data/session_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
@@ -201,10 +202,11 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cards = [
-      ('Sessions', '$sessionCount'),
-      ('PRs', '$prCount'),
-      ('Volume', volumeDisplay),
+    // (label, displayValue, intValue?) — intValue animates via CountUp when set.
+    final cards = <(String, String, int?)>[
+      ('Sessions', '$sessionCount', sessionCount),
+      ('PRs', '$prCount', prCount),
+      ('Volume', volumeDisplay, null),
     ];
     return Row(
       children: [
@@ -214,6 +216,7 @@ class _SummaryRow extends StatelessWidget {
             child: _SummaryCard(
               label: cards[i].$1,
               value: cards[i].$2,
+              intValue: cards[i].$3,
               tokens: tokens,
             ),
           ),
@@ -228,14 +231,27 @@ class _SummaryCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.tokens,
+    this.intValue,
   });
 
   final String label;
   final String value;
+  final int? intValue;
   final WorkoutTokens tokens;
 
   @override
   Widget build(BuildContext context) {
+    final intValue = this.intValue;
+    if (intValue != null) {
+      return CountUp(
+        value: intValue,
+        builder: (v) => _build(context, '$v'),
+      );
+    }
+    return _build(context, value);
+  }
+
+  Widget _build(BuildContext context, String value) {
     return Container(
       decoration: BoxDecoration(
         color: tokens.surface,
