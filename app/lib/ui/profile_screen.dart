@@ -11,6 +11,7 @@ import '../sync/db.dart';
 import '../sync/sync_status_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
@@ -723,7 +724,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(width: 8),
                 _StatCard(label: 'PRs', value: prCount),
                 const SizedBox(width: 8),
-                _StatCard(label: 'Bodyweight', value: bwText),
+                UnitSwap(
+                  unitKey: unitService.unit,
+                  child: _StatCard(label: 'Bodyweight', value: bwText),
+                ),
               ],
             );
           },

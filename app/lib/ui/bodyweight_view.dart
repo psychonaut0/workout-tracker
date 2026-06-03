@@ -6,6 +6,7 @@ import '../data/models.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
@@ -205,10 +206,13 @@ class _BwStatRow extends StatelessWidget {
         Expanded(
           child: WCard(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-            child: BigStat(
-              label: 'Current',
-              value: fmtPlain(last),
-              unit: unit,
+            child: UnitSwap(
+              unitKey: unit,
+              child: BigStat(
+                label: 'Current',
+                value: fmtPlain(last),
+                unit: unit,
+              ),
             ),
           ),
         ),
@@ -216,11 +220,14 @@ class _BwStatRow extends StatelessWidget {
         Expanded(
           child: WCard(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-            child: BigStat(
-              label: '30-day',
-              value: fmtSigned(delta30),
-              unit: unit,
-              accent: true,
+            child: UnitSwap(
+              unitKey: unit,
+              child: BigStat(
+                label: '30-day',
+                value: fmtSigned(delta30),
+                unit: unit,
+                accent: true,
+              ),
             ),
           ),
         ),
@@ -228,10 +235,13 @@ class _BwStatRow extends StatelessWidget {
         Expanded(
           child: WCard(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-            child: BigStat(
-              label: 'Lowest',
-              value: fmtPlain(lowest),
-              unit: unit,
+            child: UnitSwap(
+              unitKey: unit,
+              child: BigStat(
+                label: 'Lowest',
+                value: fmtPlain(lowest),
+                unit: unit,
+              ),
             ),
           ),
         ),
