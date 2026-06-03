@@ -10,6 +10,7 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/pressable.dart';
 import 'exercise_sheet.dart';
 import '../util/dates.dart';
 import '../util/group_by_week.dart';
@@ -352,7 +353,8 @@ class _SessionCardState extends State<SessionCard> {
     final labelName = dotIdx >= 0 ? label.substring(0, dotIdx) : label;
     final labelFocus = dotIdx >= 0 ? label.substring(dotIdx + 3) : null;
 
-    return WCard(
+    return PressableScale(
+      child: WCard(
       padding: EdgeInsets.zero,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.radius),
@@ -507,6 +509,7 @@ class _SessionCardState extends State<SessionCard> {
             if (_expanded) _ExerciseBlocks(session: widget.session, catalogMap: widget.catalogMap, sessionRepo: widget.sessionRepo, units: widget.units),
           ],
         ),
+      ),
       ),
     );
   }

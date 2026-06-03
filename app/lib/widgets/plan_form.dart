@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import 'pressable.dart';
 
 // ── Field ──────────────────────────────────────────────────────────────────
 
@@ -229,20 +230,22 @@ class PrimaryBtn extends StatelessWidget {
     final tokens = context.tokens;
     return GestureDetector(
       onTap: enabled ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        height: 52,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.radius),
-          color: enabled ? tokens.accent : tokens.surface3,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: WorkoutType.display(
-            size: 16,
-            weight: FontWeight.w700,
-            color: enabled ? tokens.accentInk : tokens.faint,
+      child: PressableScale(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.radius),
+            color: enabled ? tokens.accent : tokens.surface3,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: WorkoutType.display(
+              size: 16,
+              weight: FontWeight.w700,
+              color: enabled ? tokens.accentInk : tokens.faint,
+            ),
           ),
         ),
       ),

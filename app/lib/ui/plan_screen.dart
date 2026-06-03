@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import '../widgets/pressable.dart';
 import 'day_editor.dart';
 import 'exercise_editor.dart';
 import 'exercise_library_tab.dart';
@@ -123,22 +125,43 @@ class PlanScreenState extends State<PlanScreen> {
   // ── Body ──────────────────────────────────────────────────────────────────
 
   Widget _buildBody() {
+    final Widget body;
     if (_editor != null) {
       if (_editor!.kind == 'day') {
-        return DayEditor(id: _editor!.id, onBack: _onBack);
+        body = DayEditor(id: _editor!.id, onBack: _onBack);
+      } else {
+        body = ExerciseEditor(id: _editor!.id, onBack: _onBack);
       }
-      return ExerciseEditor(id: _editor!.id, onBack: _onBack);
-    }
-    if (_activeTab == 'split') {
-      return SplitTab(
+    } else if (_activeTab == 'split') {
+      body = SplitTab(
         onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'day', id: id)),
       );
+    } else if (_activeTab == 'targets') {
+      body = const TargetsTab();
+    } else {
+      body = LibraryTab(
+        onOpenEditor: (id) =>
+            _openEditor(_EditorRoute(kind: 'exercise', id: id)),
+      );
     }
-    if (_activeTab == 'targets') {
-      return const TargetsTab();
-    }
-    return LibraryTab(
-      onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'exercise', id: id)),
+
+    return AnimatedSwitcher(
+      duration: Motion.of(context, const Duration(milliseconds: 220)),
+      switchInCurve: Motion.curve,
+      switchOutCurve: Motion.curve,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(anim),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(
+          _editor == null ? 'list-$_activeTab' : 'editor-${_editor!.kind}-${_editor!.id}',
+        ),
+        child: body,
+      ),
     );
   }
 
@@ -266,7 +289,8 @@ class _SegBtn extends StatelessWidget {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
+        child: PressableScale(
+          child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           height: 36,
           decoration: BoxDecoration(
@@ -292,6 +316,7 @@ class _SegBtn extends StatelessWidget {
               color: active ? tokens.text : tokens.faint,
             ),
           ),
+        ),
         ),
       ),
     );

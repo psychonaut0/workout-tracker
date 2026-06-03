@@ -6,6 +6,7 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
+import 'pressable.dart';
 
 // ── Dashed-border painter ─────────────────────────────────────────────────────
 
@@ -439,7 +440,8 @@ class _SplitCardState extends State<SplitCard> {
                     ),
                     const SizedBox(height: 18),
                     // ── Start button ─────────────────────────────────────────
-                    AnimatedContainer(
+                    PressableScale(
+                      child: AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.ease,
                       height: 52,
@@ -474,6 +476,7 @@ class _SplitCardState extends State<SplitCard> {
                           ),
                         ),
                       ),
+                    ),
                     ),
                   ],
                 ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/typography.dart';
+import '../widgets/pressable.dart';
 
 /// The 5-slot bottom navigation bar with a center FAB.
 ///
@@ -130,7 +131,8 @@ class _TabButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: SizedBox(
+        child: PressableScale(
+          child: SizedBox(
           height: 64,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -147,6 +149,7 @@ class _TabButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -168,23 +171,25 @@ class _FabButton extends StatelessWidget {
 
     return GestureDetector(
       onTap: onStart,
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: t.accent,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: t.accent.withValues(alpha: 0.45),
-              blurRadius: 16,
-              spreadRadius: -2,
-              offset: const Offset(0, 8),
-            ),
-          ],
+      child: PressableScale(
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: t.accent,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: t.accent.withValues(alpha: 0.45),
+                blurRadius: 16,
+                spreadRadius: -2,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Icon(WIcons.bolt, size: 28, color: t.accentInk),
         ),
-        alignment: Alignment.center,
-        child: Icon(WIcons.bolt, size: 28, color: t.accentInk),
       ),
     );
   }

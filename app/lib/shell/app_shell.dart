@@ -11,6 +11,7 @@ import '../ui/plan_screen.dart';
 import '../ui/profile_screen.dart';
 import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
+import '../theme/motion.dart';
 import 'back_dispatch.dart';
 import 'session_launcher.dart' as launcher;
 import 'w_tab_bar.dart';
@@ -117,21 +118,24 @@ class _AppShellState extends State<AppShell> {
         extendBody: true,
         body: Stack(
           children: [
-            IndexedStack(
+            _TabFade(
               index: _index,
-              children: [
-                TodayScreen(
-                  onStart: _start,
-                  onOpenExercise: _openExercise,
-                  onOpenProfile: _openProfile,
-                ),
-                ProgressScreen(
-                  key: ValueKey(_progressTarget),
-                  initialTarget: _progressTarget,
-                ),
-                const HistoryScreen(),
-                PlanScreen(key: _planKey),
-              ],
+              child: IndexedStack(
+                index: _index,
+                children: [
+                  TodayScreen(
+                    onStart: _start,
+                    onOpenExercise: _openExercise,
+                    onOpenProfile: _openProfile,
+                  ),
+                  ProgressScreen(
+                    key: ValueKey(_progressTarget),
+                    initialTarget: _progressTarget,
+                  ),
+                  const HistoryScreen(),
+                  PlanScreen(key: _planKey),
+                ],
+              ),
             ),
             Align(
               alignment: Alignment.bottomCenter,
@@ -146,4 +150,39 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
+}
+
+/// Soft-cut between tabs: quickly fades the (state-preserving) IndexedStack
+/// back in whenever the index changes.
+class _TabFade extends StatefulWidget {
+  const _TabFade({required this.index, required this.child});
+  final int index;
+  final Widget child;
+
+  @override
+  State<_TabFade> createState() => _TabFadeState();
+}
+
+class _TabFadeState extends State<_TabFade>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: Motion.fast,
+    value: 1.0,
+  );
+
+  @override
+  void didUpdateWidget(_TabFade old) {
+    super.didUpdateWidget(old);
+    if (old.index != widget.index && !MediaQuery.of(context).disableAnimations) {
+      _c.forward(from: 0.35);
+    }
+  }
+
+  @override
+  void dispose() { _c.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) =>
+      FadeTransition(opacity: _c, child: widget.child);
 }
