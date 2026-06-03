@@ -7,6 +7,7 @@ import '../data/session_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
@@ -170,109 +171,127 @@ class _SummaryBody extends StatelessWidget {
           ),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              // ── Success icon ─────────────────────────────────────────
-              Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: tokens.accent,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(WIcons.check,
-                      size: 36, color: tokens.accentInk),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Title ────────────────────────────────────────────────
-              Center(
-                child: RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    style: WorkoutType.display(
-                      size: 22,
-                      weight: FontWeight.w700,
-                      color: tokens.text,
-                    ),
-                    children: [
-                      TextSpan(text: title),
-                      if (focus.isNotEmpty) ...[
-                        TextSpan(
-                          text: ' · $focus',
-                          style: WorkoutType.display(
-                            size: 22,
-                            weight: FontWeight.w600,
-                            color: tokens.faint,
-                          ),
+              // ── Header (success icon + title + date) ─────────────────
+              StaggeredEntrance(
+                index: 0,
+                child: Column(
+                  children: [
+                    // Success icon with a one-shot accent glow flash on mount.
+                    _SuccessHeaderFlash(
+                      tokens: tokens,
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: tokens.accent,
+                          shape: BoxShape.circle,
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
+                        alignment: Alignment.center,
+                        child: Icon(WIcons.check,
+                            size: 36, color: tokens.accentInk),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
-              Center(
-                child: Text(
-                  session.date,
-                  style: WorkoutType.mono(size: 11, color: tokens.faint),
+                    // ── Title ──────────────────────────────────────────
+                    RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: WorkoutType.display(
+                          size: 22,
+                          weight: FontWeight.w700,
+                          color: tokens.text,
+                        ),
+                        children: [
+                          TextSpan(text: title),
+                          if (focus.isNotEmpty) ...[
+                            TextSpan(
+                              text: ' · $focus',
+                              style: WorkoutType.display(
+                                size: 22,
+                                weight: FontWeight.w600,
+                                color: tokens.faint,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    Text(
+                      session.date,
+                      style: WorkoutType.mono(size: 11, color: tokens.faint),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
 
               // ── Stat tiles ───────────────────────────────────────────
-              _StatTiles(
-                durationMin: durationMin,
-                totalSets: _totalSets,
-                volumeKg: _totalVolumeKg,
-                prCount: _prCount,
-                unit: unit,
-                tokens: tokens,
+              StaggeredEntrance(
+                index: 1,
+                child: _StatTiles(
+                  durationMin: durationMin,
+                  totalSets: _totalSets,
+                  volumeKg: _totalVolumeKg,
+                  prCount: _prCount,
+                  unit: unit,
+                  tokens: tokens,
+                ),
               ),
               const SizedBox(height: 28),
 
               // ── Top sets list ────────────────────────────────────────
-              if (blocks.isNotEmpty) ...[
-                Text(
-                  'TOP SETS',
-                  style: WorkoutType.mono(
-                    size: 10,
-                    weight: FontWeight.w600,
-                    color: tokens.faint,
-                    letterSpacing: 0.08 * 10,
+              if (blocks.isNotEmpty)
+                StaggeredEntrance(
+                  index: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'TOP SETS',
+                        style: WorkoutType.mono(
+                          size: 10,
+                          weight: FontWeight.w600,
+                          color: tokens.faint,
+                          letterSpacing: 0.08 * 10,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      for (final block in blocks)
+                        _TopSetRow(
+                          block: block,
+                          name: exerciseNames[block.exerciseId] ??
+                              block.exerciseId,
+                          unit: unit,
+                          tokens: tokens,
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 10),
-                for (final block in blocks)
-                  _TopSetRow(
-                    block: block,
-                    name: exerciseNames[block.exerciseId] ??
-                        block.exerciseId,
-                    unit: unit,
-                    tokens: tokens,
-                  ),
-              ],
               const SizedBox(height: 32),
 
               // ── Done button ──────────────────────────────────────────
-              GestureDetector(
-                onTap: onDone,
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: tokens.accent,
-                    borderRadius:
-                        BorderRadius.circular(AppRadius.radius),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Done',
-                    style: WorkoutType.display(
-                      size: 16,
-                      weight: FontWeight.w700,
-                      color: tokens.accentInk,
+              StaggeredEntrance(
+                index: 3,
+                child: GestureDetector(
+                  onTap: onDone,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: tokens.accent,
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.radius),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Done',
+                      style: WorkoutType.display(
+                        size: 16,
+                        weight: FontWeight.w700,
+                        color: tokens.accentInk,
+                      ),
                     ),
                   ),
                 ),
@@ -281,6 +300,48 @@ class _SummaryBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Success header flash ──────────────────────────────────────────────────────
+
+/// Wraps the success icon and fades a one-shot accent glow out around it on
+/// first mount.
+class _SuccessHeaderFlash extends StatefulWidget {
+  const _SuccessHeaderFlash({required this.tokens, required this.child});
+
+  final WorkoutTokens tokens;
+  final Widget child;
+
+  @override
+  State<_SuccessHeaderFlash> createState() => _SuccessHeaderFlashState();
+}
+
+class _SuccessHeaderFlashState extends State<_SuccessHeaderFlash> {
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    // Tween 1.0 → 0.0: glow strength fades out over 500ms on mount.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1.0, end: 0.0),
+      duration: const Duration(milliseconds: 500),
+      child: widget.child,
+      builder: (context, t, child) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: widget.tokens.accent.withValues(alpha: 0.7 * t),
+                blurRadius: 28 * t,
+                spreadRadius: 6 * t,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
     );
   }
 }
@@ -333,11 +394,19 @@ class _StatTiles extends StatelessWidget {
             value: _fmtVolume(),
             tokens: tokens),
         const SizedBox(width: 12),
-        _Tile(
-            label: 'PRs',
-            value: '$prCount',
-            tokens: tokens,
-            highlight: prCount > 0),
+        // PR count ticks up from 0 on mount.
+        Expanded(
+          child: TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: prCount),
+            duration: Motion.slow,
+            builder: (context, value, _) => _TileInner(
+              label: 'PRs',
+              value: '$value',
+              tokens: tokens,
+              highlight: prCount > 0,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -345,6 +414,31 @@ class _StatTiles extends StatelessWidget {
 
 class _Tile extends StatelessWidget {
   const _Tile({
+    required this.label,
+    required this.value,
+    required this.tokens,
+  });
+
+  final String label;
+  final String value;
+  final WorkoutTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: _TileInner(
+        label: label,
+        value: value,
+        tokens: tokens,
+      ),
+    );
+  }
+}
+
+/// The tile card content without the [Expanded] wrapper, so it can be reused
+/// inside an animated builder.
+class _TileInner extends StatelessWidget {
+  const _TileInner({
     required this.label,
     required this.value,
     required this.tokens,
@@ -358,8 +452,7 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
+    return Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: tokens.surface,
@@ -385,8 +478,7 @@ class _Tile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
