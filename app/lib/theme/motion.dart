@@ -113,3 +113,67 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     );
   }
 }
+
+/// One-shot fade + 12px rise on first mount — [StaggeredEntrance] without the
+/// stagger. Use on newly added list rows (keyed by the row's stable id) so
+/// inserts ease in; never re-plays on rebuilds while the key is stable.
+class Reveal extends StatefulWidget {
+  const Reveal({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: Motion.base);
+  late final CurvedAnimation _a = CurvedAnimation(parent: _c, curve: Motion.curve);
+
+  @override
+  void initState() {
+    super.initState();
+    _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _a.dispose();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return FadeTransition(
+      opacity: _a,
+      child: AnimatedBuilder(
+        animation: _a,
+        builder: (_, child) => Transform.translate(
+          offset: Offset(0, 12 * (1 - _a.value)),
+          child: child,
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Cross-fades [child] when [unitKey] changes (kg ↔ lb re-renders) and swaps
+/// in place when only the content changes. Wrap high-visibility weight values.
+class UnitSwap extends StatelessWidget {
+  const UnitSwap({super.key, required this.unitKey, required this.child});
+  final Object unitKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: Motion.of(context, Motion.fast),
+      switchInCurve: Motion.curve,
+      switchOutCurve: Motion.curve,
+      child: KeyedSubtree(key: ValueKey(unitKey), child: child),
+    );
+  }
+}
