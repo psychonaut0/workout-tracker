@@ -31,4 +31,5 @@ abstract final class WIcons {
   static const IconData grip = Icons.drag_indicator;
   static const IconData arrowUp = Icons.north;
   static const IconData flame = Icons.local_fire_department_outlined;
+  static const IconData export = Icons.ios_share;
 }

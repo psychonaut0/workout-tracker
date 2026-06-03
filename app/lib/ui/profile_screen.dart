@@ -6,6 +6,7 @@ import '../auth/auth_store.dart';
 import '../data/bodyweight_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../export/export_service.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../sync/sync_status_ui.dart';
@@ -235,6 +236,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _serverCtrl;
   String _currentServerUrl = '';
 
+  // Data export state
+  bool _exportingFull = false;
+  bool _exportingHistory = false;
+
   @override
   void initState() {
     super.initState();
@@ -378,6 +383,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     await widget.onLogout();
     widget.onClose();
+  }
+
+  Future<void> _exportFull() async {
+    setState(() => _exportingFull = true);
+    try {
+      final result = await ExportService(db).exportFull(
+        settings: context.read<SettingsService>(),
+        units: context.read<UnitService>(),
+      );
+      if (mounted) await _reportExport(result);
+    } catch (e) {
+      if (mounted) await _exportError(e);
+    } finally {
+      if (mounted) setState(() => _exportingFull = false);
+    }
+  }
+
+  Future<void> _exportHistory() async {
+    // Earliest session date bounds the picker; fall back to one year back.
+    final row = await db.getOptional('SELECT MIN(date) AS d FROM sessions');
+    final now = DateTime.now();
+    var first = DateTime.tryParse((row?['d'] as String?) ?? '') ??
+        now.subtract(const Duration(days: 365));
+    if (first.isAfter(now)) first = now;
+    if (!mounted) return;
+
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: first,
+      lastDate: now,
+      initialDateRange: DateTimeRange(start: first, end: now),
+    );
+    if (range == null || !mounted) return;
+
+    setState(() => _exportingHistory = true);
+    try {
+      final result =
+          await ExportService(db).exportHistory(from: range.start, to: range.end);
+      if (mounted) await _reportExport(result);
+    } catch (e) {
+      if (mounted) await _exportError(e);
+    } finally {
+      if (mounted) setState(() => _exportingHistory = false);
+    }
+  }
+
+  Future<void> _reportExport(ExportResult result) async {
+    switch (result.outcome) {
+      case ExportOutcome.shared:
+        return; // the share sheet was the feedback
+      case ExportOutcome.saved:
+        await showWDialog<bool>(
+          context,
+          title: 'Export saved',
+          message: 'Written to ${result.path}',
+          actions: const [WDialogAction(label: 'OK', value: true)],
+        );
+      case ExportOutcome.empty:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No sessions in that range')),
+        );
+    }
+  }
+
+  Future<void> _exportError(Object e) async {
+    await showWDialog<bool>(
+      context,
+      title: 'Export failed',
+      message: '$e',
+      actions: const [WDialogAction(label: 'OK', value: true)],
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -574,6 +650,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                         ],
                       ),
+                    ),
+                  ],
+                ),
+
+                // ── Data ────────────────────────────────────────────────────
+                _Group(
+                  label: 'Data',
+                  children: [
+                    _Row(
+                      icon: WIcons.export,
+                      title: 'Export all data',
+                      sub: 'Full backup · JSON',
+                      right: _exportingFull ? const _RowSpinner() : null,
+                      onTap: _exportingFull ? null : _exportFull,
+                    ),
+                    _Row(
+                      icon: WIcons.history,
+                      title: 'Export history',
+                      sub: 'Sessions in a date range · JSON',
+                      right: _exportingHistory ? const _RowSpinner() : null,
+                      onTap: _exportingHistory ? null : _exportHistory,
                     ),
                   ],
                 ),
@@ -875,6 +972,22 @@ class _SyncDotState extends State<_SyncDot>
         width: 7,
         height: 7,
         decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+      ),
+    );
+  }
+}
+
+class _RowSpinner extends StatelessWidget {
+  const _RowSpinner();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 14,
+      height: 14,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: context.tokens.dim,
       ),
     );
   }
