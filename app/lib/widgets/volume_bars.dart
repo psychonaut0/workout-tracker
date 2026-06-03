@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import 'card.dart';
@@ -47,13 +48,14 @@ class VolumeBars extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final row in rows)
+          for (final (index, row) in rows.indexed)
             Padding(
               padding: const EdgeInsets.only(bottom: 11),
               child: _VolumeRow(
                 row: row,
                 maxVal: maxVal,
                 tokens: tokens,
+                index: index,
               ),
             ),
         ],
@@ -67,11 +69,15 @@ class _VolumeRow extends StatelessWidget {
     required this.row,
     required this.maxVal,
     required this.tokens,
+    required this.index,
   });
 
   final ({String muscle, int sets, int target}) row;
   final int maxVal;
   final WorkoutTokens tokens;
+
+  /// Row position, used to stagger the bar grow-in (~20ms per row).
+  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -113,13 +119,24 @@ class _VolumeRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                 ),
-                // Fill bar
-                FractionallySizedBox(
-                  widthFactor: fillFraction.clamp(0.0, 1.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: fillColor,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                // Fill bar — grows 0→fraction on mount, staggered by row index
+                // (~20ms per row via a slightly longer per-row duration). On a
+                // data rebuild the tween retargets old→new, which animates the
+                // bar to its new width rather than re-growing from zero.
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: fillFraction.clamp(0.0, 1.0)),
+                  duration: Motion.of(
+                    context,
+                    Motion.base + Duration(milliseconds: 20 * index),
+                  ),
+                  curve: Motion.curve,
+                  builder: (_, factor, __) => FractionallySizedBox(
+                    widthFactor: factor,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: fillColor,
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                      ),
                     ),
                   ),
                 ),
