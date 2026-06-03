@@ -1,0 +1,11 @@
+# Launcher icon for "Reps" — generated via flutter_launcher_icons.
+# Sources prepared in docs/flutter_icons/; only Android is scaffolded.
+flutter_launcher_icons:
+  image_path: "assets/icon/reps-icon-1024.png"
+
+  android: true
+  adaptive_icon_background: "#0B0B0C"
+  adaptive_icon_foreground: "assets/icon/reps-foreground-1024.png"
+  min_sdk_android: 24
+
+  ios: false
