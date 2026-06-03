@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/active_session_draft.dart';
 import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../session/active_session_controller.dart';
 import '../session/active_session_screen.dart';
+import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/motion.dart';
 
@@ -20,7 +22,15 @@ Future<void> startSession(
   BuildContext context, {
   DayTemplate? template,
 }) async {
-  final controller = ActiveSessionController();
+  final manager = context.read<SessionManager>();
+
+  // A workout is already running → resume it instead of starting a new one.
+  if (manager.hasActive) {
+    await openActiveSession(context, manager);
+    return;
+  }
+
+  final controller = ActiveSessionController(draftStore: DraftStore());
 
   if (template != null) {
     await controller.buildFromTemplate(
@@ -33,7 +43,18 @@ Future<void> startSession(
     controller.seedEmpty(name: 'Custom', focus: '');
   }
 
+  manager.register(controller);
+
   if (!context.mounted) return;
+  await openActiveSession(context, manager);
+}
+
+/// Pushes the session route for the manager's active controller (no-op if
+/// none or already open). Shared by start, mini-bar tap and notification tap.
+Future<void> openActiveSession(
+    BuildContext context, SessionManager manager) async {
+  final controller = manager.active;
+  if (controller == null || manager.screenOpen) return;
 
   await Navigator.of(context, rootNavigator: true).push<void>(
     PageRouteBuilder<void>(

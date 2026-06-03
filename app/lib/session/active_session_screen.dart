@@ -19,6 +19,7 @@ import 'active_session_controller.dart';
 import 'exercise_block.dart';
 import 'exercise_picker_sheet.dart';
 import 'rest_timer.dart';
+import 'session_manager.dart';
 import 'session_summary_screen.dart';
 
 /// Full-bleed overlay for an active workout session.
@@ -42,12 +43,10 @@ class ActiveSessionScreen extends StatefulWidget {
 class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
   Timer? _ticker;
 
-  // Rest timer state. Driven by the controller's restStart/restTotal; mirrored
-  // here so the widget can react to changes without the controller exposing a
-  // ValueNotifier (the ChangeNotifier rebuild is sufficient).
-  bool _restActive = false;
-  DateTime? _restStart;
-  int _restTotal = 0;
+  // Captured references so the ticker/dispose can reach the manager and
+  // controller without a BuildContext.
+  SessionManager? _manager;
+  ActiveSessionController? _controller;
 
   // Haptic guards: fire once per countdown. Re-armed (cleared) when +30s pushes
   // remaining back above the respective threshold.
@@ -63,14 +62,26 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       _handleRestHaptics();
       setState(() {});
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<SessionManager>().screenOpen = true;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _manager = context.read<SessionManager>();
+    _controller = context.read<ActiveSessionController>();
   }
 
   /// Fires countdown haptics at the 3s and 0s thresholds, once each, and
   /// re-arms the guards if +30s lifts remaining back above a threshold.
   void _handleRestHaptics() {
-    if (!_restActive || _restStart == null) return;
-    final elapsed = DateTime.now().difference(_restStart!).inSeconds;
-    final remaining = _restTotal - elapsed;
+    final c = _controller;
+    final start = c?.restStart;
+    if (c == null || start == null) return;
+    final elapsed = DateTime.now().difference(start).inSeconds;
+    final remaining = c.restTotal - elapsed;
 
     // Re-arm guards when +30s pushes remaining back above the thresholds.
     if (remaining > 3) _tickHapticFired = false;
@@ -89,33 +100,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _manager?.screenOpen = false;
     super.dispose();
-  }
-
-  // ── Rest timer management ─────────────────────────────────────────────────
-
-  void _startRest(int totalSeconds) {
-    setState(() {
-      _restActive = true;
-      _restStart = DateTime.now();
-      _restTotal = totalSeconds;
-      _tickHapticFired = false;
-      _buzzHapticFired = false;
-    });
-  }
-
-  void _add30s() {
-    setState(() {
-      _restTotal += 30;
-    });
-  }
-
-  void _dismissRest() {
-    setState(() {
-      _restActive = false;
-      _restStart = null;
-      _restTotal = 0;
-    });
   }
 
   // ── Back / close handling ─────────────────────────────────────────────────
@@ -202,12 +188,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
 
     // Compute rest timer remaining
     int restRemaining = 0;
-    if (_restActive && _restStart != null) {
-      final elapsed2 = DateTime.now().difference(_restStart!).inSeconds;
-      restRemaining = _restTotal - elapsed2;
+    if (controller.restStart != null) {
+      final elapsed2 =
+          DateTime.now().difference(controller.restStart!).inSeconds;
+      restRemaining = controller.restTotal - elapsed2;
       if (restRemaining <= 0) {
         // Auto-dismiss on next frame
-        WidgetsBinding.instance.addPostFrameCallback((_) => _dismissRest());
+        WidgetsBinding.instance.addPostFrameCallback((_) => controller.stopRest());
         restRemaining = 0;
       }
     }
@@ -228,7 +215,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                 prCount: prCount,
                 progress: progress,
                 tokens: tokens,
-                onClose: () => _handleClose(context, controller),
+                onMinimize: () => Navigator.of(context).pop(),
+                onDiscard: () => _handleClose(context, controller),
               ),
 
               // ── Scrollable body ──────────────────────────────────────────
@@ -255,7 +243,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                             controller.toggleDone(b, s);
                             // Start rest timer when a working set is completed
                             if (!wasDone && !s.isWarmup) {
-                              _startRest(b.exercise.compound ? 180 : 90);
+                              controller.startRest(b.exercise.compound ? 180 : 90);
                             }
                           },
                           onSetChanged: (b, s) => controller.markChanged(),
@@ -315,16 +303,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
           ),
 
           // ── Floating rest timer ──────────────────────────────────────────
-          if (_restActive && _restStart != null && restRemaining > 0)
+          if (controller.restStart != null && restRemaining > 0)
             Positioned(
               left: 16,
               right: 16,
               bottom: 44,
               child: RestTimerCard(
-                totalSeconds: _restTotal,
-                startTime: _restStart!,
-                onAdd30s: _add30s,
-                onDismiss: _dismissRest,
+                totalSeconds: controller.restTotal,
+                startTime: controller.restStart!,
+                onAdd30s: () => controller.addRestTime(30),
+                onDismiss: controller.stopRest,
               ),
             ),
         ],
@@ -345,7 +333,8 @@ class _Header extends StatelessWidget {
     required this.prCount,
     required this.progress,
     required this.tokens,
-    required this.onClose,
+    required this.onMinimize,
+    required this.onDiscard,
   });
 
   final SessionDraft draft;
@@ -356,7 +345,8 @@ class _Header extends StatelessWidget {
   final int prCount;
   final double progress;
   final WorkoutTokens tokens;
-  final VoidCallback onClose;
+  final VoidCallback onMinimize;
+  final VoidCallback onDiscard;
 
   @override
   Widget build(BuildContext context) {
@@ -376,9 +366,9 @@ class _Header extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: Row(
               children: [
-                // Back button
+                // Minimize button (chevron down)
                 GestureDetector(
-                  onTap: onClose,
+                  onTap: onMinimize,
                   child: Container(
                     width: 36,
                     height: 36,
@@ -389,7 +379,7 @@ class _Header extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Transform.rotate(
-                      angle: 3.14159,
+                      angle: 1.5708,
                       child: Icon(WIcons.chevron,
                           size: 18, color: tokens.dim),
                     ),
@@ -431,6 +421,21 @@ class _Header extends StatelessWidget {
                             size: 11, color: tokens.faint),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: onDiscard,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: tokens.surface,
+                      border: Border.all(color: tokens.line),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(WIcons.trash, size: 16, color: tokens.dim),
                   ),
                 ),
                 const SizedBox(width: 12),

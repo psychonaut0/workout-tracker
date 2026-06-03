@@ -37,11 +37,14 @@ class ExerciseBlock extends StatefulWidget {
   State<ExerciseBlock> createState() => _ExerciseBlockState();
 }
 
-class _ExerciseBlockState extends State<ExerciseBlock> {
-  bool _expanded = true;
+class _ExerciseBlockState extends State<ExerciseBlock>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final tokens = context.tokens;
     final block = widget.block;
     final ex = block.exercise;
@@ -77,7 +80,7 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
         color: tokens.surface,
         borderRadius: BorderRadius.circular(AppRadius.radius),
         border: Border.all(
-            color: _expanded ? tokens.lineStrong : tokens.line),
+            color: block.expanded ? tokens.lineStrong : tokens.line),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -86,7 +89,8 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
           // ── Header (always visible) ────────────────────────────────────
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: () =>
+                setState(() => widget.block.expanded = !widget.block.expanded),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               child: Row(
@@ -180,7 +184,7 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
 
                   // Chevron (rotates when expanded)
                   AnimatedRotation(
-                    turns: _expanded ? 0.25 : 0,
+                    turns: block.expanded ? 0.25 : 0,
                     duration: const Duration(milliseconds: 150),
                     child: Icon(WIcons.chevron, size: 18, color: tokens.faint),
                   ),
@@ -190,7 +194,7 @@ class _ExerciseBlockState extends State<ExerciseBlock> {
           ),
 
           // ── Expanded content ───────────────────────────────────────────
-          if (_expanded)
+          if (block.expanded)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Column(

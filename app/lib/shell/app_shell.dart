@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../auth/auth_store.dart';
 import '../data/day_template_repository.dart';
@@ -11,9 +12,11 @@ import '../ui/plan_screen.dart';
 import '../ui/profile_screen.dart';
 import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
+import '../session/session_manager.dart';
 import '../theme/motion.dart';
 import 'back_dispatch.dart';
 import 'session_launcher.dart' as launcher;
+import 'session_mini_bar.dart';
 import 'w_tab_bar.dart';
 
 /// The top-level 5-tab shell of the app.
@@ -150,6 +153,30 @@ class _AppShellState extends State<AppShell> {
                 ],
               ),
             ),
+            // Workout-in-progress mini-bar (only when the session screen is closed).
+            // bottom: 105 puts the 46px pill above the WTabBar (≈77px tall, plus
+            // bottom safe-area) and clears the FAB, whose 22px upward overhang
+            // reaches ≈99px from the screen bottom — so the pill bottom (105px)
+            // sits ≈6px above the FAB top with a wider gap once safe-area is added.
+            Builder(builder: (context) {
+              final manager = context.watch<SessionManager>();
+              final c = manager.active;
+              if (c == null || manager.screenOpen) {
+                return const SizedBox.shrink();
+              }
+              return Positioned(
+                left: 16,
+                right: 16,
+                bottom: 105,
+                child: SessionMiniBar(
+                  name: c.draft.name,
+                  startedAt: c.draft.startedAt,
+                  restStart: c.restStart,
+                  restTotal: c.restTotal,
+                  onTap: () => launcher.openActiveSession(context, manager),
+                ),
+              );
+            }),
             Align(
               alignment: Alignment.bottomCenter,
               child: WTabBar(

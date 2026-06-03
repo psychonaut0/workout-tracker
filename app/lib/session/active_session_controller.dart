@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' show max;
 
 import 'package:flutter/foundation.dart';
@@ -272,7 +273,44 @@ class SessionDraft {
 /// All state mutations (toggleDone, addSet, etc.) call [notifyListeners] so
 /// that Provider-wired widgets rebuild automatically.
 class ActiveSessionController extends ChangeNotifier {
+  /// [draftStore] enables debounced autosave of the in-progress draft (used
+  /// for resume-on-launch). Null (e.g. in unit tests) disables persistence.
+  ActiveSessionController({DraftStore? draftStore}) : _draftStore = draftStore;
+
+  /// Adopts a previously persisted draft (resume-on-launch / crash recovery).
+  ActiveSessionController.fromDraft(SessionDraft draft, {DraftStore? draftStore})
+      : _draftStore = draftStore,
+        _draft = draft;
+
+  final DraftStore? _draftStore;
+  Timer? _saveDebounce;
+
+  /// Autosave debounce window (exposed for tests).
+  static const saveDebounce = Duration(seconds: 1);
+
   SessionDraft? _draft;
+
+  @override
+  void notifyListeners() {
+    _scheduleSave();
+    super.notifyListeners();
+  }
+
+  void _scheduleSave() {
+    final store = _draftStore;
+    if (store == null || _draft == null) return;
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(saveDebounce, () {
+      final d = _draft;
+      if (d != null) store.save(d);
+    });
+  }
+
+  @override
+  void dispose() {
+    _saveDebounce?.cancel();
+    super.dispose();
+  }
 
   SessionDraft get draft {
     assert(_draft != null, 'No active session — call buildFromTemplate first.');
@@ -342,6 +380,31 @@ class ActiveSessionController extends ChangeNotifier {
   @visibleForTesting
   void seedForTest(SessionDraft draft) {
     _draft = draft;
+    notifyListeners();
+  }
+
+  // ── Rest timer (app-scoped so it survives minimizing the screen) ─────────
+  DateTime? restStart;
+  int restTotal = 0;
+
+  bool get resting => restStart != null;
+
+  void startRest(int seconds) {
+    restStart = DateTime.now();
+    restTotal = seconds;
+    notifyListeners();
+  }
+
+  void addRestTime(int seconds) {
+    if (restStart == null) return;
+    restTotal += seconds;
+    notifyListeners();
+  }
+
+  void stopRest() {
+    if (restStart == null) return;
+    restStart = null;
+    restTotal = 0;
     notifyListeners();
   }
 
@@ -491,8 +554,11 @@ class ActiveSessionController extends ChangeNotifier {
     await persistSession(executor, write);
 
     // Clear the on-disk draft (if a store is provided) then the in-memory state.
+    _saveDebounce?.cancel();
     await draftStore?.clear();
     _draft = null;
+    restStart = null;
+    restTotal = 0;
     notifyListeners();
 
     return sessionId;
@@ -501,7 +567,11 @@ class ActiveSessionController extends ChangeNotifier {
   /// Clears the in-memory draft without persisting. Used when the user
   /// discards the session.
   void discard() {
+    _saveDebounce?.cancel();
     _draft = null;
+    restStart = null;
+    restTotal = 0;
+    _draftStore?.clear(); // fire-and-forget; a discarded workout must not resurrect
     notifyListeners();
   }
 }
