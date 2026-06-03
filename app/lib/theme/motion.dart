@@ -48,8 +48,17 @@ class MountProgress extends StatefulWidget {
 class _MountProgressState extends State<MountProgress>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: widget.duration)..forward();
+      AnimationController(vsync: this, duration: widget.duration);
   late final CurvedAnimation _a = CurvedAnimation(parent: _c, curve: Motion.curve);
+
+  @override
+  void initState() {
+    super.initState();
+    // Construct + start while the element is active: under reduced motion
+    // build() never touches the late fields, so a lazy first touch in
+    // dispose() would create the ticker on a deactivated element and throw.
+    _c.forward();
+  }
 
   @override
   void dispose() {
@@ -85,6 +94,11 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   @override
   void initState() {
     super.initState();
+    // Construct the controller while the element is active (no-op stop):
+    // under reduced motion build() never touches the late fields, so a lazy
+    // first touch in dispose() would create the ticker on a deactivated
+    // element and throw.
+    _c.stop();
     Future.delayed(Duration(milliseconds: 30 * widget.index), () {
       if (mounted) _c.forward();
     });
