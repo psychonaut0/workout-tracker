@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../auth/auth_store.dart';
 import '../data/day_template_repository.dart';
@@ -10,6 +11,7 @@ import '../ui/plan_screen.dart';
 import '../ui/profile_screen.dart';
 import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
+import 'back_dispatch.dart';
 import 'session_launcher.dart' as launcher;
 import 'w_tab_bar.dart';
 
@@ -27,11 +29,7 @@ import 'w_tab_bar.dart';
 /// The FAB calls [launcher.startSession] with the next-in-rotation template
 /// (null → custom session) and resets to the Today tab on return.
 class AppShell extends StatefulWidget {
-  const AppShell({
-    super.key,
-    required this.onLogout,
-    required this.auth,
-  });
+  const AppShell({super.key, required this.onLogout, required this.auth});
 
   /// Called (awaited) when the user logs out via the Profile screen.
   final Future<void> Function() onLogout;
@@ -46,6 +44,8 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   String? _progressTarget;
+
+  final _planKey = GlobalKey<PlanScreenState>();
 
   late final DayTemplateRepository _dayRepo;
   late final SessionRepository _sessionRepo;
@@ -98,35 +98,51 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _index,
-            children: [
-              TodayScreen(
-                onStart: _start,
-                onOpenExercise: _openExercise,
-                onOpenProfile: _openProfile,
-              ),
-              ProgressScreen(
-                key: ValueKey(_progressTarget),
-                initialTarget: _progressTarget,
-              ),
-              const HistoryScreen(),
-              const PlanScreen(),
-            ],
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: WTabBar(
-              currentIndex: _index,
-              onTab: (i) => setState(() => _index = i),
-              onStart: _fabStart,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        final tabHandled =
+            _index == 3 && (_planKey.currentState?.handleBack() ?? false);
+        switch (decideBack(tabHandled: tabHandled, tabIndex: _index)) {
+          case BackAction.none:
+            break;
+          case BackAction.goHome:
+            setState(() => _index = 0);
+          case BackAction.exit:
+            SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: Stack(
+          children: [
+            IndexedStack(
+              index: _index,
+              children: [
+                TodayScreen(
+                  onStart: _start,
+                  onOpenExercise: _openExercise,
+                  onOpenProfile: _openProfile,
+                ),
+                ProgressScreen(
+                  key: ValueKey(_progressTarget),
+                  initialTarget: _progressTarget,
+                ),
+                const HistoryScreen(),
+                PlanScreen(key: _planKey),
+              ],
             ),
-          ),
-        ],
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: WTabBar(
+                currentIndex: _index,
+                onTab: (i) => setState(() => _index = i),
+                onStart: _fabStart,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

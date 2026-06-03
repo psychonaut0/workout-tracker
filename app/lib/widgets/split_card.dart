@@ -110,19 +110,6 @@ class DaySlide extends StatelessWidget {
 
     return Stack(
       children: [
-        // Decorative dumbbell — day slides only, positioned top-right.
-        // Positioned at the edge; clip is handled by the parent PageView.
-        Positioned(
-          right: -28,
-          top: -28,
-          child: IgnorePointer(
-            child: Icon(
-              WIcons.dumbbell,
-              size: 150,
-              color: accentInk.withValues(alpha: 0.08),
-            ),
-          ),
-        ),
         // Content column
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,

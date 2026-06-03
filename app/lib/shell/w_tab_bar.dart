@@ -169,8 +169,8 @@ class _FabButton extends StatelessWidget {
     return GestureDetector(
       onTap: onStart,
       child: Container(
-        width: 52,
-        height: 52,
+        width: 64,
+        height: 64,
         decoration: BoxDecoration(
           color: t.accent,
           shape: BoxShape.circle,
@@ -184,7 +184,7 @@ class _FabButton extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Icon(WIcons.bolt, size: 26, color: t.accentInk),
+        child: Icon(WIcons.bolt, size: 28, color: t.accentInk),
       ),
     );
   }

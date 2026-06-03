@@ -36,10 +36,10 @@ class PlanScreen extends StatefulWidget {
   const PlanScreen({super.key});
 
   @override
-  State<PlanScreen> createState() => _PlanScreenState();
+  State<PlanScreen> createState() => PlanScreenState();
 }
 
-class _PlanScreenState extends State<PlanScreen> {
+class PlanScreenState extends State<PlanScreen> {
   /// Currently open in-place editor (null = list view).
   _EditorRoute? _editor;
 
@@ -49,6 +49,13 @@ class _PlanScreenState extends State<PlanScreen> {
   void _openEditor(_EditorRoute route) => setState(() => _editor = route);
 
   void _onBack() => setState(() => _editor = null);
+
+  /// Consumes a back press when the in-tab editor is open. Returns true if handled.
+  bool handleBack() {
+    if (_editor == null) return false;
+    _onBack();
+    return true;
+  }
 
   // ── Derived title ─────────────────────────────────────────────────────────
 
@@ -131,8 +138,7 @@ class _PlanScreenState extends State<PlanScreen> {
       return const TargetsTab();
     }
     return LibraryTab(
-      onOpenEditor: (id) =>
-          _openEditor(_EditorRoute(kind: 'exercise', id: id)),
+      onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'exercise', id: id)),
     );
   }
 
@@ -174,11 +180,7 @@ class _BackButton extends StatelessWidget {
         ),
         child: Transform.rotate(
           angle: 3.14159, // 180° = point left
-          child: Icon(
-            WIcons.chevron,
-            size: 18,
-            color: tokens.dim,
-          ),
+          child: Icon(WIcons.chevron, size: 18, color: tokens.dim),
         ),
       ),
     );
@@ -270,9 +272,7 @@ class _SegBtn extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(36 * 0.6),
             color: active ? tokens.surface3 : Colors.transparent,
-            border: Border.all(
-              color: active ? tokens.lineStrong : tokens.line,
-            ),
+            border: Border.all(color: active ? tokens.lineStrong : tokens.line),
             boxShadow: active
                 ? [
                     BoxShadow(
