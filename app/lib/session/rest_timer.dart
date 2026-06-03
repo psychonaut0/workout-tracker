@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 
@@ -21,7 +22,7 @@ import '../theme/typography.dart';
 /// The parent ([ActiveSessionScreen]) owns [startTime] and [totalSeconds] so
 /// that `+30s` only increments the `_restTotal` field rather than a local
 /// state variable that could be reset on rebuild.
-class RestTimerCard extends StatelessWidget {
+class RestTimerCard extends StatefulWidget {
   const RestTimerCard({
     super.key,
     required this.totalSeconds,
@@ -43,19 +44,76 @@ class RestTimerCard extends StatelessWidget {
   final VoidCallback onDismiss;
 
   @override
+  State<RestTimerCard> createState() => _RestTimerCardState();
+}
+
+class _RestTimerCardState extends State<RestTimerCard>
+    with SingleTickerProviderStateMixin {
+  /// Threshold (inclusive) for the "final seconds" emphasis state.
+  static const int _finalThreshold = 5;
+
+  /// Repeating 1.0↔1.03 pulse used in the final-5s window. Started on entering
+  /// the window, stopped + reset to 1.0 on exit / zero / dismiss.
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+    lowerBound: 1.0,
+    upperBound: 1.03,
+  );
+
+  bool _pulsing = false;
+
+  int get _remaining {
+    final elapsed = DateTime.now().difference(widget.startTime).inSeconds;
+    return (widget.totalSeconds - elapsed).clamp(0, widget.totalSeconds);
+  }
+
+  bool get _inFinalWindow {
+    final r = _remaining;
+    return r > 0 && r <= _finalThreshold;
+  }
+
+  void _syncPulse() {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    final shouldPulse = _inFinalWindow && !reducedMotion;
+    if (shouldPulse && !_pulsing) {
+      _pulsing = true;
+      _pulse.repeat(reverse: true);
+    } else if (!shouldPulse && _pulsing) {
+      _pulsing = false;
+      _pulse.stop();
+      _pulse.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
 
-    // Compute remaining from the timestamps
-    final elapsed = DateTime.now().difference(startTime).inSeconds;
-    final remaining = (totalSeconds - elapsed).clamp(0, totalSeconds);
+    final remaining = _remaining;
     final mm = remaining ~/ 60;
     final ss = remaining % 60;
-    final pct = totalSeconds > 0
-        ? (1 - remaining / totalSeconds).clamp(0.0, 1.0)
+    final pct = widget.totalSeconds > 0
+        ? (1 - remaining / widget.totalSeconds).clamp(0.0, 1.0)
         : 1.0;
 
-    return Container(
+    final isFinal = _inFinalWindow;
+    final emphasisColor = isFinal ? tokens.accent : tokens.text;
+
+    // Start/stop the pulse loop in response to the current remaining value.
+    // Runs after build so MediaQuery is available and we don't mutate the
+    // controller mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncPulse();
+    });
+
+    final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: tokens.surface2,
@@ -78,13 +136,22 @@ class RestTimerCard extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                CustomPaint(
-                  size: const Size(40, 40),
-                  painter: _RingPainter(
-                    progress: pct,
-                    trackColor: tokens.surface3,
-                    arcColor: tokens.accent,
-                    strokeWidth: 3,
+                // Smooth per-second sweep: the fraction is tweened linearly
+                // over 1s so the arc glides instead of stepping. When +30s
+                // pushes the fraction back UP, a 1s linear tween toward the
+                // higher value is acceptable.
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: pct),
+                  duration: Motion.of(context, const Duration(seconds: 1)),
+                  curve: Curves.linear,
+                  builder: (_, value, __) => CustomPaint(
+                    size: const Size(40, 40),
+                    painter: _RingPainter(
+                      progress: value,
+                      trackColor: tokens.surface3,
+                      arcColor: tokens.accent,
+                      strokeWidth: 3,
+                    ),
                   ),
                 ),
                 Icon(WIcons.timer, size: 14, color: tokens.accent),
@@ -106,13 +173,15 @@ class RestTimerCard extends StatelessWidget {
                     letterSpacing: 0.08 * 10,
                   ),
                 ),
-                Text(
-                  '$mm:${ss.toString().padLeft(2, '0')}',
+                AnimatedDefaultTextStyle(
+                  duration: Motion.of(context, Motion.base),
+                  curve: Motion.curve,
                   style: WorkoutType.display(
                     size: 22,
                     weight: FontWeight.w700,
-                    color: tokens.text,
+                    color: emphasisColor,
                   ),
+                  child: Text('$mm:${ss.toString().padLeft(2, '0')}'),
                 ),
               ],
             ),
@@ -121,7 +190,7 @@ class RestTimerCard extends StatelessWidget {
           // ── +30s button ────────────────────────────────────────────────
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: onAdd30s,
+            onTap: widget.onAdd30s,
             child: Container(
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -146,7 +215,7 @@ class RestTimerCard extends StatelessWidget {
           // ── Skip button ────────────────────────────────────────────────
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: onDismiss,
+            onTap: widget.onDismiss,
             child: Container(
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -168,6 +237,14 @@ class RestTimerCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    // Gentle scale pulse during the final-5s window. AnimatedBuilder reads the
+    // controller value directly so it stays at exactly 1.0 when not pulsing.
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (_, child) => Transform.scale(scale: _pulse.value, child: child),
+      child: card,
     );
   }
 }
