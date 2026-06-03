@@ -8,6 +8,7 @@ import 'day_editor.dart';
 import 'exercise_editor.dart';
 import 'exercise_library_tab.dart';
 import 'split_tab.dart';
+import 'targets_tab.dart';
 
 // ── Editor-route state ────────────────────────────────────────────────────
 
@@ -126,6 +127,9 @@ class _PlanScreenState extends State<PlanScreen> {
         onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'day', id: id)),
       );
     }
+    if (_activeTab == 'targets') {
+      return const TargetsTab();
+    }
     return LibraryTab(
       onOpenEditor: (id) =>
           _openEditor(_EditorRoute(kind: 'exercise', id: id)),
@@ -228,6 +232,13 @@ class _SegmentedToggle extends StatelessWidget {
             active: activeTab == 'exercises',
             tokens: tokens,
             onTap: () => onSelect('exercises'),
+          ),
+          const SizedBox(width: 6),
+          _SegBtn(
+            label: 'Targets',
+            active: activeTab == 'targets',
+            tokens: tokens,
+            onTap: () => onSelect('targets'),
           ),
         ],
       ),

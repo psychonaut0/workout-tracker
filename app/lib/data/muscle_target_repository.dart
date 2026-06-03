@@ -14,6 +14,39 @@ const _defaults = [
   ('triceps', 9),
 ];
 
+// ── target edit ops ──────────────────────────────────────────────────────────
+
+({String sql, List<Object?> args}) insertTargetOp(
+        String id, String userId, String muscle, int sets, String nowIso) =>
+    (
+      sql: 'INSERT INTO muscle_targets (id, user_id, muscle, target_sets, created_at) '
+          'VALUES (?, ?, ?, ?, ?)',
+      args: [id, userId, muscle, sets, nowIso],
+    );
+
+({String sql, List<Object?> args}) updateTargetOp(String id, int sets) =>
+    (sql: 'UPDATE muscle_targets SET target_sets = ? WHERE id = ?', args: [sets, id]);
+
+({String sql, List<Object?> args}) deleteTargetOp(String id) =>
+    (sql: 'DELETE FROM muscle_targets WHERE id = ?', args: [id]);
+
+/// Picks the right op for setting [muscle]'s weekly target to [sets]:
+/// no row + sets>0 → INSERT; existing + sets>0 → UPDATE; existing + 0 → DELETE
+/// ("no goal"); no row + 0 → null (nothing to do).
+({String sql, List<Object?> args})? targetOpFor({
+  required MuscleTarget? existing,
+  required int sets,
+  required String newId,
+  required String userId,
+  required String muscle,
+  required String nowIso,
+}) {
+  if (existing == null) {
+    return sets > 0 ? insertTargetOp(newId, userId, muscle, sets, nowIso) : null;
+  }
+  return sets > 0 ? updateTargetOp(existing.id, sets) : deleteTargetOp(existing.id);
+}
+
 /// Repository for muscle_targets — targets per muscle group for the weekly
 /// volume bars.
 class MuscleTargetRepository {
@@ -52,5 +85,24 @@ class MuscleTargetRepository {
         );
       }
     });
+  }
+
+  /// Live-persists [muscle]'s weekly target to [sets]. 0 = no goal (deletes).
+  Future<void> setTarget({
+    required String muscle,
+    required int sets,
+    required String userId,
+    required MuscleTarget? existing,
+  }) async {
+    final op = targetOpFor(
+      existing: existing,
+      sets: sets,
+      newId: uuid.v4(),
+      userId: userId,
+      muscle: muscle,
+      nowIso: DateTime.now().toUtc().toIso8601String(),
+    );
+    if (op == null) return;
+    await db.writeTransaction((tx) => tx.execute(op.sql, op.args));
   }
 }
