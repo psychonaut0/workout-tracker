@@ -32,6 +32,7 @@ class SessionManager extends ChangeNotifier {
   Timer? _restExpiry;
 
   void register(ActiveSessionController c) {
+    _restExpiry?.cancel(); // defensive: never let a stale timer poke a new session
     _active?.removeListener(_onControllerChange);
     _active = c;
     c.addListener(_onControllerChange);
