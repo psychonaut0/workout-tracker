@@ -32,6 +32,8 @@ dependencies:
   provider: ^6.1.2
   # Client-local settings persistence (unit, theme, accent, serverUrl).
   shared_preferences: ^2.3.2
+  # Export delivery: opens the Android share sheet with the JSON file.
+  share_plus: ^11.0.0
 
 dev_dependencies:
   flutter_test:
