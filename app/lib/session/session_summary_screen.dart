@@ -408,12 +408,11 @@ class _StatTiles extends StatelessWidget {
         const SizedBox(width: 12),
         // PR count ticks up from 0 on mount.
         Expanded(
-          child: TweenAnimationBuilder<int>(
-            tween: IntTween(begin: 0, end: prCount),
-            duration: Motion.slow,
-            builder: (context, value, _) => _TileInner(
+          child: CountUp(
+            value: prCount,
+            builder: (v) => _TileInner(
               label: 'PRs',
-              value: '$value',
+              value: '$v',
               tokens: tokens,
               highlight: prCount > 0,
             ),
