@@ -522,7 +522,14 @@ class _SessionCardState extends State<SessionCard> {
             ),
 
             // ── Expanded exercise blocks ──────────────────────────────────────
-            if (_expanded) _ExerciseBlocks(session: widget.session, catalogMap: widget.catalogMap, sessionRepo: widget.sessionRepo, units: widget.units),
+            AnimatedSize(
+              duration: Motion.of(context, Motion.base),
+              curve: Motion.curve,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? _ExerciseBlocks(session: widget.session, catalogMap: widget.catalogMap, sessionRepo: widget.sessionRepo, units: widget.units)
+                  : const SizedBox(width: double.infinity),
+            ),
           ],
         ),
       ),

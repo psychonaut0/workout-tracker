@@ -85,12 +85,25 @@ class _AppShellState extends State<AppShell> {
   /// Opens the Profile & Settings screen as a root-navigator overlay.
   Future<void> _openProfile() async {
     await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => ProfileScreen(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 250),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+        pageBuilder: (_, __, ___) => ProfileScreen(
           onClose: () => Navigator.of(context, rootNavigator: true).pop(),
           onLogout: widget.onLogout,
           auth: widget.auth,
         ),
+        transitionsBuilder: (_, anim, __, child) {
+          final curved = CurvedAnimation(parent: anim, curve: Motion.curve);
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween(begin: const Offset(0, 0.06), end: Offset.zero)
+                  .animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
