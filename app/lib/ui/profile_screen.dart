@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:powersync/powersync.dart' show SyncStatus;
 import 'package:provider/provider.dart';
 
 import '../auth/auth_store.dart';
@@ -7,6 +8,7 @@ import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
+import '../sync/sync_status_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
@@ -513,28 +515,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: WIcons.cloud,
                       title: 'Sync server',
                       sub: settings.serverUrl,
-                      right: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: signedIn ? tokens.accent : tokens.faint,
-                              shape: BoxShape.circle,
+                      right: signedIn && settings.syncEnabled
+                          ? const _SyncStatusRight()
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: tokens.faint,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Not connected',
+                                  style: WorkoutType.mono(
+                                    size: 11,
+                                    weight: FontWeight.w600,
+                                    color: tokens.dim,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            signedIn ? 'Connected' : 'Not connected',
-                            style: WorkoutType.mono(
-                              size: 11,
-                              weight: FontWeight.w600,
-                              color: tokens.dim,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 0, 14, 13),
@@ -761,6 +765,108 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// Live sync status: dot + label driven by the PowerSync status stream.
+class _SyncStatusRight extends StatelessWidget {
+  const _SyncStatusRight();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return StreamBuilder<SyncStatus>(
+      stream: db.statusStream,
+      initialData: db.currentStatus,
+      builder: (context, snap) {
+        final s = snap.data;
+        final state = syncDotStateFor(
+          connected: s?.connected ?? false,
+          syncing: (s?.uploading ?? false) || (s?.downloading ?? false),
+          hasError: s?.uploadError != null || s?.downloadError != null,
+        );
+        final color = switch (state) {
+          SyncDotState.syncing || SyncDotState.synced => tokens.accent,
+          SyncDotState.offline => tokens.faint,
+          SyncDotState.error => tokens.danger,
+        };
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SyncDot(color: color, pulsing: state == SyncDotState.syncing),
+            const SizedBox(width: 6),
+            Text(
+              syncLabelFor(state, s?.lastSyncedAt, DateTime.now()),
+              style: WorkoutType.mono(
+                size: 11,
+                weight: FontWeight.w600,
+                color: tokens.dim,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 7px dot; pulses (opacity loop) while [pulsing], skipped under reduced motion.
+class _SyncDot extends StatefulWidget {
+  const _SyncDot({required this.color, required this.pulsing});
+  final Color color;
+  final bool pulsing;
+
+  @override
+  State<_SyncDot> createState() => _SyncDotState();
+}
+
+class _SyncDotState extends State<_SyncDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+    lowerBound: 0.35,
+    upperBound: 1.0,
+  );
+
+  void _sync() {
+    final reduced = MediaQuery.of(context).disableAnimations;
+    if (widget.pulsing && !reduced) {
+      if (!_c.isAnimating) _c.repeat(reverse: true);
+    } else {
+      _c.stop();
+      _c.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SyncDot old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _c,
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+      ),
     );
   }
 }
