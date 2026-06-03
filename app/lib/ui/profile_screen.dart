@@ -164,35 +164,35 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: tokens.surface,
-          border: Border.all(color: tokens.line),
-          borderRadius: BorderRadius.circular(AppRadius.radius),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: WorkoutType.display(
-                size: 20,
-                weight: FontWeight.w700,
-                color: tokens.text,
-              ),
+    // No internal Expanded: callers place this in a Row and own the flex,
+    // so wrappers (e.g. UnitSwap) can sit between the Row and the card.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: tokens.surface,
+        border: Border.all(color: tokens.line),
+        borderRadius: BorderRadius.circular(AppRadius.radius),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: WorkoutType.display(
+              size: 20,
+              weight: FontWeight.w700,
+              color: tokens.text,
             ),
-            const SizedBox(height: 6),
-            Text(
-              label.toUpperCase(),
-              style: WorkoutType.mono(
-                size: 9,
-                color: tokens.faint,
-                letterSpacing: 0.06 * 9,
-              ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label.toUpperCase(),
+            style: WorkoutType.mono(
+              size: 9,
+              color: tokens.faint,
+              letterSpacing: 0.06 * 9,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -720,13 +720,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             return Row(
               children: [
-                _StatCard(label: 'Sessions', value: sessionCount),
+                Expanded(
+                    child: _StatCard(label: 'Sessions', value: sessionCount)),
                 const SizedBox(width: 8),
-                _StatCard(label: 'PRs', value: prCount),
+                Expanded(child: _StatCard(label: 'PRs', value: prCount)),
                 const SizedBox(width: 8),
-                UnitSwap(
-                  unitKey: unitService.unit,
-                  child: _StatCard(label: 'Bodyweight', value: bwText),
+                // Expanded must stay the direct Row child; UnitSwap's
+                // AnimatedSwitcher cannot host a flex ParentDataWidget.
+                Expanded(
+                  child: UnitSwap(
+                    unitKey: unitService.unit,
+                    child: _StatCard(label: 'Bodyweight', value: bwText),
+                  ),
                 ),
               ],
             );

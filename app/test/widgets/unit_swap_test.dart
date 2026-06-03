@@ -35,4 +35,25 @@ void main() {
     expect(find.text('100 kg'), findsNothing);
     expect(find.text('102.5 kg'), findsOneWidget);
   });
+
+  testWidgets('UnitSwap works under Expanded in a Row (flex stays outside)',
+      (tester) async {
+    // Regression guard for the Profile quick-stat row: Expanded must be the
+    // direct Row child — a flex ParentDataWidget INSIDE UnitSwap's
+    // AnimatedSwitcher throws "Incorrect use of ParentDataWidget" at runtime.
+    await tester.pumpWidget(MaterialApp(
+      home: Row(children: [
+        Expanded(
+          child: UnitSwap(
+            unitKey: 'kg',
+            child: Container(height: 40, color: const Color(0xFF112233)),
+          ),
+        ),
+      ]),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // The card stretches to the full Expanded width.
+    expect(tester.getSize(find.byType(Container)).width, 800);
+  });
 }
