@@ -10,7 +10,7 @@ Overlay ABOVE all routes (chosen over behind-content): every screen sits on an o
 
 ## Components
 
-### `AmbientController` (new, `app/lib/widgets/ambient_layer.dart` or its own small file)
+### `AmbientController` (new, lives in `app/lib/widgets/ambient_layer.dart` alongside the layer — one cohesive module)
 ChangeNotifier in the root MultiProvider with exactly one job: `void bloom()` — increments a `bloomCount` and notifies. The layer listens and runs the one-shot wash on each increment. Trigger site: `app/lib/session/set_row.dart` ~:148, where the live-PR `HapticFeedback.heavyImpact()` already fires → add `context.read<AmbientController>().bloom();`.
 
 ### `AmbientLayer` (new, `app/lib/widgets/ambient_layer.dart`)
