@@ -8,10 +8,12 @@ import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/typography.dart';
+import '../theme/tokens.dart';
 import '../units/unit_service.dart';
 import '../util/format.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
+import '../widgets/w_dialog.dart';
 
 /// Editor for a single exercise (create or edit).
 ///
@@ -223,6 +225,51 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       await _repo.createExercise(draft);
     }
 
+    if (mounted) widget.onBack();
+  }
+
+  // ── delete ───────────────────────────────────────────────────────────────────
+
+  Future<void> _delete() async {
+    final id = _editId;
+    if (id == null) return;
+    final refs = await _repo.exerciseReferences(id);
+    if (!mounted) return;
+
+    final action =
+        decideExerciseDelete(setCount: refs.setCount, dayCount: refs.dayCount);
+    switch (action) {
+      case ExerciseDeleteAction.blockedByHistory:
+        await showWDialog<bool>(
+          context,
+          title: "Can't delete",
+          message: 'This exercise is used in ${refs.setCount} logged '
+              'set(s). Delete those sessions first.',
+          actions: const [WDialogAction(label: 'OK', value: true)],
+        );
+        return;
+      case ExerciseDeleteAction.confirmWithDays:
+        final ok = await showWConfirm(
+          context,
+          title: 'Delete exercise?',
+          message: 'Also removes it from ${refs.dayCount} training day(s). '
+              'This cannot be undone.',
+          confirmLabel: 'Delete',
+          destructive: true,
+        );
+        if (ok != true) return;
+        await _repo.deleteExercise(id, removeFromDays: true);
+      case ExerciseDeleteAction.confirmPlain:
+        final ok = await showWConfirm(
+          context,
+          title: 'Delete exercise?',
+          message: 'This cannot be undone.',
+          confirmLabel: 'Delete',
+          destructive: true,
+        );
+        if (ok != true) return;
+        await _repo.deleteExercise(id, removeFromDays: false);
+    }
     if (mounted) widget.onBack();
   }
 
@@ -504,8 +551,45 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           onTap: _save,
         ),
 
-        // NO delete button (FK RESTRICT → ghost delete; excluded by spec).
+        if (_editId != null) ...[
+          const SizedBox(height: 10),
+          _DeleteButton(tokens: tokens, onTap: _delete),
+        ],
       ],
+    );
+  }
+}
+
+// ── Delete button ─────────────────────────────────────────────────────────────
+
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.tokens, required this.onTap});
+
+  final WorkoutTokens tokens;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: 46,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(WIcons.trash, size: 15, color: tokens.faint),
+            const SizedBox(width: 6),
+            Text(
+              'Delete exercise',
+              style: WorkoutType.mono(
+                size: 12.5,
+                weight: FontWeight.w600,
+                color: tokens.faint,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
