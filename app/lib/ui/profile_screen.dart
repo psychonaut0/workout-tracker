@@ -581,6 +581,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       sub: 'App highlight color',
                       right: _buildAccentSwatches(settings, tokens),
                     ),
+                    _Row(
+                      icon: WIcons.bolt,
+                      title: 'Ambient effects',
+                      sub: 'Drifting accent glow & grain',
+                      right: Toggle(
+                        value: settings.ambientEnabled,
+                        onChanged: settings.setAmbientEnabled,
+                      ),
+                    ),
                   ],
                 ),
 
