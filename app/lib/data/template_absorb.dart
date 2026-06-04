@@ -251,12 +251,12 @@ Future<int> absorbTemplates(PowerSyncDatabase db, String userId) async {
   final exTemplateIds = [for (final r in exRows) r['id'] as String];
   final dayTemplateIds = [for (final r in dayRows) r['id'] as String];
 
-  Future<List<Map<String, Object?>>> selectIn(String sql, List<String> ids,
-      {bool ownedOnly = false}) async {
+  Future<List<Map<String, Object?>>> selectIn(
+      String sql, List<String> ids) async {
     if (ids.isEmpty) return const [];
     final placeholders = List.filled(ids.length, '?').join(', ');
-    final rows = await db.getAll(sql.replaceFirst('(:in)', '($placeholders)'),
-        [...ids, if (ownedOnly) userId]);
+    final rows = await db.getAll(
+        sql.replaceFirst('(:in)', '($placeholders)'), ids);
     return [for (final r in rows) Map<String, Object?>.from(r)];
   }
 
