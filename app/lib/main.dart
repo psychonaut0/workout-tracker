@@ -6,6 +6,7 @@ import 'data/catalog_seed.dart';
 import 'data/muscle_target_repository.dart';
 import 'data/session_repository.dart';
 import 'data/session_writer.dart';
+import 'data/template_absorb.dart';
 import 'data/top_set_backfill.dart';
 import 'identity/identity_service.dart';
 import 'session/session_manager.dart';
@@ -50,6 +51,9 @@ Future<void> main() async {
   );
 
   await backfillTopSets(db);
+
+  // Absorb synced template rows into user-owned rows (nothing is locked).
+  await absorbTemplates(db, identity.currentUserId);
 
   final sessionManager = SessionManager();
   final workoutNotification = WorkoutNotification();
