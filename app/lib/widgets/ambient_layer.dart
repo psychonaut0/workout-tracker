@@ -174,7 +174,8 @@ class AmbientLayerState extends State<AmbientLayer>
   @override
   Widget build(BuildContext context) {
     final enabled = context.watch<SettingsService>().ambientEnabled;
-    context.watch<SessionManager>(); // re-sync intensity targets on change
+    // Intensity targets are read fresh inside _onTick each frame — no need to
+    // watch SessionManager here (it would just force redundant rebuilds).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncTicker();
     });
