@@ -95,7 +95,6 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
     final unit = context.watch<UnitService>();
 
     return Scaffold(
-      backgroundColor: tokens.bg,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

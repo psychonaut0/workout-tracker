@@ -478,7 +478,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final signedIn = widget.auth.email != null;
 
     return Scaffold(
-      backgroundColor: tokens.bg,
       body: Column(
         children: [
           // ── Header ────────────────────────────────────────────────────────

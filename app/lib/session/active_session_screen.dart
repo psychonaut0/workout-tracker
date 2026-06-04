@@ -200,7 +200,6 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     }
 
     return Scaffold(
-      backgroundColor: tokens.bg,
       body: Stack(
         children: [
           Column(

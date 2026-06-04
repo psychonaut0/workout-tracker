@@ -195,53 +195,75 @@ class AmbientLayerState extends State<AmbientLayer>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncTicker();
     });
-    if (!enabled) return widget.child;
 
     final tokens = context.tokens;
+    // The layer owns the app background: Scaffolds are transparent so the
+    // persistent ambient (auras + grain) sits BEHIND content — cards and
+    // headers occlude it naturally. Only the transient PR bloom draws above.
     return Stack(
       textDirection: TextDirection.ltr,
       children: [
-        widget.child,
-        IgnorePointer(
-          key: AmbientLayer.overlayKey,
-          child: RepaintBoundary(
-            child: AnimatedBuilder(
-              animation: _bloom,
-              builder: (_, __) => CustomPaint(
-                size: Size.infinite,
-                painter: _AmbientPainter(
-                  t: _t,
-                  alpha: _alpha,
-                  accent: tokens.accent,
-                  grain: _grain,
-                  bloom: _bloom.isAnimating ? _bloom.value : null,
+        Positioned.fill(child: ColoredBox(color: tokens.bg)),
+        if (enabled)
+          Positioned.fill(
+            child: IgnorePointer(
+              key: AmbientLayer.overlayKey,
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _AmbientPainter(
+                    t: _t,
+                    alpha: _alpha,
+                    accent: tokens.accent,
+                    grain: _grain,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        widget.child,
+        if (enabled)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _bloom,
+                  builder: (_, __) => _bloom.isAnimating
+                      ? CustomPaint(
+                          size: Size.infinite,
+                          painter: _BloomPainter(
+                            progress: _bloom.value,
+                            accent: tokens.accent,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 }
 
+/// Persistent background ambient: drifting auras + static grain. Painted
+/// BENEATH the app content (opaque surfaces occlude it).
 class _AmbientPainter extends CustomPainter {
   _AmbientPainter({
     required this.t,
     required this.alpha,
     required this.accent,
     required this.grain,
-    required this.bloom,
   });
 
   final double t;
   final double alpha;
   final Color accent;
   final ui.Image? grain;
-  final double? bloom; // 0..1 progress of the PR wash, null when idle
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return; // degenerate first frames (window not sized yet)
     final d = size.shortestSide * 0.7;
 
     void aura(double px, double py, double phase, double alphaScale) {
@@ -262,23 +284,6 @@ class _AmbientPainter extends CustomPainter {
     aura(26, 34, 0, 1.0);
     aura(34, 22, 3.1, 0.8);
 
-    // PR bloom: expanding accent wash, opacity 0 → peak → 0.
-    final b = bloom;
-    if (b != null) {
-      final fade = math.sin(b * math.pi); // 0→1→0
-      final radius = size.longestSide * (0.6 + 0.4 * b);
-      final center = Offset(size.width / 2, size.height / 2);
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..shader = ui.Gradient.radial(center, radius, [
-            accent.withValues(alpha: 0.18 * fade),
-            accent.withValues(alpha: 0),
-          ]),
-      );
-    }
-
     // Static film grain, tiled. Alpha is baked into the tile (subtle).
     final g = grain;
     if (g != null) {
@@ -298,6 +303,35 @@ class _AmbientPainter extends CustomPainter {
       old.t != t ||
       old.alpha != alpha ||
       old.accent != accent ||
-      old.grain != grain ||
-      old.bloom != bloom;
+      old.grain != grain;
+}
+
+/// Transient PR wash painted ABOVE content: opacity 0 → peak → 0 with an
+/// expanding radius over the bloom controller's 700ms run.
+class _BloomPainter extends CustomPainter {
+  _BloomPainter({required this.progress, required this.accent});
+
+  final double progress; // 0..1
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return; // degenerate first frames (window not sized yet)
+    final fade = math.sin(progress * math.pi); // 0→1→0
+    final radius = size.longestSide * (0.6 + 0.4 * progress);
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = ui.Gradient.radial(center, radius, [
+          accent.withValues(alpha: 0.18 * fade),
+          accent.withValues(alpha: 0),
+        ]),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BloomPainter old) =>
+      old.progress != progress || old.accent != accent;
 }
