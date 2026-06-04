@@ -265,7 +265,7 @@ class DayTemplateRepository {
     return db
         .watch(
           'SELECT dt.id, dt.slug, dt.name, dt.focus, dt.scheduled_weekday, dt.position, dt.is_template '
-          'FROM day_templates dt ORDER BY dt.position',
+          'FROM day_templates dt WHERE dt.is_template = 0 ORDER BY dt.position',
         )
         .asyncMap((templateRows) async {
           // One-shot read of all items; fine — they change far less than live sets.

@@ -7,7 +7,6 @@ import '../data/muscles.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
-import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/format.dart';
@@ -41,8 +40,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   // ── load state ─────────────────────────────────────────────────────────────
 
   bool _loaded = false;
-  bool _isClone = false; // true = opened a seeded exercise (copy-on-edit)
-  String? _editId; // null = new/clone; non-null = owned edit
+  String? _editId; // null = new exercise; non-null = existing exercise
 
   // ── draft fields ──────────────────────────────────────────────────────────
 
@@ -105,7 +103,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       if (mounted) {
         setState(() {
           _editId = null;
-          _isClone = false;
           _muscleGroup = 'chest';
           _compound = false;
           _baseWeightDisplay = 0;
@@ -125,7 +122,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       // Not found — treat as new.
       setState(() {
         _editId = null;
-        _isClone = false;
         _loaded = true;
       });
       return;
@@ -136,10 +132,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     if (!mounted) return;
 
     final prKg = prMap[ex.id] ?? 0;
-
-    // Copy-on-edit: seeded exercise → new draft.
-    final isClone = ex.isTemplate;
-    final editId = isClone ? null : ex.id;
 
     // Store plateStepKg for unit-change recomputation.
     final plateStep = ex.plateStepKg;
@@ -158,8 +150,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         : '1';
 
     setState(() {
-      _isClone = isClone;
-      _editId = editId;
+      _editId = ex.id;
       _nameCtrl.text = ex.name;
       _equipCtrl.text = ex.equip ?? '';
       _muscleGroup = ex.muscleGroup;
@@ -249,8 +240,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     }
 
     final canSave = _nameCtrl.text.trim().isNotEmpty;
-    final isNew = _editId == null && !_isClone;
-    final btnLabel = (isNew || _isClone) ? 'Create exercise' : 'Save exercise';
+    final isNew = _editId == null;
+    final btnLabel = isNew ? 'Create exercise' : 'Save exercise';
 
     // Build muscle chip list: 8 canonical groups + optional extra.
     final muscleItems = [
@@ -262,9 +253,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
       children: [
-        // Clone-on-edit banner
-        if (_isClone) _CloneBanner(tokens: tokens),
-
         // ── Identity ──────────────────────────────────────────────────────
 
         Field(
@@ -522,34 +510,3 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   }
 }
 
-// ── Clone banner ───────────────────────────────────────────────────────────────
-
-class _CloneBanner extends StatelessWidget {
-  const _CloneBanner({required this.tokens});
-  final WorkoutTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: tokens.surface3,
-        borderRadius: BorderRadius.circular(15 * 0.6),
-        border: Border.all(color: tokens.lineStrong),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.copy_outlined, size: 16, color: tokens.faint),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Editing creates your own copy',
-              style: WorkoutType.mono(size: 11, color: tokens.faint),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
