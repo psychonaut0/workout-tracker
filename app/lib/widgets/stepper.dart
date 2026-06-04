@@ -24,6 +24,8 @@ class WStepper extends StatefulWidget {
     required this.step,
     required this.format,
     required this.onChanged,
+    this.editable = false,
+    this.parseDisplay,
   });
 
   final double value;
@@ -33,6 +35,14 @@ class WStepper extends StatefulWidget {
   final String Function(double) format;
 
   final ValueChanged<double> onChanged;
+
+  /// When true, tapping the value label opens an inline text field so the user
+  /// can type a value directly.
+  final bool editable;
+
+  /// Converts a typed value (in display space, as produced by [format]) back to
+  /// the internal value space. When null, the typed value is used as-is.
+  final double Function(double display)? parseDisplay;
 
   @override
   State<WStepper> createState() => _WStepperState();
@@ -45,10 +55,45 @@ class _WStepperState extends State<WStepper> {
   /// direction of change (true = value went up).
   bool _up = true;
 
+  bool _editing = false;
+  TextEditingController? _editCtrl;
+
   @override
   void initState() {
     super.initState();
     _internalValue = widget.value;
+  }
+
+  @override
+  void dispose() {
+    _editCtrl?.dispose();
+    super.dispose();
+  }
+
+  void _beginEdit() {
+    if (!widget.editable) return;
+    _editCtrl = TextEditingController(text: widget.format(_internalValue));
+    _editCtrl!.selection =
+        TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
+    setState(() => _editing = true);
+  }
+
+  void _commitEdit() {
+    if (!_editing) return;
+    final raw = _editCtrl?.text.trim().replaceAll(',', '.') ?? '';
+    final typed = double.tryParse(raw);
+    setState(() {
+      _editing = false;
+      if (typed != null) {
+        final mapped = widget.parseDisplay?.call(typed) ?? typed;
+        final clamped = mapped < 0 ? 0.0 : _round2(mapped);
+        _up = clamped > _internalValue;
+        _internalValue = clamped;
+        widget.onChanged(clamped);
+      }
+    });
+    _editCtrl?.dispose();
+    _editCtrl = null;
   }
 
   @override
@@ -112,30 +157,58 @@ class _WStepperState extends State<WStepper> {
         const SizedBox(width: 4),
         Expanded(
           child: Center(
-            child: AnimatedSwitcher(
-              duration: Motion.of(context, Motion.fast),
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween(
-                    begin: Offset(0, _up ? 0.4 : -0.4),
-                    end: Offset.zero,
-                  ).animate(anim),
-                  child: child,
-                ),
-              ),
-              child: Text(
-                widget.format(_internalValue),
-                key: ValueKey(widget.format(_internalValue)),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: WorkoutType.mono(
-                  size: 15,
-                  weight: FontWeight.w700,
-                  color: tokens.text,
-                ),
-              ),
-            ),
+            child: _editing
+                ? Focus(
+                    onFocusChange: (f) {
+                      if (!f) _commitEdit();
+                    },
+                    child: TextField(
+                      controller: _editCtrl,
+                      autofocus: true,
+                      textAlign: TextAlign.center,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onSubmitted: (_) => _commitEdit(),
+                      style: WorkoutType.mono(
+                        size: 15,
+                        weight: FontWeight.w700,
+                        color: tokens.text,
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  )
+                : GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _beginEdit,
+                    child: AnimatedSwitcher(
+                      duration: Motion.of(context, Motion.fast),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween(
+                            begin: Offset(0, _up ? 0.4 : -0.4),
+                            end: Offset.zero,
+                          ).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        widget.format(_internalValue),
+                        key: ValueKey(widget.format(_internalValue)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WorkoutType.mono(
+                          size: 15,
+                          weight: FontWeight.w700,
+                          color: tokens.text,
+                        ),
+                      ),
+                    ),
+                  ),
           ),
         ),
         const SizedBox(width: 4),

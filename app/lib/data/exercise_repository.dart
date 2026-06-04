@@ -21,6 +21,22 @@ String uniqueSlug(String name, String id) {
   return '${slugify(name)}-${id.substring(0, 8)}';
 }
 
+// ── exerciseDelete ───────────────────────────────────────────────────────────
+
+/// What deleting an exercise requires, given its references.
+enum ExerciseDeleteAction { blockedByHistory, confirmWithDays, confirmPlain }
+
+/// Logged sets always block (history would break — mirrors the server's FK
+/// RESTRICT); split-day references are removable alongside the exercise.
+ExerciseDeleteAction decideExerciseDelete({
+  required int setCount,
+  required int dayCount,
+}) {
+  if (setCount > 0) return ExerciseDeleteAction.blockedByHistory;
+  if (dayCount > 0) return ExerciseDeleteAction.confirmWithDays;
+  return ExerciseDeleteAction.confirmPlain;
+}
+
 // ── exerciseUpsertOp ─────────────────────────────────────────────────────────
 
 /// Pure builder: returns the SQL + args for an exercise INSERT or UPDATE.
@@ -96,22 +112,6 @@ String uniqueSlug(String name, String id) {
   }
 }
 
-/// Drops a synced template exercise when the user already owns a non-template
-/// exercise with the same (case-insensitive) name — so the catalog isn't
-/// doubled after sync attach. Owned rows (is_template==0) always win.
-List<Map<String, Object?>> dedupeCatalog(List<Map<String, Object?>> rows) {
-  final ownedNames = <String>{};
-  for (final r in rows) {
-    if ((r['is_template'] as int? ?? 0) == 0) {
-      ownedNames.add((r['name'] as String).toLowerCase());
-    }
-  }
-  return rows.where((r) {
-    final isTemplate = (r['is_template'] as int? ?? 0) != 0;
-    return !(isTemplate && ownedNames.contains((r['name'] as String).toLowerCase()));
-  }).toList();
-}
-
 /// Repository for the exercises table (template catalog + custom exercises).
 ///
 /// All methods accept the app-wide [PowerSyncDatabase] injected at construction.
@@ -124,10 +124,9 @@ class ExerciseRepository {
   ///
   /// Emits a new list on every local DB change (sync down, user edits).
   Stream<List<Exercise>> watchCatalog() {
-    return db.watch('SELECT * FROM exercises ORDER BY name').map((rs) {
-      final rows = rs.map((r) => Map<String, Object?>.from(r)).toList();
-      return dedupeCatalog(rows).map(Exercise.fromRow).toList();
-    });
+    return db
+        .watch('SELECT * FROM exercises WHERE is_template = 0 ORDER BY name')
+        .map((rs) => rs.map(Exercise.fromRow).toList());
   }
 
   /// Fetches a single exercise by id, or null if not found.
@@ -139,7 +138,8 @@ class ExerciseRepository {
 
   /// One-shot fetch of all exercises (for pickers, etc.).
   Future<List<Exercise>> all() async {
-    final rows = await db.getAll('SELECT * FROM exercises ORDER BY name');
+    final rows = await db
+        .getAll('SELECT * FROM exercises WHERE is_template = 0 ORDER BY name');
     return rows.map(Exercise.fromRow).toList();
   }
 
@@ -179,6 +179,32 @@ class ExerciseRepository {
     await db.writeTransaction((tx) async {
       final op = exerciseUpsertOp(id, id, draft, '');
       await tx.execute(op.sql, op.args);
+    });
+  }
+
+  /// Reference counts gating delete: logged sets + distinct split days.
+  Future<({int setCount, int dayCount})> exerciseReferences(String id) async {
+    final sets = await db.get(
+        'SELECT COUNT(*) AS c FROM sets WHERE exercise_id = ?', [id]);
+    final days = await db.get(
+        'SELECT COUNT(DISTINCT day_template_id) AS c '
+        'FROM day_template_items WHERE exercise_id = ?',
+        [id]);
+    return (
+      setCount: (sets['c'] as num).toInt(),
+      dayCount: (days['c'] as num).toInt(),
+    );
+  }
+
+  /// Deletes an owned exercise; when [removeFromDays], clears its split-day
+  /// slots first (same transaction). Caller must have run the decide gate.
+  Future<void> deleteExercise(String id, {required bool removeFromDays}) async {
+    await db.writeTransaction((tx) async {
+      if (removeFromDays) {
+        await tx.execute(
+            'DELETE FROM day_template_items WHERE exercise_id = ?', [id]);
+      }
+      await tx.execute('DELETE FROM exercises WHERE id = ?', [id]);
     });
   }
 }

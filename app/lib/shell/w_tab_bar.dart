@@ -99,7 +99,7 @@ class WTabBar extends StatelessWidget {
       children: [
         frostedBar,
         Transform.translate(
-          offset: const Offset(0, -22),
+          offset: const Offset(0, -14),
           child: _FabButton(onStart: onStart),
         ),
       ],

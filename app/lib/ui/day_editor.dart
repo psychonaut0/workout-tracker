@@ -72,8 +72,7 @@ class _DayEditorState extends State<DayEditor> {
   // ── lifecycle ─────────────────────────────────────────────────────────────
 
   bool _loaded = false;
-  bool _isClone = false; // true = opened a seeded day (clone-on-edit)
-  String? _editId; // null = new/clone; non-null = owned edit
+  String? _editId; // null = new day; non-null = existing day
 
   late final TextEditingController _nameCtrl;
   late final TextEditingController _focusCtrl;
@@ -113,7 +112,6 @@ class _DayEditorState extends State<DayEditor> {
         setState(() {
           _catalog = catalog;
           _editId = null;
-          _isClone = false;
           _loaded = true;
         });
       }
@@ -129,7 +127,6 @@ class _DayEditorState extends State<DayEditor> {
       setState(() {
         _catalog = catalog;
         _editId = null;
-        _isClone = false;
         _loaded = true;
       });
       return;
@@ -144,18 +141,12 @@ class _DayEditorState extends State<DayEditor> {
       final ex = exById[slot.exerciseId];
       if (ex == null) continue; // skip orphaned slots
       final resolved = resolveSlot(slot, ex);
-      // Clone-on-edit: seeded days get itemId=null (new INSERT path).
-      slots.add(_slotStateFromResolved(
-        resolved,
-        day.isTemplate ? null : slot.id,
-      ));
+      slots.add(_slotStateFromResolved(resolved, slot.id));
     }
 
     setState(() {
       _catalog = catalog;
-      _isClone = day.isTemplate;
-      // Clone: force id=null so saveDay does an INSERT.
-      _editId = day.isTemplate ? null : day.id;
+      _editId = day.id;
       _nameCtrl.text = day.name;
       _focusCtrl.text = day.focus ?? '';
       _weekday = day.scheduledWeekday;
@@ -273,9 +264,6 @@ class _DayEditorState extends State<DayEditor> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
       children: [
-        // Clone-on-edit banner
-        if (_isClone) _CloneBanner(tokens: tokens),
-
         // ── Day name ──────────────────────────────────────────────────────
         Field(
           label: 'Day name',
@@ -369,38 +357,6 @@ class _DayEditorState extends State<DayEditor> {
           _DeleteButton(tokens: tokens, onTap: _delete),
         ],
       ],
-    );
-  }
-}
-
-// ── Clone banner ──────────────────────────────────────────────────────────────
-
-class _CloneBanner extends StatelessWidget {
-  const _CloneBanner({required this.tokens});
-  final WorkoutTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: tokens.surface3,
-        borderRadius: BorderRadius.circular(AppRadius.radius * 0.6),
-        border: Border.all(color: tokens.lineStrong),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.copy_outlined, size: 16, color: tokens.faint),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Editing creates your own copy',
-              style: WorkoutType.mono(size: 11, color: tokens.faint),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

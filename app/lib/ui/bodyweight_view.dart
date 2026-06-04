@@ -64,7 +64,9 @@ class _BodyweightViewState extends State<BodyweightView> {
             .toList();
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          // Status-bar inset, mirroring the Progress screen's list padding.
+          padding: EdgeInsets.fromLTRB(
+              16, 8 + MediaQuery.paddingOf(context).top, 16, 96),
           children: [
             // Header
             Padding(

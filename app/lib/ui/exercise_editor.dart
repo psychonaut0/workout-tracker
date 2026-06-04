@@ -4,15 +4,17 @@ import 'package:provider/provider.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
+import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
-import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import '../theme/tokens.dart';
 import '../units/unit_service.dart';
 import '../util/format.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
+import '../widgets/w_dialog.dart';
 
 /// Editor for a single exercise (create or edit).
 ///
@@ -41,8 +43,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   // ── load state ─────────────────────────────────────────────────────────────
 
   bool _loaded = false;
-  bool _isClone = false; // true = opened a seeded exercise (copy-on-edit)
-  String? _editId; // null = new/clone; non-null = owned edit
+  String? _editId; // null = new exercise; non-null = existing exercise
 
   // ── draft fields ──────────────────────────────────────────────────────────
 
@@ -105,7 +106,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       if (mounted) {
         setState(() {
           _editId = null;
-          _isClone = false;
           _muscleGroup = 'chest';
           _compound = false;
           _baseWeightDisplay = 0;
@@ -125,7 +125,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       // Not found — treat as new.
       setState(() {
         _editId = null;
-        _isClone = false;
         _loaded = true;
       });
       return;
@@ -136,10 +135,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     if (!mounted) return;
 
     final prKg = prMap[ex.id] ?? 0;
-
-    // Copy-on-edit: seeded exercise → new draft.
-    final isClone = ex.isTemplate;
-    final editId = isClone ? null : ex.id;
 
     // Store plateStepKg for unit-change recomputation.
     final plateStep = ex.plateStepKg;
@@ -158,8 +153,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         : '1';
 
     setState(() {
-      _isClone = isClone;
-      _editId = editId;
+      _editId = ex.id;
       _nameCtrl.text = ex.name;
       _equipCtrl.text = ex.equip ?? '';
       _muscleGroup = ex.muscleGroup;
@@ -235,6 +229,65 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     if (mounted) widget.onBack();
   }
 
+  // ── delete ───────────────────────────────────────────────────────────────────
+
+  Future<void> _delete() async {
+    final id = _editId;
+    if (id == null) return;
+
+    // Deleting an exercise used by the live workout draft would lose data at
+    // finish (its sets PUT would hit a server FK on the now-deleted exercise
+    // and be skipped). Require finishing/discarding the active workout first.
+    if (context.read<SessionManager>().hasActive) {
+      await showWDialog<bool>(
+        context,
+        title: "Can't delete",
+        message: 'Finish or discard your active workout first.',
+        actions: const [WDialogAction(label: 'OK', value: true)],
+      );
+      return;
+    }
+
+    final refs = await _repo.exerciseReferences(id);
+    if (!mounted) return;
+
+    final action =
+        decideExerciseDelete(setCount: refs.setCount, dayCount: refs.dayCount);
+    switch (action) {
+      case ExerciseDeleteAction.blockedByHistory:
+        await showWDialog<bool>(
+          context,
+          title: "Can't delete",
+          message: 'This exercise is used in ${refs.setCount} logged '
+              'set(s). Delete those sessions first.',
+          actions: const [WDialogAction(label: 'OK', value: true)],
+        );
+        return;
+      case ExerciseDeleteAction.confirmWithDays:
+        final ok = await showWConfirm(
+          context,
+          title: 'Delete exercise?',
+          message: 'Also removes it from ${refs.dayCount} training day(s). '
+              'This cannot be undone.',
+          confirmLabel: 'Delete',
+          destructive: true,
+        );
+        if (ok != true) return;
+        await _repo.deleteExercise(id, removeFromDays: true);
+      case ExerciseDeleteAction.confirmPlain:
+        final ok = await showWConfirm(
+          context,
+          title: 'Delete exercise?',
+          message: 'This cannot be undone.',
+          confirmLabel: 'Delete',
+          destructive: true,
+        );
+        if (ok != true) return;
+        await _repo.deleteExercise(id, removeFromDays: false);
+    }
+    if (mounted) widget.onBack();
+  }
+
   // ── build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -249,8 +302,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     }
 
     final canSave = _nameCtrl.text.trim().isNotEmpty;
-    final isNew = _editId == null && !_isClone;
-    final btnLabel = (isNew || _isClone) ? 'Create exercise' : 'Save exercise';
+    final isNew = _editId == null;
+    final btnLabel = isNew ? 'Create exercise' : 'Save exercise';
 
     // Build muscle chip list: 8 canonical groups + optional extra.
     final muscleItems = [
@@ -262,9 +315,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
       children: [
-        // Clone-on-edit banner
-        if (_isClone) _CloneBanner(tokens: tokens),
-
         // ── Identity ──────────────────────────────────────────────────────
 
         Field(
@@ -516,40 +566,46 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           onTap: _save,
         ),
 
-        // NO delete button (FK RESTRICT → ghost delete; excluded by spec).
+        if (_editId != null) ...[
+          const SizedBox(height: 10),
+          _DeleteButton(tokens: tokens, onTap: _delete),
+        ],
       ],
     );
   }
 }
 
-// ── Clone banner ───────────────────────────────────────────────────────────────
+// ── Delete button ─────────────────────────────────────────────────────────────
 
-class _CloneBanner extends StatelessWidget {
-  const _CloneBanner({required this.tokens});
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.tokens, required this.onTap});
+
   final WorkoutTokens tokens;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: tokens.surface3,
-        borderRadius: BorderRadius.circular(15 * 0.6),
-        border: Border.all(color: tokens.lineStrong),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.copy_outlined, size: 16, color: tokens.faint),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Editing creates your own copy',
-              style: WorkoutType.mono(size: 11, color: tokens.faint),
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: 46,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(WIcons.trash, size: 15, color: tokens.faint),
+            const SizedBox(width: 6),
+            Text(
+              'Delete exercise',
+              style: WorkoutType.mono(
+                size: 12.5,
+                weight: FontWeight.w600,
+                color: tokens.faint,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+

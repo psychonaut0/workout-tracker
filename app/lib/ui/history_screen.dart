@@ -1157,6 +1157,8 @@ class _EditRow extends StatelessWidget {
               value: set.weightKg,
               step: exercise.plateStepKg,
               format: (v) => units.fmtWt(v),
+              editable: true,
+              parseDisplay: (v) => UnitService.toKg(v, units.unit),
               onChanged: (v) {
                 set.weightKg = v;
                 onChanged();

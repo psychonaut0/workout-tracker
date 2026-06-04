@@ -297,27 +297,6 @@ class _ExerciseRow extends StatelessWidget {
               ),
             ],
 
-            // 'custom' tag for user-owned exercises
-            if (!exercise.isTemplate) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: tokens.surface3,
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: tokens.lineStrong),
-                ),
-                child: Text(
-                  'custom',
-                  style: WorkoutType.mono(
-                    size: 9,
-                    weight: FontWeight.w700,
-                    color: tokens.faint,
-                  ),
-                ),
-              ),
-            ],
-
             const SizedBox(width: 8),
 
             // Edit icon
