@@ -1,7 +1,14 @@
 import 'package:powersync/powersync.dart' show PowerSyncDatabase;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'exercise_repository.dart' show uniqueSlug;
+
+/// SharedPreferences key holding the string list of template ids that have been
+/// successfully absorbed at least once on THIS device — an absorb tombstone.
+/// Without it, deleting an absorbed copy would re-absorb (resurrect) on the
+/// next boot, since absorb otherwise only skips when the copy row still exists.
+const absorbTombstonesKey = 'absorb.template_ids';
 
 /// Fixed namespace for deterministic absorb ids — never change this value.
 const _absorbNamespace = '7d9f0a3c-4b2e-4f81-9c5d-1e6a8b0f2d47';
@@ -17,19 +24,40 @@ typedef AbsorbOp = ({String sql, List<Object?> args});
 /// Builds the SQL ops that absorb synced template rows into user-owned rows:
 /// owned copies (deterministic ids, ownership stamped) + reference rewrites
 /// (sets.exercise_id, day_template_items.exercise_id, sessions.day_template_id).
-/// Pure: rows in, ops out. Templates whose copy id is in [existingIds] are
-/// skipped (already absorbed — possibly by another device).
+/// Pure: rows in, ops out.
+///
+/// A template's COPY (INSERT) is emitted only when its copy id is NOT in
+/// [existingIds] AND its template id is NOT in [alreadyAbsorbed] (the device's
+/// absorb tombstones — see [absorbTombstonesKey]). This stops deleted copies
+/// from resurrecting on the next boot.
+///
+/// Reference re-points are emitted INDEPENDENTLY of the skip, so rows that sync
+/// down late (after the copy was already created) still get re-pointed:
+/// - [affectedSets]: full set rows whose exercise_id is a template id. Re-points
+///   are DELETE + INSERT (same id, new exercise_id) — NOT UPDATE, because the
+///   server PATCH handler drops exercise_id; DELETE + PUT both apply it and the
+///   server re-derives is_top_set/is_pr.
+/// - [affectedItems]: full day_template_item rows OWNED by the user whose
+///   exercise_id is a template id. Same DELETE + INSERT treatment (the server
+///   day_template_items PATCH also drops exercise_id).
+/// - [affectedSessionDayIds]: template day ids that at least one session still
+///   references → emit `UPDATE sessions` (sessions PATCH supports
+///   day_template_id, so a plain UPDATE round-trips correctly).
 List<AbsorbOp> absorbOps({
   required String userId,
   required List<Map<String, Object?>> templateExercises,
   required List<Map<String, Object?>> templateDays,
   required List<Map<String, Object?>> templateItems,
+  required List<Map<String, Object?>> affectedSets,
+  required List<Map<String, Object?>> affectedItems,
+  required Set<String> affectedSessionDayIds,
   required Set<String> existingIds,
+  required Set<String> alreadyAbsorbed,
   required String nowIso,
 }) {
   final ops = <AbsorbOp>[];
 
-  // Map EVERY template exercise id → its copy id (items re-point through this
+  // Map EVERY template exercise id → its copy id (re-points route through this
   // even for exercises absorbed on an earlier boot — the template rows keep
   // syncing down, so they're always in [templateExercises]).
   final exCopyIds = {
@@ -40,40 +68,97 @@ List<AbsorbOp> absorbOps({
   for (final e in templateExercises) {
     final oldId = e['id'] as String;
     final copyId = exCopyIds[oldId]!;
-    if (existingIds.contains(copyId)) continue;
+    // Emit the INSERT only when the copy neither exists nor was absorbed before.
+    if (!existingIds.contains(copyId) && !alreadyAbsorbed.contains(oldId)) {
+      ops.add((
+        sql: 'INSERT INTO exercises '
+            '(id, slug, name, muscle_group, equip, compound, base_weight_kg, plate_step_kg, '
+            'default_rep_low, default_rep_high, default_warmup_sets, default_working_sets, '
+            'default_rir_low, default_rir_high, is_template, created_by, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [
+          copyId,
+          uniqueSlug(e['name'] as String, copyId),
+          e['name'],
+          e['muscle_group'],
+          e['equip'],
+          e['compound'],
+          e['base_weight_kg'],
+          e['plate_step_kg'],
+          e['default_rep_low'],
+          e['default_rep_high'],
+          e['default_warmup_sets'],
+          e['default_working_sets'],
+          e['default_rir_low'],
+          e['default_rir_high'],
+          0,
+          userId,
+          nowIso,
+        ],
+      ));
+    }
+  }
+
+  // Re-point affected sets: DELETE + INSERT (same id, new exercise_id). Only
+  // rows whose exercise_id is a known template id are re-pointed; others keep
+  // their id. These are emitted regardless of the exercise INSERT skip above —
+  // late-synced sets get re-pointed on the boot after the copy was created.
+  for (final row in affectedSets) {
+    final oldEx = row['exercise_id'] as String;
+    final newEx = exCopyIds[oldEx];
+    if (newEx == null) continue; // not a template exercise — leave untouched
+    ops.add((sql: 'DELETE FROM sets WHERE id = ?', args: [row['id']]));
     ops.add((
-      sql: 'INSERT INTO exercises '
-          '(id, slug, name, muscle_group, equip, compound, base_weight_kg, plate_step_kg, '
-          'default_rep_low, default_rep_high, default_warmup_sets, default_working_sets, '
-          'default_rir_low, default_rir_high, is_template, created_by, created_at) '
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      sql: 'INSERT INTO sets '
+          '(id, session_id, exercise_id, set_number, weight_kg, reps, rir, '
+          'is_warmup, is_top_set, is_pr, created_at, updated_at) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       args: [
-        copyId,
-        uniqueSlug(e['name'] as String, copyId),
-        e['name'],
-        e['muscle_group'],
-        e['equip'],
-        e['compound'],
-        e['base_weight_kg'],
-        e['plate_step_kg'],
-        e['default_rep_low'],
-        e['default_rep_high'],
-        e['default_warmup_sets'],
-        e['default_working_sets'],
-        e['default_rir_low'],
-        e['default_rir_high'],
-        0,
-        userId,
-        nowIso,
+        row['id'],
+        row['session_id'],
+        newEx,
+        row['set_number'],
+        row['weight_kg'],
+        row['reps'],
+        row['rir'],
+        row['is_warmup'],
+        row['is_top_set'],
+        row['is_pr'],
+        row['created_at'],
+        row['updated_at'],
       ],
     ));
+  }
+
+  // Re-point affected (owned) day_template_items: DELETE + INSERT, same as sets,
+  // because the server day_template_items PATCH handler also drops exercise_id.
+  // created_by is omitted — the server stamps it from the token on PUT.
+  for (final row in affectedItems) {
+    final oldEx = row['exercise_id'] as String;
+    final newEx = exCopyIds[oldEx];
+    if (newEx == null) continue;
+    ops.add(
+        (sql: 'DELETE FROM day_template_items WHERE id = ?', args: [row['id']]));
     ops.add((
-      sql: 'UPDATE sets SET exercise_id = ? WHERE exercise_id = ?',
-      args: [copyId, oldId],
-    ));
-    ops.add((
-      sql: 'UPDATE day_template_items SET exercise_id = ? WHERE exercise_id = ?',
-      args: [copyId, oldId],
+      sql: 'INSERT INTO day_template_items '
+          '(id, day_template_id, exercise_id, position, target_warmup_sets, '
+          'target_working_sets, target_rep_low, target_rep_high, '
+          'target_rir_low, target_rir_high, is_template, created_at) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [
+        row['id'],
+        row['day_template_id'],
+        newEx,
+        row['position'],
+        row['target_warmup_sets'],
+        row['target_working_sets'],
+        row['target_rep_low'],
+        row['target_rep_high'],
+        row['target_rir_low'],
+        row['target_rir_high'],
+        row['is_template'],
+        row['created_at'],
+      ],
     ));
   }
 
@@ -85,7 +170,17 @@ List<AbsorbOp> absorbOps({
   for (final d in templateDays) {
     final oldId = d['id'] as String;
     final copyId = absorbCopyId(userId, oldId);
-    if (existingIds.contains(copyId)) continue;
+    // Re-point sessions that still reference this template day. Emitted even
+    // when the day copy already exists, so late-synced sessions catch up.
+    if (affectedSessionDayIds.contains(oldId)) {
+      ops.add((
+        sql: 'UPDATE sessions SET day_template_id = ? WHERE day_template_id = ?',
+        args: [copyId, oldId],
+      ));
+    }
+    if (existingIds.contains(copyId) || alreadyAbsorbed.contains(oldId)) {
+      continue;
+    }
     ops.add((
       sql: 'INSERT INTO day_templates '
           '(id, name, focus, scheduled_weekday, position, is_template, created_by, created_at) '
@@ -126,10 +221,6 @@ List<AbsorbOp> absorbOps({
         ],
       ));
     }
-    ops.add((
-      sql: 'UPDATE sessions SET day_template_id = ? WHERE day_template_id = ?',
-      args: [copyId, oldId],
-    ));
   }
 
   return ops;
@@ -155,12 +246,53 @@ Future<int> absorbTemplates(PowerSyncDatabase db, String userId) async {
     ...existingDays.map((r) => r['id'] as String),
   };
 
+  // Template ids whose owned copies (sets / items / sessions) might still point
+  // at the template — selected so re-points catch up even on later boots.
+  final exTemplateIds = [for (final r in exRows) r['id'] as String];
+  final dayTemplateIds = [for (final r in dayRows) r['id'] as String];
+
+  Future<List<Map<String, Object?>>> selectIn(String sql, List<String> ids,
+      {bool ownedOnly = false}) async {
+    if (ids.isEmpty) return const [];
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    final rows = await db.getAll(sql.replaceFirst('(:in)', '($placeholders)'),
+        [...ids, if (ownedOnly) userId]);
+    return [for (final r in rows) Map<String, Object?>.from(r)];
+  }
+
+  final affectedSets = await selectIn(
+      'SELECT * FROM sets WHERE exercise_id IN (:in)', exTemplateIds);
+  // Only the USER'S OWN items (is_template = 0) need re-pointing; template items
+  // are copied wholesale by the day absorb and re-point through exCopyIds there.
+  final affectedItems = await selectIn(
+      'SELECT * FROM day_template_items WHERE exercise_id IN (:in) '
+      'AND is_template = 0',
+      exTemplateIds);
+  final affectedSessionRows = await selectIn(
+      'SELECT DISTINCT day_template_id FROM sessions WHERE day_template_id IN (:in)',
+      dayTemplateIds);
+  final affectedSessionDayIds = {
+    for (final r in affectedSessionRows) r['day_template_id'] as String,
+  };
+
+  final prefs = await SharedPreferences.getInstance();
+  // Known accepted limitation: a brand-new device has empty tombstones, so if a
+  // copy was deleted on another device (and that delete synced), this device
+  // re-absorbs it. The tombstone is per-device and only suppresses re-absorb
+  // after THIS device has absorbed the id once.
+  final alreadyAbsorbed =
+      (prefs.getStringList(absorbTombstonesKey) ?? const <String>[]).toSet();
+
   final ops = absorbOps(
     userId: userId,
     templateExercises: [for (final r in exRows) Map<String, Object?>.from(r)],
     templateDays: [for (final r in dayRows) Map<String, Object?>.from(r)],
     templateItems: [for (final r in itemRows) Map<String, Object?>.from(r)],
+    affectedSets: affectedSets,
+    affectedItems: affectedItems,
+    affectedSessionDayIds: affectedSessionDayIds,
     existingIds: existingIds,
+    alreadyAbsorbed: alreadyAbsorbed,
     nowIso: DateTime.now().toUtc().toIso8601String(),
   );
   if (ops.isEmpty) return 0;
@@ -170,5 +302,12 @@ Future<int> absorbTemplates(PowerSyncDatabase db, String userId) async {
       await tx.execute(op.sql, op.args);
     }
   });
+
+  // Record the absorb tombstones AFTER the tx succeeds: every template id seen
+  // this run (whether freshly absorbed or already present) is now known to this
+  // device, so a later delete of its copy won't resurrect it.
+  final updated = {...alreadyAbsorbed, ...exTemplateIds, ...dayTemplateIds};
+  await prefs.setStringList(absorbTombstonesKey, updated.toList());
+
   return ops.length;
 }

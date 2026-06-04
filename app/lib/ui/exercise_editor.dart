@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
+import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -233,6 +234,20 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   Future<void> _delete() async {
     final id = _editId;
     if (id == null) return;
+
+    // Deleting an exercise used by the live workout draft would lose data at
+    // finish (its sets PUT would hit a server FK on the now-deleted exercise
+    // and be skipped). Require finishing/discarding the active workout first.
+    if (context.read<SessionManager>().hasActive) {
+      await showWDialog<bool>(
+        context,
+        title: "Can't delete",
+        message: 'Finish or discard your active workout first.',
+        actions: const [WDialogAction(label: 'OK', value: true)],
+      );
+      return;
+    }
+
     final refs = await _repo.exerciseReferences(id);
     if (!mounted) return;
 
