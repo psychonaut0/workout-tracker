@@ -17,12 +17,14 @@ class SettingsService extends ChangeNotifier {
   String _profileName = 'Athlete';
   String _serverUrl = 'http://localhost:8080';
   bool _syncEnabled = false;
+  bool _ambientEnabled = true;
 
   String get mode => _mode;
   Color get accent => _accent;
   String get profileName => _profileName;
   String get serverUrl => _serverUrl;
   bool get syncEnabled => _syncEnabled;
+  bool get ambientEnabled => _ambientEnabled;
 
   /// Derived brightness from the stored mode string.
   Brightness get brightness =>
@@ -39,6 +41,7 @@ class SettingsService extends ChangeNotifier {
     _profileName = prefs.getString(_kProfileName) ?? 'Athlete';
     _serverUrl = prefs.getString(_kServerUrl) ?? 'http://localhost:8080';
     _syncEnabled = prefs.getBool('settings.sync_enabled') ?? false;
+    _ambientEnabled = prefs.getBool('settings.ambient_enabled') ?? true;
 
     // Accent: stored as ARGB int via toARGB32(). Reconstruct via Color.fromARGB
     // (not Color(int) — deprecated in Flutter 3.44). Fall back to accents[0]
@@ -99,6 +102,14 @@ class SettingsService extends ChangeNotifier {
     _syncEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('settings.sync_enabled', value);
+    notifyListeners();
+  }
+
+  /// Enable or disable the ambient visual layer and persist.
+  Future<void> setAmbientEnabled(bool value) async {
+    _ambientEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('settings.ambient_enabled', value);
     notifyListeners();
   }
 }
