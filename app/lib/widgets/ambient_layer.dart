@@ -22,6 +22,30 @@ class AmbientController extends ChangeNotifier {
   }
 }
 
+/// Grain tile pixel data in PREMULTIPLIED rgba8888 (the contract of
+/// `ui.PixelFormat.rgba8888` / `ImageDescriptor.raw`). Each pixel is a gray
+/// speckle of straight-alpha brightness v∈0..255 at [alpha], stored
+/// premultiplied: channels = round(v·alpha/255) ≤ alpha. Writing straight
+/// values here composites as massively over-bright noise (the v0.8.0
+/// full-screen static bug).
+Uint8List grainPixels({
+  required int size,
+  required int seed,
+  required int alpha,
+}) {
+  final rng = math.Random(seed);
+  final pixels = Uint8List(size * size * 4);
+  for (var i = 0; i < size * size; i++) {
+    final v = rng.nextInt(256);
+    final premul = (v * alpha) ~/ 255;
+    pixels[i * 4] = premul;
+    pixels[i * 4 + 1] = premul;
+    pixels[i * 4 + 2] = premul;
+    pixels[i * 4 + 3] = alpha;
+  }
+  return pixels;
+}
+
 /// Slow Lissajous drift path for an aura. [t] is the virtual clock in
 /// seconds; returns fractional screen offsets in 0..1.
 ({double x, double y}) auraPosition(
@@ -141,15 +165,7 @@ class AmbientLayerState extends State<AmbientLayer>
 
   Future<ui.Image> _makeGrain() async {
     const size = 128;
-    final rng = math.Random(7);
-    final pixels = Uint8List(size * size * 4);
-    for (var i = 0; i < size * size; i++) {
-      final v = rng.nextInt(256);
-      pixels[i * 4] = v;
-      pixels[i * 4 + 1] = v;
-      pixels[i * 4 + 2] = v;
-      pixels[i * 4 + 3] = 8; // baked subtle per-pixel alpha (~3%)
-    }
+    final pixels = grainPixels(size: size, seed: 7, alpha: 8);
     final buffer = await ui.ImmutableBuffer.fromUint8List(pixels);
     final descriptor = ui.ImageDescriptor.raw(
       buffer,
