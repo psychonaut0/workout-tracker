@@ -216,6 +216,8 @@ class _EditContent extends StatelessWidget {
             value: set.weightKg,
             step: exercise.plateStepKg,
             format: (v) => unit.fmtWt(v),
+            editable: true,
+            parseDisplay: (v) => UnitService.toKg(v, unit.unit),
             onChanged: (v) {
               set.weightKg = v;
               onChanged(set);
