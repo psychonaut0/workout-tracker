@@ -40,8 +40,9 @@ scaffold-android:
 analyze:
 	$(FLUTTER) analyze
 
+# Optional: TEST=test/path/foo_test.dart to run a single file.
 test:
-	$(FLUTTER) test
+	$(FLUTTER) test $(TEST)
 
 fmt:
 	$(DART) format .
