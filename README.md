@@ -1,85 +1,67 @@
-# workout-tracker
+# Reps
 
-Personal gym-logging app. Track exercises and the **top working-set weight** per exercise over time (progressive overload is the whole point — see the recomp notes below). Private, data stays on my own infrastructure. **Not** a portfolio project.
+A local-first gym logging app. Track your sets, watch your top-set weight climb, own your data.
 
-> Status: **idea / not started.** This README is a capture of the intent + the decisions made so far + the reference data the app needs. Build later.
+Built for one lifter's actual training (and used at the gym every week), open-sourced because it might fit yours too. **No account, no cloud, no telemetry** — everything lives on your phone, and if you want multi-device sync you point it at your own server.
 
-## What it needs to do
+## Features
 
-- Log a session: per exercise, the working sets (weight × reps), and flag/track the **top set** (heaviest for the day) and PRs.
-- Show progression over time per exercise (the top-weight trend is the key view).
-- Optional: reps/RIR notes, bodyweight log (ties into the cut/recomp tracking).
+- **Workout logging built for the gym floor** — start a session from your split rotation in one tap, steppers sized for sweaty thumbs (or tap to type), per-exercise rest timer with haptics, warm-up ramps suggested from your last top set.
+- **Works fully offline** — local database, local identity, optional everything. Minimize the workout and browse the app, keep an eye on the ongoing notification (elapsed / rest countdown), survive a force-kill mid-session and resume where you left off.
+- **Progression that matters** — per-exercise top-set trend, estimated 1RM, volume and reps; PR detection with a little celebration; bodyweight tracking with trend.
+- **Your split, your catalog** — plan training days with per-exercise prescriptions (sets × reps @ RIR), weekly muscle-volume targets, a fully editable exercise catalog (equipment, plate increments, defaults). Nothing is read-only.
+- **History you can fix** — edit, add, or delete past sets and sessions.
+- **Data export** — versioned full-backup JSON, plus an LLM-friendly history export for a date range (hand your training log to your favorite model).
+- **Optional self-hosted sync** — register against your own backend ([PowerSync](https://www.powersync.com/) + Go + Postgres) and sync across devices. The app works identically without it.
+- Dark/light theme, four accent colors, kg/lb, a subtle ambient layer that comes alive while you train (with an off switch), reduced-motion support.
 
-## Decisions so far
+## Install
 
-- **Usage**: phone at the gym + desktop for review → **phone + desktop, synced.**
-- **Storage**: "save locally" = my own stuff, not a third-party cloud. Leaning **self-host on the homelab** (one small web app + DB, reached from phone over Tailscale / existing reverse proxy) so sync is trivial (single source of truth). Offline-first PWA + sync is the fallback if gym connectivity is flaky.
-- **Not decided yet**: exact sync model (homelab-hosted vs offline-first+sync), stack, whether to model the split structure below or keep exercises free-form.
+**Android:** grab the latest `reps-vX.Y.Z.apk` from [Releases](../../releases) and install it. That's the whole setup — open the app, optionally seed the starter exercise catalog, train.
 
-## Open questions for the build session
+**Build from source** (requires [fvm](https://fvm.app/)):
 
-- Homelab-hosted single DB vs offline-first PWA with sync? (gym phone connectivity is the deciding factor)
-- Stack (the homelab + `infra` context suggests Go backend + small web frontend, but a single-file PWA could be enough).
-- Pre-seed the exercise list from my current split (below), or keep it free-form and let it grow?
+```sh
+make -C app install      # installs the pinned Flutter SDK
+make -C app build-apk    # debug APK
+make -C app build        # or: Linux desktop build
+```
 
-## Reference: current training split
+## Self-hosting sync (optional)
 
-Source of truth lives in the knowledge vault: `personal/knowledge/wiki/projects/fitness-recomp.md` (and its source export). Copied here so the app's seed data / data model is at hand.
+The sync backend is a small Go API + Postgres + the PowerSync service, all in one compose stack:
 
-**4-day Upper/Lower/Push/Pull**, each muscle ~2×/week, 12–16 sets/muscle/week.
-Mon Upper A (push) · Tue Lower A (quad) · Wed off · Thu Upper B (pull) · Fri Lower B (posterior chain) · weekend off / walks.
+```sh
+make -C server gen-jwt-key
+docker compose -f infra/compose.yml -f infra/compose.dev.yml --env-file infra/.env up -d
+```
 
-Loading scheme:
-- Compounds: 6–8 reps @ 1–0 RIR (neural-dominant, Type-II-leaning lifter — strongest here).
-- Isolation: 10–15 reps @ 1–2 RIR, pump sets to failure.
-- **Progressive overload (log it):** compounds +1.25–2.5 kg at top of rep range; isolation +1 rep per 1–2 sessions, then add weight.
-- Rest: heavy compounds 2.5–3 min · accessory 90s–2min · isolation 60–90s.
+See `infra/README.md` for the full runbook. A prebuilt server image is published to GHCR (`ghcr.io/psychonaut0/workout-tracker-server`). In the app: Profile → Sync & Backend → set your server URL → register. Local data is kept and attached on first sign-in.
 
-### Upper A — push
-| Exercise | Sets × Reps | RIR |
-|---|---|---|
-| Incline bench press (Panatta) | 2 warm + 4×6–8 | 1–0 |
-| Chest press (horizontal) | 3×8–10 | 1 |
-| Seated DB shoulder press | 3×8–10 | 1 |
-| DB lateral raise | 3×10–12 | 1 |
-| Reverse pec deck / face pull | 3×12–15 | 1 |
-| Rope triceps pushdown | 3×10–12 | 1 |
-| Overhead rope extension | 3×10–12 | 1 |
+## Architecture
 
-### Lower A — quad + calf
-| Exercise | Sets × Reps | RIR |
-|---|---|---|
-| Hack squat | 2 warm + 4×6–8 | 1–0 |
-| Leg press (feet high/wide) | 3×10–12 | 1 |
-| Leg extension | 3×10–12 | 1 |
-| Seated leg curl | 3×8–10 | 1 |
-| Standing calf raise (weighted) | 4×10–12 | 0–1 |
+```
+app/        Flutter client (Android + Linux desktop) — PowerSync SQLite, offline-first
+server/     Go API — auth (JWT/JWKS), /sync/upload write path, embedded migrations
+powersync/  PowerSync service config + sync rules (per-user + template buckets)
+infra/      Dev compose stack (Postgres, server, PowerSync)
+api/        OpenAPI 3.1 spec
+docs/       Design specs & implementation plans for every increment, plus the original design handoff
+```
 
-### Upper B — pull
-| Exercise | Sets × Reps | RIR |
-|---|---|---|
-| Lat pulldown (wide pronated) | 2 warm + 4×6–8 | 1–0 |
-| Row (Panatta, wide) | 4×8–10 | 1 |
-| Iliac pulldown (close neutral) | 3×10–12 | 1 |
-| Cable row (close neutral) | 3×10–12 | 1 |
-| Preacher curl (barbell) | 3×8–10 | 1 |
-| Cable hammer curl | 3×10–12 | 1 |
-| Cable curl | 3×12–15 | 0–1 |
+The client is the source of truth for your day-to-day: it writes to a local SQLite database and works with zero connectivity. When sync is enabled, PowerSync streams changes both ways; the server stamps ownership and computes top-set/PR flags. The full design history — every feature's spec and implementation plan — lives in `docs/superpowers/`.
 
-### Lower B — posterior chain
-| Exercise | Sets × Reps | RIR |
-|---|---|---|
-| Romanian deadlift (cornerstone) | 2 warm + 4×6–8 | 1 |
-| Hack squat (depth focus, moderate) | 3×10–12 | 1 |
-| Lying leg curl | 4×8–10 | 1 |
-| Unilateral leg extension | 3×12–15 | 0–1 |
-| Seated calf raise | 4×12–15 | 0–1 |
+## Development
 
-Back-grip rotation: the four back movements alternate weekly between wide-pronated and close-neutral grips for varied stimulus.
+```sh
+make -C app analyze                          # static analysis
+make -C app test                             # full test suite
+make -C app test TEST=test/path/foo_test.dart
+make -C server test                          # needs the dev stack running
+```
 
-### Weekly volume status (for reference)
-chest 10 · back 14 · front-delt 6 · lat-delt 6 (low) · rear-delt 3 (low) · biceps 9 · triceps 6 (borderline) · quads 16 · hams 11 · glutes 7 (borderline) · calves 8. Planned bump after 4–6 wk if recovery holds: +1 lateral raise (Upper A & B), +1 face pull (Upper B), +1 rope ext (Upper A).
+Releases are automated: tagging `v*` builds and publishes a signed APK; pushes to `main` publish the server image.
 
-## Related
-- Knowledge vault: `personal/knowledge/wiki/projects/fitness-recomp.md` — full recomp plan, nutrition, supplements, tracking protocol.
-- The export also ships a self-contained React/Recharts weight-chart component — reusable for the bodyweight-trend view.
+## License
+
+[MIT](LICENSE)

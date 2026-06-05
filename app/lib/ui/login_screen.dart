@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/auth_store.dart';
 
-/// Minimal throwaway login. Dev creds: me@example.com / devpassword.
+/// Sign-in / registration against the configured sync server.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.auth, required this.onLoggedIn});
 
@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController(text: 'me@example.com');
-  final _password = TextEditingController(text: 'devpassword');
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   bool _busy = false;
   bool _registering = false;
   String? _error;
