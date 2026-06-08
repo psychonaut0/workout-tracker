@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' show SyncStatus;
 import 'package:provider/provider.dart';
 
@@ -242,6 +243,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _exportingFull = false;
   bool _exportingHistory = false;
 
+  // Runtime app version (footer; reused by the Updates group).
+  String _version = '';
+
   @override
   void initState() {
     super.initState();
@@ -249,6 +253,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameCtrl = TextEditingController(text: settings.profileName);
     _serverCtrl = TextEditingController(text: settings.serverUrl);
     _currentServerUrl = settings.serverUrl;
+    PackageInfo.fromPlatform().then((i) {
+      if (mounted) setState(() => _version = i.version);
+    });
   }
 
   @override
@@ -799,7 +806,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'workout-tracker · v1.0.0',
+                    _version.isEmpty
+                        ? 'workout-tracker'
+                        : 'workout-tracker · v$_version',
                     textAlign: TextAlign.center,
                     style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                   ),
