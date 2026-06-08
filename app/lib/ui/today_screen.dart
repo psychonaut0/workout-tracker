@@ -10,6 +10,7 @@ import '../data/models.dart';
 import '../data/muscle_target_repository.dart';
 import '../data/session_repository.dart';
 import '../data/stats_repository.dart';
+import '../l10n/app_localizations.dart';
 import '../session/active_session_controller.dart';
 import '../session/session_manager.dart';
 import '../sync/db.dart';
@@ -155,6 +156,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     // Reactive unit service — rebuild whenever unit changes.
     final units = context.watch<UnitService>();
     // Reactive session manager — swap the hero to a resume card when active.
@@ -178,7 +180,7 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
     );
     final restOrTrain = trainDay.id.isEmpty
-        ? 'Rest day'
+        ? l.todayRestDay
         : trainDay.name;
 
     return ListView(
@@ -235,7 +237,7 @@ class _TodayScreenState extends State<TodayScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SectionLabel(label: 'This week'),
+              SectionLabel(label: l.todayThisWeek),
               const SizedBox(height: 10),
               _buildWeekStrip(ws),
               const SizedBox(height: 22),
@@ -334,6 +336,7 @@ class _TodayScreenState extends State<TodayScreen> {
     return StreamBuilder<List<BodyweightEntry>>(
       stream: _bw.watchSeriesAsc(),
       builder: (context, bwSnap) {
+        final l = AppLocalizations.of(context);
         final bwEntries = bwSnap.data ?? [];
         final lastUpTo18 = bwEntries.length > 18
             ? bwEntries.sublist(bwEntries.length - 18)
@@ -352,7 +355,7 @@ class _TodayScreenState extends State<TodayScreen> {
               child: UnitSwap(
                 unitKey: bwUnit ?? '',
                 child: StatTile(
-                  label: 'Bodyweight',
+                  label: l.todayBodyweight,
                   value: bwValue,
                   unit: bwUnit,
                   spark: sparkValues.length >= 2
@@ -379,9 +382,9 @@ class _TodayScreenState extends State<TodayScreen> {
                       return CountUp(
                         value: sets,
                         builder: (v) => StatTile(
-                          label: 'Sets / wk',
+                          label: l.todaySetsPerWeek,
                           value: '$v',
-                          sub: '$muscles muscles',
+                          sub: l.todayMusclesCount(muscles),
                         ),
                       );
                     },
@@ -399,9 +402,9 @@ class _TodayScreenState extends State<TodayScreen> {
                   return CountUp(
                     value: prs,
                     builder: (v) => StatTile(
-                      label: 'PRs / wk',
+                      label: l.todayPrsPerWeek,
                       value: '$v',
-                      sub: 'new top sets',
+                      sub: l.todayNewTopSets,
                     ),
                   );
                 },
@@ -419,6 +422,7 @@ class _TodayScreenState extends State<TodayScreen> {
         List<({String exerciseId, double weight, int reps, String date})>>(
       stream: _stats.watchRecentPrs(limit: 6),
       builder: (context, prsSnap) {
+        final l = AppLocalizations.of(context);
         final allPrs = prsSnap.data ?? [];
         final displayPrs = allPrs.take(4).toList();
         final count = allPrs.length;
@@ -434,7 +438,7 @@ class _TodayScreenState extends State<TodayScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SectionLabel(
-                  label: 'Recent PRs',
+                  label: l.todayRecentPrs,
                   action: Text(
                     '$count',
                     style: WorkoutType.mono(
@@ -445,7 +449,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 ),
                 if (displayPrs.isEmpty) ...[
                   const SizedBox(height: 10),
-                  _EmptyState(tokens: tokens, message: 'No PRs yet this cycle'),
+                  _EmptyState(tokens: tokens, message: l.todayNoPrsYet),
                 ] else ...[
                   const SizedBox(height: 10),
                   Column(
@@ -480,6 +484,7 @@ class _TodayScreenState extends State<TodayScreen> {
         return StreamBuilder<List<MuscleTarget>>(
           stream: _targets.watchTargets(),
           builder: (context, targetSnap) {
+            final l = AppLocalizations.of(context);
             final volRows = volSnap.data ?? [];
             final targetList = targetSnap.data ?? [];
 
@@ -498,12 +503,12 @@ class _TodayScreenState extends State<TodayScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionLabel(label: 'Weekly volume'),
+                SectionLabel(label: l.todayWeeklyVolume),
                 const SizedBox(height: 10),
                 if (rows.isEmpty)
                   _EmptyState(
                     tokens: tokens,
-                    message: 'No sets logged this week',
+                    message: l.todayNoSetsLogged,
                   )
                 else
                   VolumeBars(rows: rows),
@@ -529,6 +534,7 @@ class _GreetingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
 
     return Row(
@@ -576,7 +582,7 @@ class _GreetingHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Ready to train',
+                l.todayGreeting,
                 style: WorkoutType.display(
                   size: 25,
                   weight: FontWeight.w700,
@@ -765,6 +771,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
     final draft = widget.controller.draft;
     DayTemplate? day;
@@ -776,7 +783,8 @@ class _ResumeHeroState extends State<_ResumeHero> {
         }
       }
     }
-    final title = day?.name ?? (draft.name.isEmpty ? 'Custom' : draft.name);
+    final title =
+        day?.name ?? (draft.name.isEmpty ? l.todayCustomSession : draft.name);
     final focus = day?.focus ?? draft.focus;
     final exCount = day?.slots.length ?? draft.blocks.length;
     final now = DateTime.now();
@@ -797,7 +805,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ACTIVE NOW',
+              Text(l.todayActiveNow,
                   style: WorkoutType.mono(
                       size: 10, color: tokens.accent, letterSpacing: 1.5)),
               const SizedBox(height: 10),
@@ -813,7 +821,8 @@ class _ResumeHeroState extends State<_ResumeHero> {
                 children: [
                   Text(
                     resting
-                        ? 'Rest ${fmtClock(Duration(seconds: restRemaining))}'
+                        ? l.todayRestTimer(
+                            fmtClock(Duration(seconds: restRemaining)))
                         : fmtClock(now.difference(draft.startedAt)),
                     style: WorkoutType.mono(
                         size: 14,
@@ -821,12 +830,12 @@ class _ResumeHeroState extends State<_ResumeHero> {
                         color: resting ? tokens.accent : tokens.text),
                   ),
                   const SizedBox(width: 12),
-                  Text('$exCount exercises',
+                  Text(l.todayExerciseCount(exCount),
                       style: WorkoutType.mono(size: 11, color: tokens.faint)),
                 ],
               ),
               const SizedBox(height: 14),
-              PrimaryBtn('Resume workout',
+              PrimaryBtn(l.todayResumeWorkout,
                   enabled: true, onTap: widget.onResume),
             ],
           ),

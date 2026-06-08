@@ -7,5 +7,69 @@
   "languageSystem": "System default",
   "settingsLanguage": "Language",
   "commonCancel": "Cancel",
-  "commonOk": "OK"
+  "commonOk": "OK",
+  "todayGreeting": "Ready to train",
+  "todayRestDay": "Rest day",
+  "todayThisWeek": "This week",
+  "todayBodyweight": "Bodyweight",
+  "todaySetsPerWeek": "Sets / wk",
+  "todayMusclesCount": "{count, plural, =1{1 muscle} other{{count} muscles}}",
+  "@todayMusclesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "todayPrsPerWeek": "PRs / wk",
+  "todayNewTopSets": "new top sets",
+  "todayRecentPrs": "Recent PRs",
+  "todayNoPrsYet": "No PRs yet this cycle",
+  "todayWeeklyVolume": "Weekly volume",
+  "todayNoSetsLogged": "No sets logged this week",
+  "todayActiveNow": "ACTIVE NOW",
+  "todayCustomSession": "Custom",
+  "todayRestTimer": "Rest {time}",
+  "@todayRestTimer": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "todayExerciseCount": "{count, plural, =1{1 exercise} other{{count} exercises}}",
+  "@todayExerciseCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "todayResumeWorkout": "Resume workout",
+  "splitNextInRotation": "NEXT IN ROTATION",
+  "splitSwitchTo": "SWITCH TO · {target}",
+  "@splitSwitchTo": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "splitExercises": "Exercises",
+  "splitEstTime": "Est. time",
+  "splitEstTimeValue": "~{minutes}m",
+  "@splitEstTimeValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "splitLast": "Last",
+  "splitNoTemplate": "NO TEMPLATE",
+  "splitBuildAsYouGo": "Build it as you go",
+  "splitAddExercisesLive": "Add exercises live during the session",
+  "splitStartEmpty": "Start empty",
+  "splitStartWorkout": "Start workout",
+  "weekStripNext": "NEXT"
 }

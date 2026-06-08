@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
@@ -94,13 +95,17 @@ class DaySlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
 
     // Eyebrow keyed off the rotation target, NOT literal index 0.
     final isNext = index == nextIndex;
     final eyebrow = isNext
-        ? 'NEXT IN ROTATION'
-        : 'SWITCH TO · ${(day.scheduledWeekday != null ? weekdayShort(day.scheduledWeekday!) : day.name).toUpperCase()}';
+        ? l.splitNextInRotation
+        : l.splitSwitchTo((day.scheduledWeekday != null
+                ? weekdayShort(day.scheduledWeekday!)
+                : day.name)
+            .toUpperCase());
 
     // Estimated time: max(20, (exerciseCount * 9 + 10).round())m
     final est = max(20, exerciseCount * 9 + 10);
@@ -160,21 +165,21 @@ class DaySlide extends StatelessWidget {
               children: [
                 _StatCol(
                   value: '$exerciseCount',
-                  label: 'Exercises',
+                  label: l.splitExercises,
                   valueColor: accentInk,
                   labelColor: accentDim,
                 ),
                 const SizedBox(width: 18),
                 _StatCol(
-                  value: '~${est}m',
-                  label: 'Est. time',
+                  value: l.splitEstTimeValue(est),
+                  label: l.splitEstTime,
                   valueColor: accentInk,
                   labelColor: accentDim,
                 ),
                 const SizedBox(width: 18),
                 _StatCol(
                   value: lastAgo.isEmpty ? '—' : lastAgo,
-                  label: 'Last',
+                  label: l.splitLast,
                   valueColor: accentInk,
                   labelColor: accentDim,
                 ),
@@ -235,6 +240,7 @@ class CustomSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
     final textColor = tokens.text;
     final dimColor = tokens.dim;
@@ -245,7 +251,7 @@ class CustomSlide extends StatelessWidget {
       children: [
         // Eyebrow
         Text(
-          'NO TEMPLATE',
+          l.splitNoTemplate,
           style: WorkoutType.mono(
             size: 11,
             weight: FontWeight.w700,
@@ -256,7 +262,7 @@ class CustomSlide extends StatelessWidget {
         const SizedBox(height: 10),
         // Name
         Text(
-          'Custom',
+          l.todayCustomSession,
           style: WorkoutType.display(
             size: 40,
             weight: FontWeight.w700,
@@ -267,7 +273,7 @@ class CustomSlide extends StatelessWidget {
         const SizedBox(height: 4),
         // Sub
         Text(
-          'Build it as you go',
+          l.splitBuildAsYouGo,
           style: WorkoutType.display(
             size: 19,
             weight: FontWeight.w600,
@@ -282,7 +288,7 @@ class CustomSlide extends StatelessWidget {
             Icon(WIcons.plus, size: 17, color: dimColor),
             const SizedBox(width: 9),
             Text(
-              'Add exercises live during the session',
+              l.splitAddExercisesLive,
               style: WorkoutType.mono(
                 size: 12,
                 weight: FontWeight.w600,
@@ -372,6 +378,7 @@ class _SplitCardState extends State<SplitCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
 
     // Animated card theming: accent bg (day) ↔ surface bg (custom)
@@ -381,7 +388,7 @@ class _SplitCardState extends State<SplitCard> {
     final btnBg = _isCustom ? tokens.accent : tokens.accentInk;
     final btnInk = _isCustom ? tokens.accentInk : tokens.accent;
     final btnIcon = _isCustom ? WIcons.plus : WIcons.bolt;
-    final btnLabel = _isCustom ? 'Start empty' : 'Start workout';
+    final btnLabel = _isCustom ? l.splitStartEmpty : l.splitStartWorkout;
 
     return Column(
       children: [

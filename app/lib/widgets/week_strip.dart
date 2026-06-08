@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
@@ -138,7 +139,7 @@ class _StatusIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isNext) {
       return Text(
-        'NEXT',
+        AppLocalizations.of(context).weekStripNext,
         style: WorkoutType.mono(
           size: 9,
           weight: FontWeight.w700,

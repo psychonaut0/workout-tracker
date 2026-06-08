@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
-import 'package:workout_tracker/theme/app_theme.dart';
-import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/widgets/split_card.dart';
+
+import '../support/l10n_harness.dart';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,15 +25,10 @@ DayTemplate _makeDay({
   );
 }
 
-/// Pumps [widget] inside a [MaterialApp] carrying the full workout theme.
+/// Pumps [widget] inside the localized workout-theme harness.
 Future<void> pumpWithTheme(WidgetTester tester, Widget widget) async {
   await tester.pumpWidget(
-    MaterialApp(
-      theme: buildTheme(Brightness.dark, accents[0]),
-      home: Scaffold(
-        body: SingleChildScrollView(child: widget),
-      ),
-    ),
+    wrapL10n(SingleChildScrollView(child: widget)),
   );
 }
 
