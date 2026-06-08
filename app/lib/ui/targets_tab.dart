@@ -5,6 +5,7 @@ import '../data/models.dart';
 import '../data/muscle_target_repository.dart';
 import '../data/muscles.dart';
 import '../identity/identity_service.dart';
+import '../l10n/app_localizations.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
@@ -95,6 +96,7 @@ class _TargetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final hasGoal = sets > 0;
     final labelColor = hasGoal ? tokens.text : tokens.faint;
 
@@ -124,7 +126,7 @@ class _TargetRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasGoal ? 'sets / wk' : 'no goal',
+                    hasGoal ? l.targetsSetsPerWeek : l.targetsNoGoal,
                     style: WorkoutType.mono(size: 11, color: tokens.faint),
                   ),
                 ],

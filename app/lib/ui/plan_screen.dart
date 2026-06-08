@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/motion.dart';
@@ -61,17 +62,18 @@ class PlanScreenState extends State<PlanScreen> {
 
   // ── Derived title ─────────────────────────────────────────────────────────
 
-  String get _title {
-    if (_editor == null) return 'Plan';
+  String _titleOf(AppLocalizations l) {
+    if (_editor == null) return l.planTitle;
     if (_editor!.kind == 'day') {
-      return _editor!.id != null ? 'Edit training day' : 'New training day';
+      return _editor!.id != null ? l.planEditDay : l.planNewDay;
     }
-    return _editor!.id != null ? 'Edit exercise' : 'New exercise';
+    return _editor!.id != null ? l.planEditExercise : l.planNewExercise;
   }
 
   // ── Header ────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context, WorkoutTokens tokens) {
+    final l = AppLocalizations.of(context);
     final topPad = MediaQuery.paddingOf(context).top;
 
     return Container(
@@ -94,7 +96,7 @@ class PlanScreenState extends State<PlanScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _title,
+                      _titleOf(l),
                       style: WorkoutType.display(
                         size: 19,
                         weight: FontWeight.w700,
@@ -241,26 +243,27 @@ class _SegmentedToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Row(
         children: [
           _SegBtn(
-            label: 'Split',
+            label: l.planTabSplit,
             active: activeTab == 'split',
             tokens: tokens,
             onTap: () => onSelect('split'),
           ),
           const SizedBox(width: 6),
           _SegBtn(
-            label: 'Exercises',
+            label: l.planTabExercises,
             active: activeTab == 'exercises',
             tokens: tokens,
             onTap: () => onSelect('exercises'),
           ),
           const SizedBox(width: 6),
           _SegBtn(
-            label: 'Targets',
+            label: l.planTabTargets,
             active: activeTab == 'targets',
             tokens: tokens,
             onTap: () => onSelect('targets'),

@@ -166,5 +166,120 @@
   "summaryDuration": "Duration",
   "summarySets": "Sets",
   "summaryVolume": "Volume",
-  "summaryPrs": "PRs"
+  "summaryPrs": "PRs",
+  "commonDelete": "Delete",
+  "planTitle": "Plan",
+  "planEditDay": "Edit training day",
+  "planNewDay": "New training day",
+  "planEditExercise": "Edit exercise",
+  "planNewExercise": "New exercise",
+  "planTabSplit": "Split",
+  "planTabExercises": "Exercises",
+  "planTabTargets": "Targets",
+  "splitDaysInRotation": "{count, plural, =1{1 training day in rotation} other{{count} training days in rotation}}",
+  "@splitDaysInRotation": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayEditorDeleteTitle": "Delete training day?",
+  "dayEditorDeleteMessage": "This will also remove all exercises in this day. This cannot be undone.",
+  "dayEditorName": "Day name",
+  "dayEditorNamePlaceholder": "e.g. Upper A",
+  "dayEditorFocus": "Focus",
+  "dayEditorFocusPlaceholder": "e.g. Push",
+  "dayEditorScheduledDay": "Scheduled day",
+  "dayEditorExercisesCount": "Exercises · {count}",
+  "@dayEditorExercisesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayEditorSlotHint": "Sets, reps & RIR are set per day — tap a row to tune this day's prescription.",
+  "dayEditorWarmupShort": "{count}wu",
+  "@dayEditorWarmupShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayEditorWorkingSets": "Working sets",
+  "dayEditorWarmups": "Warmups",
+  "dayEditorRepLow": "Rep low",
+  "dayEditorRepHigh": "Rep high",
+  "dayEditorRirTarget": "RIR target",
+  "dayEditorAddExercise": "Add exercise",
+  "dayEditorSaveChanges": "Save changes",
+  "dayEditorCreateDay": "Create training day",
+  "dayEditorDeleteButton": "Delete day",
+  "exerciseEditorCantDeleteTitle": "Can't delete",
+  "exerciseEditorActiveWorkoutMessage": "Finish or discard your active workout first.",
+  "exerciseEditorBlockedByHistory": "{count, plural, =1{This exercise is used in 1 logged set. Delete that session first.} other{This exercise is used in {count} logged sets. Delete those sessions first.}}",
+  "@exerciseEditorBlockedByHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEditorDeleteTitle": "Delete exercise?",
+  "exerciseEditorDeleteWithDays": "{count, plural, =1{Also removes it from 1 training day. This cannot be undone.} other{Also removes it from {count} training days. This cannot be undone.}}",
+  "@exerciseEditorDeleteWithDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEditorDeletePlain": "This cannot be undone.",
+  "exerciseEditorCreate": "Create exercise",
+  "exerciseEditorSave": "Save exercise",
+  "exerciseEditorName": "Exercise name",
+  "exerciseEditorNamePlaceholder": "e.g. Incline Bench Press",
+  "exerciseEditorMuscleGroup": "Muscle group",
+  "exerciseEditorEquipment": "Equipment / machine",
+  "exerciseEditorEquipmentPlaceholder": "e.g. Panatta, Hammer Strength…",
+  "exerciseEditorCompound": "Compound lift",
+  "exerciseEditorCompoundHint": "Movement trait · drives rest & warmups",
+  "exerciseEditorStats": "Stats",
+  "exerciseEditorStatsHint": "Tracked per exercise across every split.",
+  "exerciseEditorPr": "Personal record",
+  "exerciseEditorPrHint": "Best logged top set",
+  "exerciseEditorStartWeight": "Start weight",
+  "exerciseEditorStartWeightHint": "Top-set seed for the first session — history drives suggestions after that.",
+  "exerciseEditorDefaultPrescription": "Default prescription",
+  "exerciseEditorDefaultPrescriptionHint": "Pre-fills a day's slot when you add this exercise. Tune the real sets/reps per day in the Split.",
+  "exerciseEditorRest": "Rest",
+  "exerciseEditorRestHint": "Rest between sets. Default inherits the global rest setting.",
+  "exerciseEditorRestDefault": "Default",
+  "exerciseEditorRestSeconds": "{count}s",
+  "@exerciseEditorRestSeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEditorDeleteButton": "Delete exercise",
+  "exerciseCompound": "compound",
+  "exerciseSheetTitle": "Choose exercise",
+  "exerciseSheetSearchHint": "Search exercises or muscle…",
+  "exerciseSheetTracking": "Tracking",
+  "exerciseSheetBodyweight": "Bodyweight",
+  "exerciseSheetBodyweightSub": "Daily log",
+  "exerciseSheetEmpty": "No exercises match \"{query}\".",
+  "@exerciseSheetEmpty": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "targetsSetsPerWeek": "sets / wk",
+  "targetsNoGoal": "no goal"
 }

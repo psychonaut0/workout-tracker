@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/day_template_repository.dart';
 import '../data/models.dart';
+import '../l10n/app_localizations.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -23,6 +24,7 @@ class SplitTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
     final repo = DayTemplateRepository(db);
 
@@ -38,7 +40,7 @@ class SplitTab extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: Text(
-                '${days.length} training day${days.length == 1 ? '' : 's'} in rotation',
+                l.splitDaysInRotation(days.length),
                 style: WorkoutType.mono(size: 11.5, color: tokens.faint),
               ),
             ),
@@ -183,6 +185,7 @@ class _NewDayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -203,7 +206,7 @@ class _NewDayButton extends StatelessWidget {
               Icon(WIcons.plus, size: 16, color: tokens.dim),
               const SizedBox(width: 7),
               Text(
-                'New training day',
+                l.planNewDay,
                 style: WorkoutType.mono(
                   size: 13,
                   weight: FontWeight.w600,

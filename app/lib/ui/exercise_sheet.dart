@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/models.dart';
 import '../data/muscles.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
@@ -87,6 +88,7 @@ class _ExerciseSheetState extends State<_ExerciseSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
     final filtered = _filtered;
     final grouped = _group(filtered);
@@ -139,7 +141,7 @@ class _ExerciseSheetState extends State<_ExerciseSheet> {
 
                     // Bodyweight pinned row
                     if (showBodyweight) ...[
-                      _SectionLabel(label: 'Tracking', tokens: tokens),
+                      _SectionLabel(label: l.exerciseSheetTracking, tokens: tokens),
                       _BodyweightRow(
                         selected: widget.current == kBodyweightSentinel,
                         tokens: tokens,
@@ -198,6 +200,7 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       child: Column(
@@ -218,7 +221,7 @@ class _SheetHeader extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Choose exercise',
+                l.exerciseSheetTitle,
                 style: WorkoutType.display(
                   size: 19,
                   weight: FontWeight.w700,
@@ -229,7 +232,7 @@ class _SheetHeader extends StatelessWidget {
               GestureDetector(
                 onTap: onDone,
                 child: Text(
-                  'Done',
+                  l.commonDone,
                   style: WorkoutType.mono(
                     size: 12,
                     weight: FontWeight.w600,
@@ -259,7 +262,7 @@ class _SheetHeader extends StatelessWidget {
                     autofocus: false,
                     style: WorkoutType.body(size: 15, color: tokens.text),
                     decoration: InputDecoration(
-                      hintText: 'Search exercises or muscle…',
+                      hintText: l.exerciseSheetSearchHint,
                       hintStyle:
                           WorkoutType.body(size: 15, color: tokens.faint),
                       border: InputBorder.none,
@@ -334,6 +337,7 @@ class _BodyweightRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -359,7 +363,7 @@ class _BodyweightRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Bodyweight',
+                    l.exerciseSheetBodyweight,
                     style: WorkoutType.body(
                       size: 14.5,
                       weight: FontWeight.w600,
@@ -368,7 +372,7 @@ class _BodyweightRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    'Daily log',
+                    l.exerciseSheetBodyweightSub,
                     style: WorkoutType.mono(
                       size: 10.5,
                       color: selected
@@ -405,6 +409,7 @@ class _ExerciseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     // Compound dot color: accent if compound, lineStrong if isolation.
     // When selected (accent bg), compound dot becomes accentInk; isolation
     // becomes semi-transparent black (rgba(0,0,0,0.3)) as in the JSX spec.
@@ -417,7 +422,9 @@ class _ExerciseRow extends StatelessWidget {
     // Subtitle: '{equip}{compound ? ' · compound' : ''}'
     final equip = exercise.equip ?? '';
     final subtitle = exercise.compound
-        ? (equip.isNotEmpty ? '$equip · compound' : 'compound')
+        ? (equip.isNotEmpty
+            ? '$equip · ${l.exerciseCompound}'
+            : l.exerciseCompound)
         : equip;
 
     return GestureDetector(
@@ -495,11 +502,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Text(
-          'No exercises match "$query".',
+          l.exerciseSheetEmpty(query),
           textAlign: TextAlign.center,
           style: WorkoutType.mono(size: 13, color: tokens.faint),
         ),
