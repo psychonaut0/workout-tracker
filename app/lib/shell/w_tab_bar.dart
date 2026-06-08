@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/typography.dart';
@@ -38,6 +39,7 @@ class WTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final viewPadding = MediaQuery.viewPaddingOf(context);
     final bottomPad = 9 + viewPadding.bottom;
 
@@ -58,14 +60,14 @@ class WTabBar extends StatelessWidget {
               // Today (index 0)
               _TabButton(
                 icon: WIcons.home,
-                label: 'Today',
+                label: l.navToday,
                 active: currentIndex == 0,
                 onTap: () => onTab(0),
               ),
               // Progress (index 1)
               _TabButton(
                 icon: WIcons.chart,
-                label: 'Progress',
+                label: l.navProgress,
                 active: currentIndex == 1,
                 onTap: () => onTab(1),
               ),
@@ -74,14 +76,14 @@ class WTabBar extends StatelessWidget {
               // History (index 2)
               _TabButton(
                 icon: WIcons.history,
-                label: 'History',
+                label: l.navHistory,
                 active: currentIndex == 2,
                 onTap: () => onTab(2),
               ),
               // Plan (index 3)
               _TabButton(
                 icon: WIcons.plan,
-                label: 'Plan',
+                label: l.navPlan,
                 active: currentIndex == 3,
                 onTap: () => onTab(3),
               ),

@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/theme/icons.dart';
 import 'package:workout_tracker/widgets/week_strip.dart';
 import 'package:workout_tracker/widgets/volume_bars.dart';
 
-/// Pump [widget] inside a [MaterialApp] that carries the full app theme so
-/// that `context.tokens` resolves via [buildTheme].
+import '../support/l10n_harness.dart';
+
+/// Pump [widget] inside the localized workout-theme harness so that
+/// `context.tokens` and `AppLocalizations.of(context)` both resolve.
 Future<void> pumpWithTheme(WidgetTester tester, Widget widget) async {
   await tester.pumpWidget(
-    MaterialApp(
-      theme: buildTheme(Brightness.dark, accents[0]),
-      home: Scaffold(body: SingleChildScrollView(child: widget)),
-    ),
+    wrapL10n(SingleChildScrollView(child: widget)),
   );
 }
 

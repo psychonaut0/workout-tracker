@@ -1,6 +1,10 @@
 // Canonical muscle group labels keyed on the 8 real DB `muscle_group` values.
 // Insertion order defines display order.
 
+import 'package:flutter/widgets.dart';
+
+import '../l10n/app_localizations.dart';
+
 const Map<String, String> kMuscleLabels = {
   'chest': 'Chest',
   'back': 'Back',
@@ -20,6 +24,32 @@ const Map<String, String> kMuscleLabels = {
 String muscleLabel(String key) =>
     kMuscleLabels[key] ??
     (key.isEmpty ? key : key[0].toUpperCase() + key.substring(1));
+
+/// Localized display label for a muscle [key]. Known keys map to ARB strings;
+/// unknown custom keys fall back to the title-cased [muscleLabel].
+String localizedMuscle(BuildContext context, String key) {
+  final l = AppLocalizations.of(context);
+  switch (key) {
+    case 'chest':
+      return l.muscleChest;
+    case 'back':
+      return l.muscleBack;
+    case 'shoulders':
+      return l.muscleShoulders;
+    case 'quads':
+      return l.muscleQuads;
+    case 'hamstrings':
+      return l.muscleHamstrings;
+    case 'calves':
+      return l.muscleCalves;
+    case 'biceps':
+      return l.muscleBiceps;
+    case 'triceps':
+      return l.muscleTriceps;
+    default:
+      return muscleLabel(key);
+  }
+}
 
 /// Orders [present] muscles in canonical display order (known muscles first,
 /// in [kMuscleLabels] insertion order), then unknown muscles sorted

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
+import '../l10n/app_localizations.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -104,6 +105,7 @@ class _NewExerciseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -119,7 +121,7 @@ class _NewExerciseButton extends StatelessWidget {
             Icon(WIcons.plus, size: 17, color: tokens.accentInk),
             const SizedBox(width: 7),
             Text(
-              'New exercise',
+              l.planNewExercise,
               style: WorkoutType.display(
                 size: 15,
                 weight: FontWeight.w700,
@@ -161,7 +163,7 @@ class _MuscleSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
           child: Text(
-            muscleLabel(muscle).toUpperCase(),
+            localizedMuscle(context, muscle).toUpperCase(),
             style: WorkoutType.mono(
               size: 10.5,
               weight: FontWeight.w700,
@@ -211,12 +213,13 @@ class _ExerciseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sub-label: '{equip ?? muscleLabel(muscleGroup)}{ · compound}'
+    final l = AppLocalizations.of(context);
+    // Sub-label: '{equip ?? localizedMuscle(muscleGroup)}{ · compound}'
     final subParts = <String>[
       exercise.equip?.isNotEmpty == true
           ? exercise.equip!
-          : muscleLabel(exercise.muscleGroup),
-      if (exercise.compound) '· compound',
+          : localizedMuscle(context, exercise.muscleGroup),
+      if (exercise.compound) '· ${l.exerciseCompound}',
     ];
     final subLabel = subParts.join(' ');
 

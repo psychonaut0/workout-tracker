@@ -1,0 +1,529 @@
+{
+  "@@locale": "en",
+  "languageEnglish": "English",
+  "languageItalian": "Italiano",
+  "languageGerman": "Deutsch",
+  "languageSpanish": "Español",
+  "languageSystem": "System default",
+  "settingsLanguage": "Language",
+  "commonCancel": "Cancel",
+  "commonOk": "OK",
+  "todayGreeting": "Ready to train",
+  "todayRestDay": "Rest day",
+  "todayThisWeek": "This week",
+  "todayBodyweight": "Bodyweight",
+  "todaySetsPerWeek": "Sets / wk",
+  "todayMusclesCount": "{count, plural, =1{1 muscle} other{{count} muscles}}",
+  "@todayMusclesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "todayPrsPerWeek": "PRs / wk",
+  "todayNewTopSets": "new top sets",
+  "todayRecentPrs": "Recent PRs",
+  "todayNoPrsYet": "No PRs yet this cycle",
+  "todayWeeklyVolume": "Weekly volume",
+  "todayNoSetsLogged": "No sets logged this week",
+  "todayActiveNow": "ACTIVE NOW",
+  "todayCustomSession": "Custom",
+  "todayRestTimer": "Rest {time}",
+  "@todayRestTimer": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "todayExerciseCount": "{count, plural, =1{1 exercise} other{{count} exercises}}",
+  "@todayExerciseCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "todayResumeWorkout": "Resume workout",
+  "splitNextInRotation": "NEXT IN ROTATION",
+  "splitSwitchTo": "SWITCH TO · {target}",
+  "@splitSwitchTo": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "splitExercises": "Exercises",
+  "splitEstTime": "Est. time",
+  "splitEstTimeValue": "~{minutes}m",
+  "@splitEstTimeValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "splitLast": "Last",
+  "splitNoTemplate": "NO TEMPLATE",
+  "splitBuildAsYouGo": "Build it as you go",
+  "splitAddExercisesLive": "Add exercises live during the session",
+  "splitStartEmpty": "Start empty",
+  "splitStartWorkout": "Start workout",
+  "weekStripNext": "NEXT",
+  "commonDiscard": "Discard",
+  "commonRemove": "Remove",
+  "commonSkip": "Skip",
+  "commonDone": "Done",
+  "sessionElapsed": "ELAPSED",
+  "sessionSetsProgress": "{done}/{total} sets",
+  "@sessionSetsProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionPrCount": "{count, plural, one{ · {count} PR} other{ · {count} PRs}}",
+  "@sessionPrCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionDiscardTitle": "Discard workout?",
+  "sessionDiscardMessage": "Your logged sets will be lost.",
+  "sessionKeepGoing": "Keep going",
+  "sessionRemoveExerciseTitle": "Remove exercise?",
+  "sessionRemoveExerciseMessage": "Logged sets will be lost.",
+  "sessionAddExercise": "Add exercise",
+  "sessionFinishWorkout": "Finish workout",
+  "sessionEmptyTitle": "Empty session",
+  "sessionEmptySubtitle": "Add your first exercise to begin.",
+  "sessionSaveFailed": "Failed to save session: {error}",
+  "@sessionSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionColSet": "SET",
+  "sessionColWeight": "WEIGHT",
+  "sessionColReps": "REPS",
+  "sessionColRir": "RIR",
+  "sessionAddSet": "Add set",
+  "sessionRemoveExercise": "Remove exercise",
+  "sessionNoPreviousData": "No previous data",
+  "sessionLastLabel": "LAST · {ago}",
+  "@sessionLastLabel": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionToday": "today",
+  "sessionYesterday": "yesterday",
+  "sessionDaysAgo": "{count}d ago",
+  "@sessionDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionWeeksAgo": "{count}w ago",
+  "@sessionWeeksAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionTagTop": "TOP",
+  "sessionWarmupShort": "W",
+  "sessionRir": "RIR {value}",
+  "@sessionRir": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSearchExercises": "Search exercises…",
+  "sessionNoExercisesFound": "No exercises found",
+  "sessionOtherMuscle": "Other",
+  "restLabel": "REST",
+  "restAdd30s": "+30s",
+  "summarySessionNotFound": "Session not found.",
+  "summaryLoadFailed": "Failed to load session: {error}",
+  "@summaryLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTopSets": "TOP SETS",
+  "summaryDuration": "Duration",
+  "summarySets": "Sets",
+  "summaryVolume": "Volume",
+  "summaryPrs": "PRs",
+  "commonDelete": "Delete",
+  "planTitle": "Plan",
+  "planEditDay": "Edit training day",
+  "planNewDay": "New training day",
+  "planEditExercise": "Edit exercise",
+  "planNewExercise": "New exercise",
+  "planTabSplit": "Split",
+  "planTabExercises": "Exercises",
+  "planTabTargets": "Targets",
+  "splitDaysInRotation": "{count, plural, =1{1 training day in rotation} other{{count} training days in rotation}}",
+  "@splitDaysInRotation": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayEditorDeleteTitle": "Delete training day?",
+  "dayEditorDeleteMessage": "This will also remove all exercises in this day. This cannot be undone.",
+  "dayEditorName": "Day name",
+  "dayEditorNamePlaceholder": "e.g. Upper A",
+  "dayEditorFocus": "Focus",
+  "dayEditorFocusPlaceholder": "e.g. Push",
+  "dayEditorScheduledDay": "Scheduled day",
+  "dayEditorExercisesCount": "Exercises · {count}",
+  "@dayEditorExercisesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayEditorSlotHint": "Sets, reps & RIR are set per day — tap a row to tune this day's prescription.",
+  "dayEditorWarmupShort": "{count}wu",
+  "@dayEditorWarmupShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayEditorWorkingSets": "Working sets",
+  "dayEditorWarmups": "Warmups",
+  "dayEditorRepLow": "Rep low",
+  "dayEditorRepHigh": "Rep high",
+  "dayEditorRirTarget": "RIR target",
+  "dayEditorAddExercise": "Add exercise",
+  "dayEditorSaveChanges": "Save changes",
+  "dayEditorCreateDay": "Create training day",
+  "dayEditorDeleteButton": "Delete day",
+  "exerciseEditorCantDeleteTitle": "Can't delete",
+  "exerciseEditorActiveWorkoutMessage": "Finish or discard your active workout first.",
+  "exerciseEditorBlockedByHistory": "{count, plural, =1{This exercise is used in 1 logged set. Delete that session first.} other{This exercise is used in {count} logged sets. Delete those sessions first.}}",
+  "@exerciseEditorBlockedByHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEditorDeleteTitle": "Delete exercise?",
+  "exerciseEditorDeleteWithDays": "{count, plural, =1{Also removes it from 1 training day. This cannot be undone.} other{Also removes it from {count} training days. This cannot be undone.}}",
+  "@exerciseEditorDeleteWithDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEditorDeletePlain": "This cannot be undone.",
+  "exerciseEditorCreate": "Create exercise",
+  "exerciseEditorSave": "Save exercise",
+  "exerciseEditorName": "Exercise name",
+  "exerciseEditorNamePlaceholder": "e.g. Incline Bench Press",
+  "exerciseEditorMuscleGroup": "Muscle group",
+  "exerciseEditorEquipment": "Equipment / machine",
+  "exerciseEditorEquipmentPlaceholder": "e.g. Panatta, Hammer Strength…",
+  "exerciseEditorCompound": "Compound lift",
+  "exerciseEditorCompoundHint": "Movement trait · drives rest & warmups",
+  "exerciseEditorStats": "Stats",
+  "exerciseEditorStatsHint": "Tracked per exercise across every split.",
+  "exerciseEditorPr": "Personal record",
+  "exerciseEditorPrHint": "Best logged top set",
+  "exerciseEditorStartWeight": "Start weight",
+  "exerciseEditorStartWeightHint": "Top-set seed for the first session — history drives suggestions after that.",
+  "exerciseEditorDefaultPrescription": "Default prescription",
+  "exerciseEditorDefaultPrescriptionHint": "Pre-fills a day's slot when you add this exercise. Tune the real sets/reps per day in the Split.",
+  "exerciseEditorRest": "Rest",
+  "exerciseEditorRestHint": "Rest between sets. Default inherits the global rest setting.",
+  "exerciseEditorRestDefault": "Default",
+  "exerciseEditorRestSeconds": "{count}s",
+  "@exerciseEditorRestSeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exerciseEditorDeleteButton": "Delete exercise",
+  "exerciseCompound": "compound",
+  "exerciseSheetTitle": "Choose exercise",
+  "exerciseSheetSearchHint": "Search exercises or muscle…",
+  "exerciseSheetTracking": "Tracking",
+  "exerciseSheetBodyweight": "Bodyweight",
+  "exerciseSheetBodyweightSub": "Daily log",
+  "exerciseSheetEmpty": "No exercises match \"{query}\".",
+  "@exerciseSheetEmpty": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "targetsSetsPerWeek": "sets / wk",
+  "targetsNoGoal": "no goal",
+  "historyTitle": "History",
+  "historySessionsLogged": "{count, plural, =1{1 session logged} other{{count} sessions logged}}",
+  "@historySessionsLogged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyEmpty": "No sessions yet",
+  "historySummarySessions": "Sessions",
+  "historySummaryPrs": "PRs",
+  "historySummaryVolume": "Volume",
+  "historySummarySuffix": "{label} · 4wk",
+  "@historySummarySuffix": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "historyWeekOf": "WEEK OF {date}",
+  "@historyWeekOf": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "historyWeekSessions": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@historyWeekSessions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyExerciseCountShort": "{count} ex",
+  "@historyExerciseCountShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyEditSets": "Edit sets",
+  "historyDeleteSessionTitle": "Delete session?",
+  "historyDeleteSessionMessage": "This permanently removes the session and all its sets. This cannot be undone.",
+  "historyDeleteSession": "Delete session",
+  "historyDeleteSetTitle": "Delete set?",
+  "historyDeleteSetMessage": "This permanently removes this set.",
+  "progressProgression": "PROGRESSION",
+  "progressMetricTopSet": "Top set",
+  "progressMetricEst1rm": "Est. 1RM",
+  "progressMetricVolume": "Volume",
+  "progressMetricReps": "Reps",
+  "progressMetricTopReps": "Top reps",
+  "progressTrend": "{metric} trend",
+  "@progressTrend": {
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
+  },
+  "progressBySession": "{metric} by session",
+  "@progressBySession": {
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
+  },
+  "progressSessionsCount": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@progressSessionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "progressNoSessions": "No sessions logged yet",
+  "progressStatCurrent": "Current",
+  "progressStatBest": "Best",
+  "progressStat12wkDelta": "12wk Δ",
+  "progressEmpty": "No exercises found",
+  "progressChooseExercise": "Choose exercise",
+  "bodyweightTrend": "Bodyweight trend",
+  "bodyweightTitle": "Bodyweight",
+  "bodyweightDailyLog": "{count, plural, =1{Daily log · 1 entry} other{Daily log · {count} entries}}",
+  "@bodyweightDailyLog": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bodyweightStatCurrent": "Current",
+  "bodyweightStat30Day": "30-day",
+  "bodyweightStatLowest": "Lowest",
+  "bodyweightLogToday": "Log today's weight",
+  "bodyweightHistory": "History",
+  "bodyweightEntriesCount": "{count, plural, =1{1 entry} other{{count} entries}}",
+  "@bodyweightEntriesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bodyweightEmpty": "No bodyweight entries yet",
+  "bodyweightLogTitle": "Log bodyweight",
+  "bodyweightSaveEntry": "Save entry",
+  "exportAllData": "Export all data",
+  "exportFullBackup": "Full backup · JSON",
+  "exportHistory": "Export history",
+  "exportHistorySub": "Sessions in a date range · JSON",
+  "exportSavedTitle": "Export saved",
+  "exportSavedMessage": "Written to {path}",
+  "@exportSavedMessage": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "exportNoSessionsInRange": "No sessions in that range",
+  "exportFailedTitle": "Export failed",
+  "profileTitle": "Profile",
+  "profileNamePlaceholder": "Your name",
+  "profileSaveName": "Save",
+  "profileTrainingSince": "Training since Mar 2026 · 4-day split",
+  "profileStatSessions": "Sessions",
+  "profileStatPrs": "PRs",
+  "profileStatBodyweight": "Bodyweight",
+  "profileGroupUnits": "Units",
+  "profileWeightUnit": "Weight unit",
+  "profileWeightUnitSub": "Applies everywhere",
+  "profileGroupAppearance": "Appearance",
+  "profileTheme": "Theme",
+  "profileThemeDark": "Dark",
+  "profileThemeLight": "Light",
+  "profileAccent": "Accent",
+  "profileAccentSub": "App highlight color",
+  "profileAmbientEffects": "Ambient effects",
+  "profileAmbientEffectsSub": "Drifting accent glow & grain",
+  "profileGroupRest": "Rest",
+  "profileCompoundRest": "Compound rest",
+  "profileCompoundRestSub": "Default between compound sets",
+  "profileIsolationRest": "Isolation rest",
+  "profileIsolationRestSub": "Default between isolation sets",
+  "profileGroupSync": "Sync & Backend",
+  "profileSyncServer": "Sync server",
+  "profileServerPlaceholder": "https://sync.example.dev",
+  "profileLocalFirstHint": "Local-first · data stays on device · syncs when connected",
+  "profileApplyServer": "Apply / Switch server",
+  "profileSignInToSync": "Sign in to sync",
+  "profileGroupAccount": "Account",
+  "profileSignedIn": "Signed in",
+  "profileSignOut": "Sign out",
+  "profileSwitchServerTitle": "Switch server?",
+  "profileSwitchServerMessage": "This signs you out and clears local data on this device.",
+  "profileSwitchServerConfirm": "Switch",
+  "profileReconcileTitle": "You have local data",
+  "profileReconcileMessage": "This device already has workout data. Keep it and merge with your account, or replace it with the account's data?",
+  "profileReconcileUseAccount": "Use the account's data",
+  "profileReconcileKeep": "Keep my data",
+  "profileSignOutTitle": "Sign out?",
+  "profileSignOutMessage": "You will need to sign in again to access your data.",
+  "onboardingWelcome": "Welcome",
+  "onboardingIntro": "How would you like to start? You can change everything later.",
+  "onboardingAddStarter": "Add starter exercises",
+  "onboardingStartEmpty": "Start empty",
+  "loginTitle": "Login",
+  "loginEmailLabel": "email",
+  "loginPasswordLabel": "password",
+  "loginBusy": "...",
+  "loginCreateAccount": "Create account",
+  "loginLogIn": "Log in",
+  "loginHaveAccount": "Have an account? Sign in",
+  "syncSyncing": "Syncing…",
+  "syncError": "Sync error",
+  "syncOffline": "Offline",
+  "syncSynced": "Synced",
+  "syncSyncedAt": "Synced · {time}",
+  "@syncSyncedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNotConnected": "Not connected",
+  "syncJustNow": "just now",
+  "syncMinutesAgo": "{count, plural, other{{count}m ago}}",
+  "@syncMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncHoursAgo": "{count, plural, other{{count}h ago}}",
+  "@syncHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncDateShort": "{day}/{month}",
+  "@syncDateShort": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  },
+  "muscleChest": "Chest",
+  "muscleBack": "Back",
+  "muscleShoulders": "Shoulders",
+  "muscleQuads": "Quads",
+  "muscleHamstrings": "Hamstrings",
+  "muscleCalves": "Calves",
+  "muscleBiceps": "Biceps",
+  "muscleTriceps": "Triceps",
+  "navToday": "Today",
+  "navProgress": "Progress",
+  "navHistory": "History",
+  "navPlan": "Plan",
+  "profileGroupData": "Data",
+  "progressChange": "CHANGE",
+  "notifChannelName": "Workout session"
+}

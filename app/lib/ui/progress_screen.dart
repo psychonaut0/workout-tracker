@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
@@ -12,6 +13,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../util/dates.dart';
 import '../util/format.dart';
 import '../widgets/card.dart';
 import '../widgets/line_chart.dart';
@@ -171,6 +173,8 @@ class _LiftView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
+    final metricName = metricLabel(l, metricId);
     final unit = metric.wt ? unitService.uLabel : '';
     final seriesValues = rawSeries.map(_displayValue).toList();
 
@@ -186,7 +190,7 @@ class _LiftView extends StatelessWidget {
     });
 
     // Subtitle for selector row.
-    final muscleStr = muscleLabel(exercise.muscleGroup);
+    final muscleStr = localizedMuscle(context, exercise.muscleGroup);
     final equipStr = exercise.equip ?? '';
     final subtitle =
         equipStr.isNotEmpty ? '$muscleStr · $equipStr' : muscleStr;
@@ -201,7 +205,7 @@ class _LiftView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'PROGRESSION',
+                l.progressProgression,
                 style: WorkoutType.mono(
                   size: 11.5,
                   color: tokens.faint,
@@ -210,7 +214,7 @@ class _LiftView extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '${metric.label} trend',
+                l.progressTrend(metricName),
                 style: WorkoutType.display(size: 28, weight: FontWeight.w700),
               ),
             ],
@@ -259,9 +263,9 @@ class _LiftView extends StatelessWidget {
 
         // (6) Session log
         SectionLabel(
-          label: '${metric.label} by session',
+          label: l.progressBySession(metricName),
           action: Text(
-            '${rawSeries.length} sessions',
+            l.progressSessionsCount(rawSeries.length),
             style: WorkoutType.mono(size: 11, color: tokens.dim),
           ),
         ),
@@ -271,7 +275,7 @@ class _LiftView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
               child: Text(
-                'No sessions logged yet',
+                l.progressNoSessions,
                 style: WorkoutType.mono(size: 13, color: tokens.faint),
               ),
             ),
@@ -311,14 +315,15 @@ class _BigStatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (series.isEmpty) {
       return Row(
         children: [
-          Expanded(child: WCard(child: BigStat(label: 'Current', value: '—', unit: unit))),
+          Expanded(child: WCard(child: BigStat(label: l.progressStatCurrent, value: '—', unit: unit))),
           const SizedBox(width: 8),
-          Expanded(child: WCard(child: BigStat(label: 'Best', value: '—', unit: unit, accent: true))),
+          Expanded(child: WCard(child: BigStat(label: l.progressStatBest, value: '—', unit: unit, accent: true))),
           const SizedBox(width: 8),
-          Expanded(child: WCard(child: BigStat(label: '12wk Δ', value: '—', unit: unit))),
+          Expanded(child: WCard(child: BigStat(label: l.progressStat12wkDelta, value: '—', unit: unit))),
         ],
       );
     }
@@ -339,7 +344,7 @@ class _BigStatRow extends StatelessWidget {
             child: UnitSwap(
               unitKey: currentUnit,
               child: BigStat(
-                label: 'Current',
+                label: l.progressStatCurrent,
                 value: fmtVal(last),
                 unit: currentUnit.isNotEmpty ? currentUnit : null,
               ),
@@ -353,7 +358,7 @@ class _BigStatRow extends StatelessWidget {
             child: UnitSwap(
               unitKey: unit,
               child: BigStat(
-                label: 'Best',
+                label: l.progressStatBest,
                 value: fmtVal(best),
                 unit: unit.isNotEmpty ? unit : null,
                 accent: true,
@@ -368,7 +373,7 @@ class _BigStatRow extends StatelessWidget {
             child: UnitSwap(
               unitKey: unit,
               child: BigStat(
-                label: '12wk Δ',
+                label: l.progressStat12wkDelta,
                 value: series.length >= 2 ? signedDelta(delta) : '—',
                 unit: unit.isNotEmpty ? unit : null,
               ),
@@ -401,6 +406,7 @@ class _SessionLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first.
     final reversed = List.generate(rawSeries.length, (i) {
       final origIdx = rawSeries.length - 1 - i;
@@ -434,7 +440,7 @@ class _SessionLogCard extends StatelessWidget {
                 SizedBox(
                   width: 58,
                   child: Text(
-                    _fmtDate(p.date),
+                    fmtDate(p.date, localeName),
                     style: WorkoutType.mono(size: 12, color: tokens.dim),
                   ),
                 ),
@@ -472,20 +478,6 @@ class _SessionLogCard extends StatelessWidget {
         }),
       ),
     );
-  }
-}
-
-String _fmtDate(String iso) {
-  // Reuse dates.dart fmtDate without weekday.
-  try {
-    final d = DateTime.parse('${iso}T00:00:00');
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${d.day} ${months[d.month - 1]}';
-  } catch (_) {
-    return iso;
   }
 }
 
@@ -546,19 +538,20 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'No exercises found',
+            l.progressEmpty,
             style: WorkoutType.mono(size: 14, color: tokens.faint),
           ),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: onOpenPicker,
             child: Text(
-              'Choose exercise',
+              l.progressChooseExercise,
               style: WorkoutType.mono(
                 size: 13,
                 weight: FontWeight.w600,

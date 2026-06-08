@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/l10n/app_localizations.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/widgets/w_dialog.dart';
 
 void main() {
+  // showWConfirm now resolves its default cancel label from AppLocalizations,
+  // so the host must supply the localization delegates.
   Widget host(void Function(BuildContext) onTap) => MaterialApp(
         theme: buildTheme(Brightness.dark, accents[0]),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (ctx) => TextButton(
             onPressed: () => onTap(ctx),

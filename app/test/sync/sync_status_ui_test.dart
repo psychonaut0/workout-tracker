@@ -32,45 +32,42 @@ void main() {
     });
   });
 
-  group('syncLabelFor', () {
-    test('syncing', () {
-      expect(syncLabelFor(SyncDotState.syncing, null, now), 'Syncing…');
-    });
-    test('error', () {
-      expect(syncLabelFor(SyncDotState.error, null, now), 'Sync error');
-    });
-    test('offline', () {
-      expect(syncLabelFor(SyncDotState.offline, null, now), 'Offline');
-    });
-    test('synced with no timestamp', () {
-      expect(syncLabelFor(SyncDotState.synced, null, now), 'Synced');
-    });
-    test('synced just now', () {
+  group('relativeTimeBucket', () {
+    test('just now (< 1 minute)', () {
       expect(
-        syncLabelFor(
-            SyncDotState.synced, now.subtract(const Duration(seconds: 30)), now),
-        'Synced · just now',
+        relativeTimeBucket(now.subtract(const Duration(seconds: 30)), now),
+        const RelativeTimeBucket(RelativeTimeKind.justNow),
       );
     });
-    test('synced minutes ago', () {
+    test('minutes ago carries the minute count', () {
       expect(
-        syncLabelFor(
-            SyncDotState.synced, now.subtract(const Duration(minutes: 5)), now),
-        'Synced · 5m ago',
+        relativeTimeBucket(now.subtract(const Duration(minutes: 5)), now),
+        const RelativeTimeBucket(RelativeTimeKind.minutes, value: 5),
       );
     });
-    test('synced hours ago', () {
+    test('hours ago carries the hour count', () {
       expect(
-        syncLabelFor(
-            SyncDotState.synced, now.subtract(const Duration(hours: 3)), now),
-        'Synced · 3h ago',
+        relativeTimeBucket(now.subtract(const Duration(hours: 3)), now),
+        const RelativeTimeBucket(RelativeTimeKind.hours, value: 3),
       );
     });
-    test('synced days ago shows date', () {
+    test('older than a day carries the date', () {
+      final t = DateTime(2026, 5, 30, 9, 0);
       expect(
-        syncLabelFor(
-            SyncDotState.synced, DateTime(2026, 5, 30, 9, 0), now),
-        'Synced · 30/5',
+        relativeTimeBucket(t, now),
+        RelativeTimeBucket(RelativeTimeKind.date, date: t),
+      );
+    });
+    test('exactly 1 minute is minutes, not just now', () {
+      expect(
+        relativeTimeBucket(now.subtract(const Duration(minutes: 1)), now).kind,
+        RelativeTimeKind.minutes,
+      );
+    });
+    test('exactly 24 hours falls into date', () {
+      expect(
+        relativeTimeBucket(now.subtract(const Duration(hours: 24)), now).kind,
+        RelativeTimeKind.date,
       );
     });
   });

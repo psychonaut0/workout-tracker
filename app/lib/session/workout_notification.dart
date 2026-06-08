@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui'; // PlatformDispatcher
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -17,6 +18,42 @@ const restBlobName = 'rest.name';
 const restBlobStartedAt = 'rest.started_at'; // iso8601
 const restBlobStartMs = 'rest.start_ms'; // epoch millis of restStart
 const restBlobTotal = 'rest.total'; // seconds
+
+// Notification body strings keyed by locale. The notification is built with no
+// BuildContext (and the +30s revert path runs in a background isolate), so
+// AppLocalizations is unreachable — this standalone map fills that gap.
+const _notifStrings = <String, Map<String, String>>{
+  'en': {
+    'rest': 'Rest',
+    'inProgress': 'Workout in progress',
+    'channel': 'Workout session',
+  },
+  'it': {
+    'rest': 'Recupero',
+    'inProgress': 'Allenamento in corso',
+    'channel': 'Sessione di allenamento',
+  },
+  'de': {
+    'rest': 'Pause',
+    'inProgress': 'Training läuft',
+    'channel': 'Trainingssitzung',
+  },
+  'es': {
+    'rest': 'Descanso',
+    'inProgress': 'Entrenamiento en curso',
+    'channel': 'Sesión de entrenamiento',
+  },
+};
+
+/// Resolves a notification string for the active locale WITHOUT a BuildContext
+/// (works in the background isolate). Order: persisted override → platform
+/// locale → en. [prefs] is the already-loaded SharedPreferences.
+String notifString(SharedPreferences prefs, String key) {
+  final code = prefs.getString('settings.locale') ??
+      PlatformDispatcher.instance.locale.languageCode;
+  final table = _notifStrings[code] ?? _notifStrings['en']!;
+  return table[key] ?? _notifStrings['en']![key]!;
+}
 
 /// Pure payload mapping for the ongoing workout notification (testable, no
 /// plugin types). Elapsed mode: `when` = session start, Android chronometer
@@ -52,15 +89,18 @@ DateTime restRevertAt(DateTime restStart, int restTotal) =>
 /// instance and the background isolate. [countdown] chooses chronometer
 /// direction (true = rest countdown, false = elapsed); [when] anchors the
 /// chronometer (rest end for countdown, session start for elapsed);
-/// [withAction] adds the "+30s" action chip (only on the live rest countdown).
+/// [withAction] adds the "+30s" action chip (only on the live rest countdown);
+/// [channelName] is the localized channel display name (resolved by the caller,
+/// which has the SharedPreferences this builder lacks).
 AndroidNotificationDetails buildWorkoutAndroidDetails({
   required bool countdown,
   required DateTime when,
   required bool withAction,
+  required String channelName,
 }) {
   return AndroidNotificationDetails(
     _kChannelId,
-    'Workout session',
+    channelName,
     importance: Importance.low,
     priority: Priority.low,
     playSound: false,
@@ -120,21 +160,27 @@ Future<void> workoutNotificationBackground(NotificationResponse resp) async {
   await plugin.show(
     id: _kNotifId,
     title: name,
-    body: 'Rest',
+    body: notifString(prefs, 'rest'),
     notificationDetails: NotificationDetails(
       android: buildWorkoutAndroidDetails(
-          countdown: true, when: end, withAction: true),
+          countdown: true,
+          when: end,
+          withAction: true,
+          channelName: notifString(prefs, 'channel')),
     ),
   );
   if (end.isAfter(DateTime.now())) {
     await plugin.zonedSchedule(
       id: _kNotifId,
       title: name,
-      body: 'Workout in progress',
+      body: notifString(prefs, 'inProgress'),
       scheduledDate: tz.TZDateTime.from(end, tz.UTC),
       notificationDetails: NotificationDetails(
         android: buildWorkoutAndroidDetails(
-            countdown: false, when: startedAt, withAction: false),
+            countdown: false,
+            when: startedAt,
+            withAction: false,
+            channelName: notifString(prefs, 'channel')),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
@@ -153,6 +199,7 @@ class WorkoutNotification {
 
   Future<void> init({void Function()? onTap, void Function()? onAdd30}) async {
     if (!Platform.isAndroid) return;
+    final prefs = await SharedPreferences.getInstance();
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -169,9 +216,9 @@ class WorkoutNotification {
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
+        ?.createNotificationChannel(AndroidNotificationChannel(
           _kChannelId,
-          'Workout session',
+          notifString(prefs, 'channel'),
           importance: Importance.low,
           playSound: false,
         ));
@@ -184,10 +231,14 @@ class WorkoutNotification {
   AndroidNotificationDetails _androidDetails({
     required bool countdown,
     required DateTime when,
+    required String channelName,
     bool withAction = false,
   }) =>
       buildWorkoutAndroidDetails(
-          countdown: countdown, when: when, withAction: withAction);
+          countdown: countdown,
+          when: when,
+          withAction: withAction,
+          channelName: channelName);
 
   Future<void> showFor({
     required String name,
@@ -232,10 +283,13 @@ class WorkoutNotification {
     await _plugin.show(
       id: _kNotifId,
       title: p.title,
-      body: p.body,
+      body: notifString(prefs, p.countdown ? 'rest' : 'inProgress'),
       notificationDetails: NotificationDetails(
-        android:
-            _androidDetails(countdown: p.countdown, when: p.when, withAction: p.countdown),
+        android: _androidDetails(
+            countdown: p.countdown,
+            when: p.when,
+            withAction: p.countdown,
+            channelName: notifString(prefs, 'channel')),
       ),
     );
     // Schedule the OS alarm that reverts the countdown back to elapsed mode at
@@ -250,10 +304,13 @@ class WorkoutNotification {
         await _plugin.zonedSchedule(
           id: _kNotifId,
           title: name,
-          body: 'Workout in progress',
+          body: notifString(prefs, 'inProgress'),
           scheduledDate: tz.TZDateTime.from(end, tz.UTC),
           notificationDetails: NotificationDetails(
-            android: _androidDetails(countdown: false, when: startedAt),
+            android: _androidDetails(
+                countdown: false,
+                when: startedAt,
+                channelName: notifString(prefs, 'channel')),
           ),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         );

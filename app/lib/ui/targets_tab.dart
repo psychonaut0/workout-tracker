@@ -5,6 +5,7 @@ import '../data/models.dart';
 import '../data/muscle_target_repository.dart';
 import '../data/muscles.dart';
 import '../identity/identity_service.dart';
+import '../l10n/app_localizations.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
@@ -68,7 +69,6 @@ class TargetsList extends StatelessWidget {
         for (final entry in kMuscleLabels.entries)
           _TargetRow(
             muscle: entry.key,
-            label: entry.value,
             sets: targets[entry.key]?.targetSets ?? 0,
             tokens: tokens,
             onChanged: onChanged,
@@ -81,20 +81,19 @@ class TargetsList extends StatelessWidget {
 class _TargetRow extends StatelessWidget {
   const _TargetRow({
     required this.muscle,
-    required this.label,
     required this.sets,
     required this.tokens,
     required this.onChanged,
   });
 
   final String muscle;
-  final String label;
   final int sets;
   final WorkoutTokens tokens;
   final void Function(String muscle, int sets) onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final hasGoal = sets > 0;
     final labelColor = hasGoal ? tokens.text : tokens.faint;
 
@@ -115,7 +114,7 @@ class _TargetRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    label,
+                    localizedMuscle(context, muscle),
                     style: WorkoutType.body(
                       size: 15.5,
                       weight: FontWeight.w600,
@@ -124,7 +123,7 @@ class _TargetRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasGoal ? 'sets / wk' : 'no goal',
+                    hasGoal ? l.targetsSetsPerWeek : l.targetsNoGoal,
                     style: WorkoutType.mono(size: 11, color: tokens.faint),
                   ),
                 ],

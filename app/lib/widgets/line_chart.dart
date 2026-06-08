@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
@@ -35,6 +36,7 @@ class LineChart extends StatelessWidget {
     if (series.length < 2) return SizedBox(height: height);
 
     final tokens = context.tokens;
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     return LayoutBuilder(
       builder: (context, constraints) {
         return MountProgress(
@@ -49,6 +51,7 @@ class LineChart extends StatelessWidget {
               bg: tokens.bg,
               faint: tokens.faint,
               text: tokens.text,
+              localeName: localeName,
               progress: t,
             ),
           ),
@@ -67,6 +70,7 @@ class _LineChartPainter extends CustomPainter {
     required this.bg,
     required this.faint,
     required this.text,
+    required this.localeName,
     this.progress = 1.0,
   });
 
@@ -78,6 +82,9 @@ class _LineChartPainter extends CustomPainter {
   final Color faint;
   final Color text;
 
+  /// BCP-47 locale tag used to format month abbreviations on the x-axis.
+  final String localeName;
+
   /// One-shot mount progress 0→1. Axes/grid/labels render fully from t=0;
   /// only the data line, area fill, and point dots draw in. At 1.0 the render
   /// is identical to a static chart.
@@ -88,12 +95,6 @@ class _LineChartPainter extends CustomPainter {
   static const double _padR = 16;
   static const double _padB = 26;
   static const double _padL = 34;
-
-  // Month abbreviations — mirrors MONTHS array in ui.jsx
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -217,7 +218,7 @@ class _LineChartPainter extends CustomPainter {
       final m = dateStr.length >= 7 ? int.tryParse(dateStr.substring(5, 7)) : null;
       if (m != null && m != lastM) {
         lastM = m;
-        final monthLabel = _months[(m - 1).clamp(0, 11)];
+        final monthLabel = DateFormat.MMM(localeName).format(DateTime(2024, m));
         _paintText(
           canvas,
           text: monthLabel,
@@ -324,6 +325,7 @@ class _LineChartPainter extends CustomPainter {
         old.accent != accent ||
         old.bg != bg ||
         old.faint != faint ||
-        old.text != text;
+        old.text != text ||
+        old.localeName != localeName;
   }
 }

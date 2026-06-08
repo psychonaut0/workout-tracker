@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../data/bodyweight_repository.dart';
 import '../data/models.dart';
 import '../sync/db.dart';
@@ -46,6 +47,7 @@ class _BodyweightViewState extends State<BodyweightView> {
   Widget build(BuildContext context) {
     // Rebuild on unit change.
     final unitService = context.watch<UnitService>();
+    final l = AppLocalizations.of(context);
 
     return StreamBuilder<List<BodyweightEntry>>(
       stream: _bwRepo.watchSeriesAsc(),
@@ -75,7 +77,7 @@ class _BodyweightViewState extends State<BodyweightView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'PROGRESSION',
+                    l.progressProgression,
                     style: WorkoutType.mono(
                       size: 11.5,
                       color: context.tokens.faint,
@@ -84,7 +86,7 @@ class _BodyweightViewState extends State<BodyweightView> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Bodyweight trend',
+                    l.bodyweightTrend,
                     style:
                         WorkoutType.display(size: 28, weight: FontWeight.w700),
                   ),
@@ -95,8 +97,8 @@ class _BodyweightViewState extends State<BodyweightView> {
             // Selector row
             ProgressSelectorRow(
               icon: WIcons.scale,
-              title: 'Bodyweight',
-              subtitle: 'Daily log · ${entries.length} entries',
+              title: l.bodyweightTitle,
+              subtitle: l.bodyweightDailyLog(entries.length),
               onTap: widget.onOpenPicker,
             ),
             const SizedBox(height: 14),
@@ -124,9 +126,9 @@ class _BodyweightViewState extends State<BodyweightView> {
 
             // History section
             SectionLabel(
-              label: 'History',
+              label: l.bodyweightHistory,
               action: Text(
-                '${entries.length} entries',
+                l.bodyweightEntriesCount(entries.length),
                 style: WorkoutType.mono(
                   size: 11,
                   color: context.tokens.dim,
@@ -139,7 +141,7 @@ class _BodyweightViewState extends State<BodyweightView> {
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Center(
                   child: Text(
-                    'No bodyweight entries yet',
+                    l.bodyweightEmpty,
                     style: WorkoutType.mono(
                         size: 13, color: context.tokens.faint),
                   ),
@@ -164,14 +166,15 @@ class _BwStatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (series.isEmpty) {
       return Row(
         children: [
-          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: 'Current', value: '—', unit: unit))),
+          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStatCurrent, value: '—', unit: unit))),
           const SizedBox(width: 8),
-          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: '30-day', value: '—', unit: unit, accent: true))),
+          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStat30Day, value: '—', unit: unit, accent: true))),
           const SizedBox(width: 8),
-          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: 'Lowest', value: '—', unit: unit))),
+          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStatLowest, value: '—', unit: unit))),
         ],
       );
     }
@@ -211,7 +214,7 @@ class _BwStatRow extends StatelessWidget {
             child: UnitSwap(
               unitKey: unit,
               child: BigStat(
-                label: 'Current',
+                label: l.bodyweightStatCurrent,
                 value: fmtPlain(last),
                 unit: unit,
               ),
@@ -225,7 +228,7 @@ class _BwStatRow extends StatelessWidget {
             child: UnitSwap(
               unitKey: unit,
               child: BigStat(
-                label: '30-day',
+                label: l.bodyweightStat30Day,
                 value: fmtSigned(delta30),
                 unit: unit,
                 accent: true,
@@ -240,7 +243,7 @@ class _BwStatRow extends StatelessWidget {
             child: UnitSwap(
               unitKey: unit,
               child: BigStat(
-                label: 'Lowest',
+                label: l.bodyweightStatLowest,
                 value: fmtPlain(lowest),
                 unit: unit,
               ),
@@ -275,7 +278,7 @@ class _LogTodayButton extends StatelessWidget {
         ),
         onPressed: () => showAddWeightSheet(context),
         child: Text(
-          "Log today's weight",
+          AppLocalizations.of(context).bodyweightLogToday,
           style: WorkoutType.display(
             size: 15,
             weight: FontWeight.w700,
@@ -298,6 +301,7 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first, capped at 24.
     final items = series.reversed.take(24).toList();
 
@@ -326,7 +330,7 @@ class _HistoryCard extends StatelessWidget {
                 SizedBox(
                   width: 64,
                   child: Text(
-                    fmtDate(entry.date, weekday: true),
+                    fmtDate(entry.date, localeName, weekday: true),
                     style: WorkoutType.mono(size: 12, color: tokens.dim),
                   ),
                 ),

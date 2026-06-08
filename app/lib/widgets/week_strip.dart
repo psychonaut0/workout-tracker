@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
@@ -68,8 +69,10 @@ class _DayChip extends StatelessWidget {
 
     final bgColor = isNext ? tokens.accent : tokens.surface;
     final borderColor = isNext ? Colors.transparent : tokens.line;
-    final weekdayLabel =
-        day.weekday != null ? weekdayShort(day.weekday!) : '';
+    final weekdayLabel = day.weekday != null
+        ? weekdayShort(
+            day.weekday!, Localizations.localeOf(context).toLanguageTag())
+        : '';
 
     return Container(
       decoration: BoxDecoration(
@@ -138,7 +141,7 @@ class _StatusIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isNext) {
       return Text(
-        'NEXT',
+        AppLocalizations.of(context).weekStripNext,
         style: WorkoutType.mono(
           size: 9,
           weight: FontWeight.w700,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/typography.dart';
@@ -29,7 +30,7 @@ Future<T?> showWDialog<T>(
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Dismiss',
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.black.withValues(alpha: 0.55),
     transitionDuration: Motion.of(context, Motion.base),
     pageBuilder: (ctx, _, __) =>
@@ -53,16 +54,19 @@ Future<bool?> showWConfirm(
   BuildContext context, {
   required String title,
   required String message,
-  String cancelLabel = 'Cancel',
+  String? cancelLabel,
   required String confirmLabel,
   bool destructive = false,
 }) {
+  // Default the cancel label to the localized "Cancel"; callers always pass
+  // the confirm label explicitly, so only this one needs auto-localizing.
+  final cancel = cancelLabel ?? AppLocalizations.of(context).commonCancel;
   return showWDialog<bool>(
     context,
     title: title,
     message: message,
     actions: [
-      WDialogAction(label: cancelLabel, value: false),
+      WDialogAction(label: cancel, value: false),
       WDialogAction(label: confirmLabel, value: true, destructive: destructive),
     ],
   );

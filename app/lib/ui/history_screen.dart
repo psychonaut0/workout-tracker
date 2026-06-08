@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
@@ -120,7 +122,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         if (sessions.isEmpty)
           Center(
             child: Text(
-              'No sessions yet',
+              AppLocalizations.of(context).historyEmpty,
               style: WorkoutType.mono(size: 13, color: tokens.faint),
             ),
           ),
@@ -160,11 +162,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$sessionCount sessions logged',
+          l.historySessionsLogged(sessionCount),
           style: WorkoutType.mono(
             size: 11.5,
             color: tokens.faint,
@@ -173,7 +176,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 5),
         Text(
-          'History',
+          l.historyTitle,
           style: WorkoutType.display(
             size: 28,
             weight: FontWeight.w700,
@@ -203,11 +206,12 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     // (label, displayValue, intValue?) — intValue animates via CountUp when set.
     final cards = <(String, String, int?)>[
-      ('Sessions', '$sessionCount', sessionCount),
-      ('PRs', '$prCount', prCount),
-      ('Volume', volumeDisplay, null),
+      (l.historySummarySessions, '$sessionCount', sessionCount),
+      (l.historySummaryPrs, '$prCount', prCount),
+      (l.historySummaryVolume, volumeDisplay, null),
     ];
     return Row(
       children: [
@@ -274,7 +278,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '$label · 4wk',
+            AppLocalizations.of(context).historySummarySuffix(label),
             style: WorkoutType.mono(
               size: 9.5,
               color: tokens.faint,
@@ -302,9 +306,10 @@ class _WeekHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final prs = sessions.fold<int>(0, (sum, s) => sum + s.prCount);
-    final countLabel =
-        '${sessions.length} session${sessions.length == 1 ? '' : 's'}${prs > 0 ? ' · $prs PR' : ''}';
+    final countLabel = l.historyWeekSessions(sessions.length) +
+        (prs > 0 ? l.sessionPrCount(prs) : '');
 
     return Padding(
       padding: const EdgeInsets.only(left: 2, right: 2),
@@ -312,7 +317,10 @@ class _WeekHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'WEEK OF ${fmtDate(weekKey).toUpperCase()}',
+            l.historyWeekOf(fmtDate(
+              weekKey,
+              Localizations.localeOf(context).toLanguageTag(),
+            ).toUpperCase()),
             style: WorkoutType.mono(
               size: 11,
               weight: FontWeight.w600,
@@ -356,13 +364,11 @@ class _SessionCardState extends State<SessionCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     final session = widget.session;
     final date = DateTime.parse('${session.date}T00:00:00');
-
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
+    final monthLabel = DateFormat.MMM(localeName).format(date);
 
     // Parse split_label into name + focus parts.
     final label = session.splitLabel ?? '';
@@ -406,7 +412,7 @@ class _SessionCardState extends State<SessionCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            months[date.month - 1].toUpperCase(),
+                            monthLabel.toUpperCase(),
                             style: WorkoutType.mono(
                               size: 9.5,
                               color: tokens.faint,
@@ -470,7 +476,9 @@ class _SessionCardState extends State<SessionCard> {
                           Row(
                             children: [
                               Text(
-                                '${session.exerciseCount} ex',
+                                AppLocalizations.of(context)
+                                    .historyExerciseCountShort(
+                                        session.exerciseCount),
                                 style: WorkoutType.mono(
                                   size: 10.5,
                                   color: tokens.faint,
@@ -488,7 +496,7 @@ class _SessionCardState extends State<SessionCard> {
                               ],
                               const SizedBox(width: 12),
                               Text(
-                                daysAgo(session.date),
+                                localizedDaysAgo(l, session.date),
                                 style: WorkoutType.mono(
                                   size: 10.5,
                                   color: tokens.faint,
@@ -622,12 +630,12 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
   }
 
   Future<void> _deleteSession() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
-      title: 'Delete session?',
-      message: 'This permanently removes the session and all its sets. '
-          'This cannot be undone.',
-      confirmLabel: 'Delete',
+      title: l.historyDeleteSessionTitle,
+      message: l.historyDeleteSessionMessage,
+      confirmLabel: l.commonDelete,
       destructive: true,
     );
     if (confirmed != true) return;
@@ -638,6 +646,7 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     return FutureBuilder<List<ExerciseBlockData>>(
       key: ValueKey(_refresh),
       future: _future,
@@ -690,7 +699,7 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
                       Icon(WIcons.plus, size: 14, color: tokens.accent),
                       const SizedBox(width: 6),
                       Text(
-                        'Add exercise',
+                        l.sessionAddExercise,
                         style: WorkoutType.mono(
                           size: 11,
                           weight: FontWeight.w600,
@@ -714,7 +723,7 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
                     Icon(WIcons.trash, size: 14, color: tokens.danger),
                     const SizedBox(width: 6),
                     Text(
-                      'Delete session',
+                      l.historyDeleteSession,
                       style: WorkoutType.mono(
                         size: 11,
                         weight: FontWeight.w600,
@@ -885,11 +894,12 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
       );
 
   Future<void> _deleteSet(_EditableSet s) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
-      title: 'Delete set?',
-      message: 'This permanently removes this set.',
-      confirmLabel: 'Delete',
+      title: l.historyDeleteSetTitle,
+      message: l.historyDeleteSetMessage,
+      confirmLabel: l.commonDelete,
       destructive: true,
     );
     if (confirmed != true) return;
@@ -936,6 +946,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
@@ -976,23 +987,23 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
             ),
             const SizedBox(height: 2),
             Text(
-              'Edit sets',
+              l.historyEditSets,
               style: WorkoutType.mono(size: 11, color: tokens.faint),
             ),
             const SizedBox(height: 14),
 
             // Column headers
             Row(
-              children: const [
-                SizedBox(width: 26),
-                SizedBox(width: 6),
-                Expanded(flex: 100, child: _ColLabel('WEIGHT')),
-                SizedBox(width: 8),
-                Expanded(flex: 76, child: _ColLabel('REPS')),
-                SizedBox(width: 8),
-                Expanded(flex: 77, child: _ColLabel('RIR')),
-                SizedBox(width: 6),
-                SizedBox(width: 32),
+              children: [
+                const SizedBox(width: 26),
+                const SizedBox(width: 6),
+                Expanded(flex: 100, child: _ColLabel(l.sessionColWeight)),
+                const SizedBox(width: 8),
+                Expanded(flex: 76, child: _ColLabel(l.sessionColReps)),
+                const SizedBox(width: 8),
+                Expanded(flex: 77, child: _ColLabel(l.sessionColRir)),
+                const SizedBox(width: 6),
+                const SizedBox(width: 32),
               ],
             ),
             const SizedBox(height: 4),
@@ -1037,7 +1048,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                             Icon(WIcons.plus, size: 14, color: tokens.accent),
                             const SizedBox(width: 6),
                             Text(
-                              'Add set',
+                              l.sessionAddSet,
                               style: WorkoutType.mono(
                                 size: 11,
                                 weight: FontWeight.w600,
@@ -1134,7 +1145,7 @@ class _EditRow extends StatelessWidget {
             width: 26,
             child: set.isWarmup
                 ? Text(
-                    'W',
+                    AppLocalizations.of(context).sessionWarmupShort,
                     textAlign: TextAlign.center,
                     style: WorkoutType.mono(size: 11, color: tokens.faint),
                   )

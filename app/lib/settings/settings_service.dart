@@ -20,6 +20,7 @@ class SettingsService extends ChangeNotifier {
   bool _ambientEnabled = true;
   int _restCompoundSeconds = 180;
   int _restIsolationSeconds = 90;
+  String? _localeOverride;
 
   String get mode => _mode;
   Color get accent => _accent;
@@ -29,6 +30,14 @@ class SettingsService extends ChangeNotifier {
   bool get ambientEnabled => _ambientEnabled;
   int get restCompoundSeconds => _restCompoundSeconds;
   int get restIsolationSeconds => _restIsolationSeconds;
+
+  /// The persisted language-code override (e.g. 'it'), or null to follow the
+  /// system locale.
+  String? get localeOverride => _localeOverride;
+
+  /// The forced [Locale] for MaterialApp, or null to follow the system locale.
+  Locale? get locale =>
+      _localeOverride == null ? null : Locale(_localeOverride!);
 
   /// Derived brightness from the stored mode string.
   Brightness get brightness =>
@@ -49,6 +58,7 @@ class SettingsService extends ChangeNotifier {
     _restCompoundSeconds = prefs.getInt('settings.rest_compound_seconds') ?? 180;
     _restIsolationSeconds =
         prefs.getInt('settings.rest_isolation_seconds') ?? 90;
+    _localeOverride = prefs.getString('settings.locale');
 
     // Accent: stored as ARGB int via toARGB32(). Reconstruct via Color.fromARGB
     // (not Color(int) — deprecated in Flutter 3.44). Fall back to accents[0]
@@ -133,6 +143,19 @@ class SettingsService extends ChangeNotifier {
     _restIsolationSeconds = v;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('settings.rest_isolation_seconds', v);
+    notifyListeners();
+  }
+
+  /// Set the language override (a code like 'it') or null to follow the system
+  /// locale, and persist.
+  Future<void> setLocaleOverride(String? code) async {
+    _localeOverride = code;
+    final prefs = await SharedPreferences.getInstance();
+    if (code == null) {
+      await prefs.remove('settings.locale');
+    } else {
+      await prefs.setString('settings.locale', code);
+    }
     notifyListeners();
   }
 }

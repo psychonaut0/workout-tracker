@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../l10n/app_localizations.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -41,7 +42,12 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
   List<ExerciseBlockData>? _blocks;
   Map<String, String> _exerciseNames = {};
   bool _loading = true;
-  String? _error;
+
+  /// Error state: [_notFound] means the session row was missing; otherwise
+  /// [_loadError] (when non-null) carries the raw exception detail. Resolved to
+  /// a localized message at build time so the locale is fully available.
+  bool _notFound = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -60,7 +66,7 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
       );
       if (rows.isEmpty) {
         setState(() {
-          _error = 'Session not found.';
+          _notFound = true;
           _loading = false;
         });
         return;
@@ -83,7 +89,7 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to load session: $e';
+        _loadError = '$e';
         _loading = false;
       });
     }
@@ -93,13 +99,21 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final unit = context.watch<UnitService>();
+    final l = AppLocalizations.of(context);
+
+    final errorMessage = _notFound
+        ? l.summarySessionNotFound
+        : _loadError != null
+            ? l.summaryLoadFailed(_loadError!)
+            : null;
 
     return Scaffold(
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : errorMessage != null
               ? _ErrorState(
-                  error: _error!,
+                  error: errorMessage,
+                  doneLabel: l.commonDone,
                   tokens: tokens,
                   onDone: () => Navigator.of(context)
                       .popUntil((route) => route.isFirst),
@@ -151,6 +165,7 @@ class _SummaryBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final durationMin = session.durationMin ?? 0;
     final splitLabel = session.splitLabel ?? '';
 
@@ -249,7 +264,7 @@ class _SummaryBody extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'TOP SETS',
+                        l.summaryTopSets,
                         style: WorkoutType.mono(
                           size: 10,
                           weight: FontWeight.w600,
@@ -285,7 +300,7 @@ class _SummaryBody extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      'Done',
+                      l.commonDone,
                       style: WorkoutType.display(
                         size: 16,
                         weight: FontWeight.w700,
@@ -376,13 +391,14 @@ class _StatTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
           child: CountUp(
             value: durationMin,
             builder: (v) => _TileInner(
-              label: 'Duration',
+              label: l.summaryDuration,
               value: '${v}m',
               tokens: tokens,
             ),
@@ -393,7 +409,7 @@ class _StatTiles extends StatelessWidget {
           child: CountUp(
             value: totalSets,
             builder: (v) => _TileInner(
-              label: 'Sets',
+              label: l.summarySets,
               value: '$v',
               tokens: tokens,
             ),
@@ -401,7 +417,7 @@ class _StatTiles extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         _Tile(
-            label: 'Volume',
+            label: l.summaryVolume,
             value: _fmtVolume(),
             tokens: tokens),
         const SizedBox(width: 12),
@@ -410,7 +426,7 @@ class _StatTiles extends StatelessWidget {
           child: CountUp(
             value: prCount,
             builder: (v) => _TileInner(
-              label: 'PRs',
+              label: l.summaryPrs,
               value: '$v',
               tokens: tokens,
               highlight: prCount > 0,
@@ -557,7 +573,9 @@ class _TopSetRow extends StatelessWidget {
             const PRBadge(small: true),
           ] else ...[
             const SizedBox(width: 8),
-            const Tag(label: 'TOP', tone: TagTone.solid),
+            Tag(
+                label: AppLocalizations.of(context).sessionTagTop,
+                tone: TagTone.solid),
           ],
         ],
       ),
@@ -570,11 +588,13 @@ class _TopSetRow extends StatelessWidget {
 class _ErrorState extends StatelessWidget {
   const _ErrorState({
     required this.error,
+    required this.doneLabel,
     required this.tokens,
     required this.onDone,
   });
 
   final String error;
+  final String doneLabel;
   final WorkoutTokens tokens;
   final VoidCallback onDone;
 
@@ -605,7 +625,7 @@ class _ErrorState extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  'Done',
+                  doneLabel,
                   style: WorkoutType.mono(
                     size: 14,
                     weight: FontWeight.w700,

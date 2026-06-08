@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
+import '../l10n/app_localizations.dart';
 import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
@@ -239,6 +240,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   Future<void> _delete() async {
     final id = _editId;
     if (id == null) return;
+    final l = AppLocalizations.of(context);
 
     // Deleting an exercise used by the live workout draft would lose data at
     // finish (its sets PUT would hit a server FK on the now-deleted exercise
@@ -246,9 +248,9 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     if (context.read<SessionManager>().hasActive) {
       await showWDialog<bool>(
         context,
-        title: "Can't delete",
-        message: 'Finish or discard your active workout first.',
-        actions: const [WDialogAction(label: 'OK', value: true)],
+        title: l.exerciseEditorCantDeleteTitle,
+        message: l.exerciseEditorActiveWorkoutMessage,
+        actions: [WDialogAction(label: l.commonOk, value: true)],
       );
       return;
     }
@@ -262,19 +264,17 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       case ExerciseDeleteAction.blockedByHistory:
         await showWDialog<bool>(
           context,
-          title: "Can't delete",
-          message: 'This exercise is used in ${refs.setCount} logged '
-              'set(s). Delete those sessions first.',
-          actions: const [WDialogAction(label: 'OK', value: true)],
+          title: l.exerciseEditorCantDeleteTitle,
+          message: l.exerciseEditorBlockedByHistory(refs.setCount),
+          actions: [WDialogAction(label: l.commonOk, value: true)],
         );
         return;
       case ExerciseDeleteAction.confirmWithDays:
         final ok = await showWConfirm(
           context,
-          title: 'Delete exercise?',
-          message: 'Also removes it from ${refs.dayCount} training day(s). '
-              'This cannot be undone.',
-          confirmLabel: 'Delete',
+          title: l.exerciseEditorDeleteTitle,
+          message: l.exerciseEditorDeleteWithDays(refs.dayCount),
+          confirmLabel: l.commonDelete,
           destructive: true,
         );
         if (ok != true) return;
@@ -282,9 +282,9 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       case ExerciseDeleteAction.confirmPlain:
         final ok = await showWConfirm(
           context,
-          title: 'Delete exercise?',
-          message: 'This cannot be undone.',
-          confirmLabel: 'Delete',
+          title: l.exerciseEditorDeleteTitle,
+          message: l.exerciseEditorDeletePlain,
+          confirmLabel: l.commonDelete,
           destructive: true,
         );
         if (ok != true) return;
@@ -297,6 +297,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final units = context.watch<UnitService>();
     _syncUnit(units.unit);
 
@@ -308,7 +309,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
     final canSave = _nameCtrl.text.trim().isNotEmpty;
     final isNew = _editId == null;
-    final btnLabel = isNew ? 'Create exercise' : 'Save exercise';
+    final btnLabel = isNew ? l.exerciseEditorCreate : l.exerciseEditorSave;
 
     // Build muscle chip list: 8 canonical groups + optional extra.
     final muscleItems = [
@@ -323,29 +324,29 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         // ── Identity ──────────────────────────────────────────────────────
 
         Field(
-          label: 'Exercise name',
+          label: l.exerciseEditorName,
           child: TextInput(
             controller: _nameCtrl,
-            placeholder: 'e.g. Incline Bench Press',
+            placeholder: l.exerciseEditorNamePlaceholder,
             onChanged: (_) => setState(() {}),
           ),
         ),
 
         Field(
-          label: 'Muscle group',
+          label: l.exerciseEditorMuscleGroup,
           child: ChipSelect<String>(
             items: muscleItems,
             selected: _muscleGroup,
             onSelect: (v) => setState(() => _muscleGroup = v),
-            labelOf: muscleLabel,
+            labelOf: (m) => localizedMuscle(context, m),
           ),
         ),
 
         Field(
-          label: 'Equipment / machine',
+          label: l.exerciseEditorEquipment,
           child: TextInput(
             controller: _equipCtrl,
-            placeholder: 'e.g. Panatta, Hammer Strength…',
+            placeholder: l.exerciseEditorEquipmentPlaceholder,
           ),
         ),
 
@@ -359,7 +360,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Compound lift',
+                      l.exerciseEditorCompound,
                       style: WorkoutType.body(
                         size: 14.5,
                         weight: FontWeight.w600,
@@ -368,7 +369,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Movement trait · drives rest & warmups',
+                      l.exerciseEditorCompoundHint,
                       style: WorkoutType.mono(
                         size: 10.5,
                         color: tokens.faint,
@@ -395,8 +396,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         // ── Stats (read-only) ──────────────────────────────────────────────
 
         PlanSection(
-          'Stats',
-          hint: 'Tracked per exercise across every split.',
+          l.exerciseEditorStats,
+          hint: l.exerciseEditorStatsHint,
         ),
 
         // PR card
@@ -426,7 +427,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Personal record',
+                      l.exerciseEditorPr,
                       style: WorkoutType.body(
                         size: 14,
                         weight: FontWeight.w600,
@@ -435,7 +436,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                     ),
                     const SizedBox(height: 1),
                     Text(
-                      'Best logged top set',
+                      l.exerciseEditorPrHint,
                       style: WorkoutType.mono(
                         size: 10.5,
                         color: tokens.faint,
@@ -461,9 +462,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         // Start-weight stepper in DISPLAY units.
         // step = fromKg(plateStepKg, unit) — NOT raw plateStepKg.
         Field(
-          label: 'Start weight',
-          hint:
-              'Top-set seed for the first session — history drives suggestions after that.',
+          label: l.exerciseEditorStartWeight,
+          hint: l.exerciseEditorStartWeightHint,
           child: WStepper(
             value: _baseWeightDisplay,
             step: _stepDisplay,
@@ -477,9 +477,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         // ── Default prescription ───────────────────────────────────────────
 
         PlanSection(
-          'Default prescription',
-          hint:
-              'Pre-fills a day\'s slot when you add this exercise. Tune the real sets/reps per day in the Split.',
+          l.exerciseEditorDefaultPrescription,
+          hint: l.exerciseEditorDefaultPrescriptionHint,
         ),
 
         // Rep low + Rep high
@@ -487,7 +486,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           children: [
             Expanded(
               child: Field(
-                label: 'Rep low',
+                label: l.dayEditorRepLow,
                 child: WStepper(
                   value: _repLow.toDouble(),
                   step: 1,
@@ -505,7 +504,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             const SizedBox(width: 10),
             Expanded(
               child: Field(
-                label: 'Rep high',
+                label: l.dayEditorRepHigh,
                 child: WStepper(
                   value: _repHigh.toDouble(),
                   step: 1,
@@ -525,7 +524,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           children: [
             Expanded(
               child: Field(
-                label: 'Working sets',
+                label: l.dayEditorWorkingSets,
                 child: WStepper(
                   value: _workSets.toDouble(),
                   step: 1,
@@ -539,7 +538,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             const SizedBox(width: 10),
             Expanded(
               child: Field(
-                label: 'Warmups',
+                label: l.dayEditorWarmups,
                 child: WStepper(
                   value: _warmupSets.toDouble(),
                   step: 1,
@@ -555,12 +554,14 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
         // Per-exercise rest — 0 = "Default" = inherit the global rest default.
         Field(
-          label: 'Rest',
-          hint: 'Rest between sets. Default inherits the global rest setting.',
+          label: l.exerciseEditorRest,
+          hint: l.exerciseEditorRestHint,
           child: WStepper(
             value: _restSeconds.toDouble(),
             step: 15,
-            format: (v) => v == 0 ? 'Default' : '${v.round()}s',
+            format: (v) => v == 0
+                ? l.exerciseEditorRestDefault
+                : l.exerciseEditorRestSeconds(v.round()),
             onChanged: (v) =>
                 setState(() => _restSeconds = v.round() < 0 ? 0 : v.round()),
           ),
@@ -568,7 +569,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
         // RIR target — raw text, parsed via rirTryParse on save only.
         Field(
-          label: 'RIR target',
+          label: l.dayEditorRirTarget,
           child: TextInput(
             controller: _rirCtrl,
             placeholder: '1',
@@ -603,6 +604,7 @@ class _DeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
@@ -613,7 +615,7 @@ class _DeleteButton extends StatelessWidget {
             Icon(WIcons.trash, size: 15, color: tokens.faint),
             const SizedBox(width: 6),
             Text(
-              'Delete exercise',
+              l.exerciseEditorDeleteButton,
               style: WorkoutType.mono(
                 size: 12.5,
                 weight: FontWeight.w600,

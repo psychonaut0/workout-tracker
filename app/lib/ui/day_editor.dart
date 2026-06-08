@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
+import '../l10n/app_localizations.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -235,12 +236,12 @@ class _DayEditorState extends State<DayEditor> {
 
   Future<void> _delete() async {
     if (_editId == null) return;
+    final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
-      title: 'Delete training day?',
-      message:
-          'This will also remove all exercises in this day. This cannot be undone.',
-      confirmLabel: 'Delete',
+      title: l.dayEditorDeleteTitle,
+      message: l.dayEditorDeleteMessage,
+      confirmLabel: l.commonDelete,
       destructive: true,
     );
     if (confirmed != true) return;
@@ -252,7 +253,9 @@ class _DayEditorState extends State<DayEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
+    final localeName = Localizations.localeOf(context).toLanguageTag();
 
     if (!_loaded) {
       return const Center(child: CircularProgressIndicator());
@@ -266,39 +269,38 @@ class _DayEditorState extends State<DayEditor> {
       children: [
         // ── Day name ──────────────────────────────────────────────────────
         Field(
-          label: 'Day name',
+          label: l.dayEditorName,
           child: TextInput(
             controller: _nameCtrl,
-            placeholder: 'e.g. Upper A',
+            placeholder: l.dayEditorNamePlaceholder,
             onChanged: (_) => setState(() {}),
           ),
         ),
 
         // ── Focus ─────────────────────────────────────────────────────────
         Field(
-          label: 'Focus',
+          label: l.dayEditorFocus,
           child: TextInput(
             controller: _focusCtrl,
-            placeholder: 'e.g. Push',
+            placeholder: l.dayEditorFocusPlaceholder,
           ),
         ),
 
         // ── Scheduled weekday ─────────────────────────────────────────────
         Field(
-          label: 'Scheduled day',
+          label: l.dayEditorScheduledDay,
           child: ChipSelect<int>(
             items: List.generate(7, (i) => i),
             selected: _weekday,
             onSelect: (v) => setState(() => _weekday = v),
-            labelOf: weekdayShort,
+            labelOf: (i) => weekdayShort(i, localeName),
           ),
         ),
 
         // ── Slots section ─────────────────────────────────────────────────
         PlanSection(
-          'Exercises · ${_slots.length}',
-          hint:
-              'Sets, reps & RIR are set per day — tap a row to tune this day\'s prescription.',
+          l.dayEditorExercisesCount(_slots.length),
+          hint: l.dayEditorSlotHint,
         ),
 
         // Slot rows
@@ -346,7 +348,7 @@ class _DayEditorState extends State<DayEditor> {
 
         // ── Save button ───────────────────────────────────────────────────
         PrimaryBtn(
-          isOwned ? 'Save changes' : 'Create training day',
+          isOwned ? l.dayEditorSaveChanges : l.dayEditorCreateDay,
           enabled: canSave && !_saving,
           onTap: _save,
         ),
@@ -450,7 +452,7 @@ class _SlotRowState extends State<_SlotRow> {
     widget.onChanged();
   }
 
-  String _collapsedLabel() {
+  String _collapsedLabel(AppLocalizations l) {
     final d = widget.slot.draft;
     final work = d.workSets ?? 3;
     final repLow = d.repLow ?? 8;
@@ -460,12 +462,13 @@ class _SlotRowState extends State<_SlotRow> {
       d.rirHigh ?? 1,
     );
     final warm = d.warmupSets ?? 0;
-    final warmSuffix = warm > 0 ? ' · ${warm}wu' : '';
+    final warmSuffix = warm > 0 ? ' · ${l.dayEditorWarmupShort(warm)}' : '';
     return '$work×$repLow–$repHigh · RIR $rirStr$warmSuffix';
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final tokens = widget.tokens;
     final d = widget.slot.draft;
 
@@ -520,7 +523,7 @@ class _SlotRowState extends State<_SlotRow> {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          _collapsedLabel(),
+                          _collapsedLabel(l),
                           style: WorkoutType.mono(
                             size: 10,
                             color: tokens.faint,
@@ -599,7 +602,7 @@ class _SlotRowState extends State<_SlotRow> {
                     children: [
                       Expanded(
                         child: Field(
-                          label: 'Working sets',
+                          label: l.dayEditorWorkingSets,
                           child: WStepper(
                             value: (d.workSets ?? 3).toDouble(),
                             step: 1,
@@ -611,7 +614,7 @@ class _SlotRowState extends State<_SlotRow> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Field(
-                          label: 'Warmups',
+                          label: l.dayEditorWarmups,
                           child: WStepper(
                             value: (d.warmupSets ?? 0).toDouble(),
                             step: 1,
@@ -628,7 +631,7 @@ class _SlotRowState extends State<_SlotRow> {
                     children: [
                       Expanded(
                         child: Field(
-                          label: 'Rep low',
+                          label: l.dayEditorRepLow,
                           child: WStepper(
                             value: (d.repLow ?? 8).toDouble(),
                             step: 1,
@@ -640,7 +643,7 @@ class _SlotRowState extends State<_SlotRow> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Field(
-                          label: 'Rep high',
+                          label: l.dayEditorRepHigh,
                           child: WStepper(
                             value: (d.repHigh ?? 12).toDouble(),
                             step: 1,
@@ -654,7 +657,7 @@ class _SlotRowState extends State<_SlotRow> {
 
                   // RIR target — raw text field; parsed only on save
                   Field(
-                    label: 'RIR target',
+                    label: l.dayEditorRirTarget,
                     child: TextInput(
                       controller: _rirCtrl,
                       placeholder: '1',
@@ -741,6 +744,7 @@ class _AddExerciseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -757,7 +761,7 @@ class _AddExerciseButton extends StatelessWidget {
               Icon(WIcons.plus, size: 15, color: tokens.dim),
               const SizedBox(width: 7),
               Text(
-                'Add exercise',
+                l.dayEditorAddExercise,
                 style: WorkoutType.mono(
                   size: 12.5,
                   weight: FontWeight.w600,
@@ -819,6 +823,7 @@ class _DeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
@@ -829,7 +834,7 @@ class _DeleteButton extends StatelessWidget {
             Icon(WIcons.trash, size: 15, color: tokens.faint),
             const SizedBox(width: 6),
             Text(
-              'Delete day',
+              l.dayEditorDeleteButton,
               style: WorkoutType.mono(
                 size: 12.5,
                 weight: FontWeight.w600,
