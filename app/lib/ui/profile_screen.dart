@@ -17,6 +17,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../widgets/plan_form.dart';
+import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
 import 'login_screen.dart';
 
@@ -587,6 +588,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       right: Toggle(
                         value: settings.ambientEnabled,
                         onChanged: settings.setAmbientEnabled,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── Rest ────────────────────────────────────────────────────
+                _Group(
+                  label: 'Rest',
+                  children: [
+                    _Row(
+                      icon: WIcons.timer,
+                      title: 'Compound rest',
+                      sub: 'Default between compound sets',
+                      right: SizedBox(
+                        width: 120,
+                        child: WStepper(
+                          value: settings.restCompoundSeconds.toDouble(),
+                          step: 15,
+                          format: (v) => '${v.round()}s',
+                          onChanged: (v) =>
+                              settings.setRestCompoundSeconds(v.round()),
+                        ),
+                      ),
+                    ),
+                    _Row(
+                      icon: WIcons.timer,
+                      title: 'Isolation rest',
+                      sub: 'Default between isolation sets',
+                      right: SizedBox(
+                        width: 120,
+                        child: WStepper(
+                          value: settings.restIsolationSeconds.toDouble(),
+                          step: 15,
+                          format: (v) => '${v.round()}s',
+                          onChanged: (v) =>
+                              settings.setRestIsolationSeconds(v.round()),
+                        ),
                       ),
                     ),
                   ],

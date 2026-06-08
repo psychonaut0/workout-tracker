@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../data/active_session_draft.dart';
 import '../data/exercise_repository.dart';
 import '../data/session_writer.dart';
+import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -240,9 +241,17 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                           onToggleDone: (b, s) {
                             final wasDone = s.done;
                             controller.toggleDone(b, s);
-                            // Start rest timer when a working set is completed
+                            // Start rest timer when a working set is completed.
+                            // Resolve duration: per-exercise override, else the
+                            // global compound/isolation default from Settings.
                             if (!wasDone && !s.isWarmup) {
-                              controller.startRest(b.exercise.compound ? 180 : 90);
+                              final settings = context.read<SettingsService>();
+                              controller.startRest(
+                                b.exercise.defaultRestSeconds ??
+                                    (b.exercise.compound
+                                        ? settings.restCompoundSeconds
+                                        : settings.restIsolationSeconds),
+                              );
                             }
                           },
                           onSetChanged: (b, s) => controller.markChanged(),
