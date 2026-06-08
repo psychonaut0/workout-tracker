@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui'; // PlatformDispatcher
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -17,6 +18,26 @@ const restBlobName = 'rest.name';
 const restBlobStartedAt = 'rest.started_at'; // iso8601
 const restBlobStartMs = 'rest.start_ms'; // epoch millis of restStart
 const restBlobTotal = 'rest.total'; // seconds
+
+// Notification body strings keyed by locale. The notification is built with no
+// BuildContext (and the +30s revert path runs in a background isolate), so
+// AppLocalizations is unreachable — this standalone map fills that gap.
+const _notifStrings = <String, Map<String, String>>{
+  'en': {'rest': 'Rest', 'inProgress': 'Workout in progress'},
+  'it': {'rest': 'Recupero', 'inProgress': 'Allenamento in corso'},
+  'de': {'rest': 'Pause', 'inProgress': 'Training läuft'},
+  'es': {'rest': 'Descanso', 'inProgress': 'Entrenamiento en curso'},
+};
+
+/// Resolves a notification string for the active locale WITHOUT a BuildContext
+/// (works in the background isolate). Order: persisted override → platform
+/// locale → en. [prefs] is the already-loaded SharedPreferences.
+String notifString(SharedPreferences prefs, String key) {
+  final code = prefs.getString('settings.locale') ??
+      PlatformDispatcher.instance.locale.languageCode;
+  final table = _notifStrings[code] ?? _notifStrings['en']!;
+  return table[key] ?? _notifStrings['en']![key]!;
+}
 
 /// Pure payload mapping for the ongoing workout notification (testable, no
 /// plugin types). Elapsed mode: `when` = session start, Android chronometer
@@ -120,7 +141,7 @@ Future<void> workoutNotificationBackground(NotificationResponse resp) async {
   await plugin.show(
     id: _kNotifId,
     title: name,
-    body: 'Rest',
+    body: notifString(prefs, 'rest'),
     notificationDetails: NotificationDetails(
       android: buildWorkoutAndroidDetails(
           countdown: true, when: end, withAction: true),
@@ -130,7 +151,7 @@ Future<void> workoutNotificationBackground(NotificationResponse resp) async {
     await plugin.zonedSchedule(
       id: _kNotifId,
       title: name,
-      body: 'Workout in progress',
+      body: notifString(prefs, 'inProgress'),
       scheduledDate: tz.TZDateTime.from(end, tz.UTC),
       notificationDetails: NotificationDetails(
         android: buildWorkoutAndroidDetails(
@@ -232,7 +253,7 @@ class WorkoutNotification {
     await _plugin.show(
       id: _kNotifId,
       title: p.title,
-      body: p.body,
+      body: notifString(prefs, p.countdown ? 'rest' : 'inProgress'),
       notificationDetails: NotificationDetails(
         android:
             _androidDetails(countdown: p.countdown, when: p.when, withAction: p.countdown),
@@ -250,7 +271,7 @@ class WorkoutNotification {
         await _plugin.zonedSchedule(
           id: _kNotifId,
           title: name,
-          body: 'Workout in progress',
+          body: notifString(prefs, 'inProgress'),
           scheduledDate: tz.TZDateTime.from(end, tz.UTC),
           notificationDetails: NotificationDetails(
             android: _androidDetails(countdown: false, when: startedAt),
