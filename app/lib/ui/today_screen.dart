@@ -10,6 +10,8 @@ import '../data/models.dart';
 import '../data/muscle_target_repository.dart';
 import '../data/session_repository.dart';
 import '../data/stats_repository.dart';
+import '../session/active_session_controller.dart';
+import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
@@ -17,8 +19,10 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../theme/icons.dart';
 import '../units/unit_service.dart';
+import '../util/clock_format.dart';
 import '../util/dates.dart';
 import '../widgets/card.dart';
+import '../widgets/plan_form.dart';
 import '../widgets/section_label.dart';
 import '../widgets/sparkline.dart';
 import '../widgets/split_card.dart';
@@ -44,6 +48,7 @@ class TodayScreen extends StatefulWidget {
     required this.onStart,
     required this.onOpenExercise,
     required this.onOpenProfile,
+    required this.onResume,
   });
 
   /// Called when the user taps Start on a SplitCard slide.
@@ -55,6 +60,9 @@ class TodayScreen extends StatefulWidget {
 
   /// Called when the user taps the avatar.
   final VoidCallback onOpenProfile;
+
+  /// Called when the user taps Resume on the active-workout hero.
+  final VoidCallback onResume;
 
   @override
   State<TodayScreen> createState() => _TodayScreenState();
@@ -149,6 +157,8 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget build(BuildContext context) {
     // Reactive unit service — rebuild whenever unit changes.
     final units = context.watch<UnitService>();
+    // Reactive session manager — swap the hero to a resume card when active.
+    final manager = context.watch<SessionManager>();
     final tokens = context.tokens;
     final now = DateTime.now();
     final ws = weekStart(now);
@@ -201,7 +211,13 @@ class _TodayScreenState extends State<TodayScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_rotationLoaded) ...[
+              if (manager.hasActive)
+                _ResumeHero(
+                  controller: manager.active!,
+                  dayList: _dayList,
+                  onResume: widget.onResume,
+                )
+              else if (_rotationLoaded) ...[
                 _buildSplitCard(),
                 const SizedBox(height: 22),
               ] else ...[
@@ -708,6 +724,115 @@ class _EmptyState extends StatelessWidget {
           style: WorkoutType.mono(size: 11, color: tokens.faint),
         ),
       ),
+    );
+  }
+}
+
+// ── Resume hero ─────────────────────────────────────────────────────────────
+
+/// Replaces the SplitCard hero pager on Today while a workout is active: a
+/// single card showing the active day, live elapsed (accent rest countdown
+/// while resting), and a Resume button. Its own 1s ticker keeps the clock live.
+class _ResumeHero extends StatefulWidget {
+  const _ResumeHero({
+    required this.controller,
+    required this.dayList,
+    required this.onResume,
+  });
+  final ActiveSessionController controller;
+  final List<DayTemplate> dayList;
+  final VoidCallback onResume;
+
+  @override
+  State<_ResumeHero> createState() => _ResumeHeroState();
+}
+
+class _ResumeHeroState extends State<_ResumeHero> {
+  Timer? _ticker;
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final draft = widget.controller.draft;
+    DayTemplate? day;
+    if (draft.templateId != null) {
+      for (final d in widget.dayList) {
+        if (d.id == draft.templateId) {
+          day = d;
+          break;
+        }
+      }
+    }
+    final title = day?.name ?? (draft.name.isEmpty ? 'Custom' : draft.name);
+    final focus = day?.focus ?? draft.focus;
+    final exCount = day?.slots.length ?? draft.blocks.length;
+    final now = DateTime.now();
+    var restRemaining = 0;
+    final rs = widget.controller.restStart;
+    if (rs != null) {
+      restRemaining =
+          widget.controller.restTotal - now.difference(rs).inSeconds;
+      if (restRemaining < 0) restRemaining = 0;
+    }
+    final resting = restRemaining > 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        WCard(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ACTIVE NOW',
+                  style: WorkoutType.mono(
+                      size: 10, color: tokens.accent, letterSpacing: 1.5)),
+              const SizedBox(height: 10),
+              Text(title,
+                  style: WorkoutType.display(size: 28, color: tokens.text)),
+              if (focus.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(focus,
+                    style: WorkoutType.body(size: 13, color: tokens.dim)),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Text(
+                    resting
+                        ? 'Rest ${fmtClock(Duration(seconds: restRemaining))}'
+                        : fmtClock(now.difference(draft.startedAt)),
+                    style: WorkoutType.mono(
+                        size: 14,
+                        weight: FontWeight.w700,
+                        color: resting ? tokens.accent : tokens.text),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('$exCount exercises',
+                      style: WorkoutType.mono(size: 11, color: tokens.faint)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              PrimaryBtn('Resume workout',
+                  enabled: true, onTap: widget.onResume),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+      ],
     );
   }
 }
