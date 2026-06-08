@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "languageEnglish": "English",
+  "languageItalian": "Italiano",
+  "languageGerman": "Deutsch",
+  "languageSpanish": "Español",
+  "languageSystem": "System default",
+  "settingsLanguage": "Language",
+  "commonCancel": "Cancel",
+  "commonOk": "OK"
+}

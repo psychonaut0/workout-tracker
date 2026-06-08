@@ -10,6 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Official Flutter localization (ARB/gen_l10n) delegates.
+  flutter_localizations:
+    sdk: flutter
+  # Message formatting / Locale support used by generated AppLocalizations.
+  intl: any
   # Local-first sync engine. v2 bundles SQLite via build hooks, so no separate
   # powersync_flutter_libs is needed (works on Linux desktop out of the box).
   powersync: ^2.2.0
@@ -52,3 +57,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Generate AppLocalizations from lib/l10n/*.arb (config in l10n.yaml).
+  generate: true

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_store.dart';
@@ -9,6 +10,7 @@ import 'data/session_writer.dart';
 import 'data/template_absorb.dart';
 import 'data/top_set_backfill.dart';
 import 'identity/identity_service.dart';
+import 'l10n/app_localizations.dart';
 import 'session/session_manager.dart';
 import 'session/workout_notification.dart';
 import 'settings/settings_service.dart';
@@ -146,6 +148,14 @@ class _AppState extends State<App> {
             navigatorKey: appNavigatorKey,
             title: 'workout-tracker',
             theme: buildTheme(s.brightness, s.accentColor),
+            locale: s.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
             builder: (ctx, child) => AmbientLayer(child: child!),
             home: homeRouteFor(
                         onboardingComplete: identity.onboardingComplete) ==

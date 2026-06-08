@@ -7,6 +7,7 @@ import '../data/bodyweight_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../export/export_service.dart';
+import '../l10n/app_localizations.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../sync/sync_status_ui.dart';
@@ -275,6 +276,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
       settings.setProfileName(trimmed);
     }
     setState(() => _editingName = false);
+  }
+
+  // ── Language picker ─────────────────────────────────────────────────────────
+
+  String _languageLabel(BuildContext context, String? code) {
+    final l = AppLocalizations.of(context);
+    switch (code) {
+      case 'en':
+        return l.languageEnglish;
+      case 'it':
+        return l.languageItalian;
+      case 'de':
+        return l.languageGerman;
+      case 'es':
+        return l.languageSpanish;
+      default:
+        return l.languageSystem;
+    }
+  }
+
+  Future<void> _pickLanguage(
+      BuildContext context, SettingsService settings) async {
+    final l = AppLocalizations.of(context);
+    // showWDialog returns null both on barrier-dismiss AND for a null action
+    // value, so "System default" carries a non-null 'system' sentinel and a
+    // real null means dismissed (no change).
+    final choice = await showWDialog<String>(
+      context,
+      title: l.settingsLanguage,
+      message: '',
+      actions: [
+        WDialogAction(label: l.languageSystem, value: 'system'),
+        WDialogAction(label: l.languageEnglish, value: 'en'),
+        WDialogAction(label: l.languageItalian, value: 'it'),
+        WDialogAction(label: l.languageGerman, value: 'de'),
+        WDialogAction(label: l.languageSpanish, value: 'es'),
+      ],
+    );
+    if (choice == null) return; // dismissed
+    await settings.setLocaleOverride(choice == 'system' ? null : choice);
   }
 
   // ── Server-switch flow ────────────────────────────────────────────────────
@@ -591,6 +632,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         value: settings.ambientEnabled,
                         onChanged: settings.setAmbientEnabled,
                       ),
+                    ),
+                    _Row(
+                      icon: WIcons.gear,
+                      title: AppLocalizations.of(context).settingsLanguage,
+                      sub: _languageLabel(context, settings.localeOverride),
+                      onTap: () => _pickLanguage(context, settings),
                     ),
                   ],
                 ),
