@@ -87,7 +87,7 @@ class UpdateService {
       if (!isNewer(tag, info.version)) return null;
 
       final assets = (json['assets'] as List?) ?? const [];
-      final apk = assets.cast<Map<String, dynamic>>().firstWhere(
+      final apk = assets.whereType<Map<String, dynamic>>().firstWhere(
             (a) => (a['name'] as String? ?? '').endsWith('.apk'),
             orElse: () => const {},
           );

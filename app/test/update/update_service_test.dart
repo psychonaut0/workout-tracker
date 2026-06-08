@@ -27,8 +27,8 @@ void main() {
   String releaseJson(String tag) => '''
   {"tag_name":"$tag","name":"$tag","body":"Notes for $tag",
    "assets":[
-     {"name":"reps-$tag.apk","browser_download_url":"https://example/reps-$tag.apk","size":65000000},
-     {"name":"something.txt","browser_download_url":"https://example/x.txt","size":10}
+     {"name":"something.txt","browser_download_url":"https://example/x.txt","size":10},
+     {"name":"reps-$tag.apk","browser_download_url":"https://example/reps-$tag.apk","size":65000000}
    ]}''';
 
   group('checkForUpdate', () {
@@ -83,6 +83,27 @@ void main() {
         isAndroidOverride: false,
       );
       expect(await svc.checkForUpdate(force: true), isNull);
+    });
+
+    test('sends stored ETag and persists the new one on 200', () async {
+      SharedPreferences.setMockInitialValues({'update.etag': 'old-etag'});
+      String? sentIfNoneMatch;
+      final svc = UpdateService(
+        client: MockClient((req) async {
+          sentIfNoneMatch = req.headers['If-None-Match'];
+          return http.Response(
+            releaseJson('v0.12.0'),
+            200,
+            headers: {'etag': 'new-etag'},
+          );
+        }),
+        isAndroidOverride: true,
+      );
+      final info = await svc.checkForUpdate(force: true);
+      expect(info, isNotNull);
+      expect(sentIfNoneMatch, 'old-etag');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('update.etag'), 'new-etag');
     });
   });
 }
