@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workout_tracker/data/active_session_draft.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/session_manager.dart';
+import 'package:workout_tracker/session/workout_notification.dart';
 
 class FakeDraftStore extends DraftStore {
   FakeDraftStore({this.draft});
@@ -67,6 +69,30 @@ void main() {
     final resumed = await m.resumeFromDraft(store: FakeDraftStore());
     expect(resumed, isFalse);
     expect(m.hasActive, isFalse);
+  });
+
+  test('reconcile applies a background +30s from the prefs blob', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final c = ActiveSessionController();
+    c.seedEmpty(name: 'Custom', focus: '');
+    c.startRest(90);
+    final startMs = c.restStart!.millisecondsSinceEpoch;
+
+    // The background isolate already wrote +30s (90 → 120) to disk; the live
+    // controller is still at 90 (its in-memory total never saw the change).
+    SharedPreferences.setMockInitialValues({
+      restBlobName: 'Custom',
+      restBlobStartedAt: DateTime.now().toIso8601String(),
+      restBlobStartMs: startMs,
+      restBlobTotal: 120,
+    });
+
+    final m = SessionManager();
+    m.register(c);
+    await m.reconcileForTest();
+
+    expect(m.active!.restTotal, 120);
+    expect(m.active!.restStart!.millisecondsSinceEpoch, startMs);
   });
 
   test('screenOpen flag notifies on change only', () {

@@ -94,6 +94,7 @@ Future<void> workoutNotificationBackground(NotificationResponse resp) async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
   final prefs = await SharedPreferences.getInstance();
+  await prefs.reload(); // refresh in case the isolate/engine is reused across taps
   final startMs = prefs.getInt(restBlobStartMs);
   final total = prefs.getInt(restBlobTotal);
   final name = prefs.getString(restBlobName);

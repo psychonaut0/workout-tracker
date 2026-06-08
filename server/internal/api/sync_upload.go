@@ -325,6 +325,10 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 		rirLow, _ := str(op.Data, "default_rir_low")
 		rirHigh, _ := str(op.Data, "default_rir_high")
 		restSeconds, _ := str(op.Data, "default_rest_seconds")
+		// PATCH opData carries ONLY changed columns, so key-presence means the
+		// client intends to set this. Honor an explicit null (clear-to-Default):
+		// present + '' → NULL; present + '120' → 120; absent → keep old value.
+		_, restPresent := op.Data["default_rest_seconds"]
 		_, err := tx.Exec(ctx,
 			`UPDATE exercises SET
 			   name           = COALESCE(NULLIF($3,''), name),
@@ -339,10 +343,12 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 			   default_working_sets = COALESCE(NULLIF($12,'')::numeric::int, default_working_sets),
 			   default_rir_low      = COALESCE(NULLIF($13,'')::numeric::int, default_rir_low),
 			   default_rir_high     = COALESCE(NULLIF($14,'')::numeric::int, default_rir_high),
-			   default_rest_seconds = COALESCE(NULLIF($15,'')::numeric::int, default_rest_seconds)
+			   default_rest_seconds = CASE WHEN $16::bool
+			                               THEN NULLIF($15,'')::numeric::int
+			                               ELSE default_rest_seconds END
 			 WHERE id=$1::uuid AND created_by=$2::uuid`,
 			op.ID, userID, name, muscle, equip, compound, baseWeight, plateStep,
-			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh, restSeconds)
+			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh, restSeconds, restPresent)
 		return err
 	case "DELETE":
 		_, err := tx.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid AND created_by=$2::uuid`, op.ID, userID)

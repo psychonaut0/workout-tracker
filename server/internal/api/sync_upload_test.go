@@ -507,6 +507,64 @@ func TestUpload_OneBadOpDoesNotDropTheBatch(t *testing.T) {
 	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM bodyweight_logs WHERE id=$1::uuid`, bwID) })
 }
 
+// TestUpload_PatchExerciseClearsRestToDefault: PUT a custom exercise with
+// default_rest_seconds=120, then:
+//   - a name-only PATCH (rest absent) leaves default_rest_seconds at 120, and
+//   - a PATCH carrying an explicit null default_rest_seconds clears it to NULL.
+// This guards the CASE-on-presence SET clause (COALESCE would silently keep 120).
+func TestUpload_PatchExerciseClearsRestToDefault(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+
+	exID := "e6666666-6666-6666-6666-666666666666"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid`, exID) })
+
+	// PUT with an explicit per-exercise rest.
+	rec := postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"exercises","id":"`+exID+`","data":{"id":"`+exID+`","name":"Rest Ex","slug":"rest-ex","muscle_group":"chest","default_rest_seconds":120}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT status: got %d %s", rec.Code, rec.Body.String())
+	}
+	var rest *int
+	if err := pool.QueryRow(ctx, `SELECT default_rest_seconds FROM exercises WHERE id=$1::uuid`, exID).Scan(&rest); err != nil {
+		t.Fatalf("read after PUT: %v", err)
+	}
+	if rest == nil || *rest != 120 {
+		t.Fatalf("default_rest_seconds after PUT: got %v, want 120", rest)
+	}
+
+	// Name-only PATCH (default_rest_seconds ABSENT) must NOT touch the rest.
+	rec = postUpload(t, h, user, `{"batch":[
+	  {"op":"PATCH","table":"exercises","id":"`+exID+`","data":{"name":"Renamed"}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("name-only PATCH status: got %d %s", rec.Code, rec.Body.String())
+	}
+	if err := pool.QueryRow(ctx, `SELECT default_rest_seconds FROM exercises WHERE id=$1::uuid`, exID).Scan(&rest); err != nil {
+		t.Fatalf("read after name PATCH: %v", err)
+	}
+	if rest == nil || *rest != 120 {
+		t.Errorf("default_rest_seconds after name-only PATCH: got %v, want 120 (absent column must be preserved)", rest)
+	}
+
+	// PATCH carrying an explicit null clear-to-Default must set NULL.
+	rec = postUpload(t, h, user, `{"batch":[
+	  {"op":"PATCH","table":"exercises","id":"`+exID+`","data":{"default_rest_seconds":null}}
+	]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear PATCH status: got %d %s", rec.Code, rec.Body.String())
+	}
+	if err := pool.QueryRow(ctx, `SELECT default_rest_seconds FROM exercises WHERE id=$1::uuid`, exID).Scan(&rest); err != nil {
+		t.Fatalf("read after clear PATCH: %v", err)
+	}
+	if rest != nil {
+		t.Errorf("default_rest_seconds after explicit-null PATCH: got %v, want NULL (clear-to-Default must apply)", *rest)
+	}
+}
+
 func TestApplyExercise_SuffixesCollidingSlug(t *testing.T) {
 	pool := uploadTestPool(t)
 	h := NewUploadHandler(pool)

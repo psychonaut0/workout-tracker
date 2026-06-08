@@ -49,18 +49,32 @@ class SessionManager extends ChangeNotifier with WidgetsBindingObserver {
     final c = _active;
     if (c == null) return;
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // background +30s wrote disk; refresh the frozen cache
     final startMs = prefs.getInt(restBlobStartMs);
     final total = prefs.getInt(restBlobTotal);
-    if (startMs == null || total == null) return;
-    final blobStart = DateTime.fromMillisecondsSinceEpoch(startMs);
-    // A background +30s changed the blob but not the live controller. Reconcile
-    // only when it's the same rest (same start) with a different total.
-    if (c.restStart != null &&
-        c.restStart!.millisecondsSinceEpoch == startMs &&
-        c.restTotal != total) {
-      c.setRestRaw(blobStart, total);
+    if (startMs != null && total != null) {
+      final blobStart = DateTime.fromMillisecondsSinceEpoch(startMs);
+      // A background +30s changed the blob but not the live controller.
+      // Reconcile only when it's the same rest (same start) with a different
+      // total.
+      if (c.restStart != null &&
+          c.restStart!.millisecondsSinceEpoch == startMs &&
+          c.restTotal != total) {
+        c.setRestRaw(blobStart, total);
+      }
+    }
+    // If rest already elapsed (e.g. expired while backgrounded, screen closed),
+    // reconcile the controller to stopped — the OS alarm reverted the notif but
+    // nothing cleared the live controller.
+    final rs = c.restStart;
+    if (rs != null &&
+        DateTime.now().isAfter(rs.add(Duration(seconds: c.restTotal)))) {
+      c.stopRest();
     }
   }
+
+  @visibleForTesting
+  Future<void> reconcileForTest() => _reconcileRestFromBlob();
 
   void register(ActiveSessionController c) {
     _active?.removeListener(_onControllerChange);
