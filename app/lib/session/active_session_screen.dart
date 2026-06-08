@@ -61,6 +61,17 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       _handleRestHaptics();
+      // Screen-open rest revert: when remaining hits 0 while the screen is
+      // open, stop the rest here (the OS alarm covers the backgrounded case;
+      // the deleted SessionManager Dart timer used to cover this one).
+      // stopRest is a guarded no-op if already stopped.
+      final c = _controller;
+      final start = c?.restStart;
+      if (c != null && start != null) {
+        final remaining =
+            c.restTotal - DateTime.now().difference(start).inSeconds;
+        if (remaining <= 0) c.stopRest();
+      }
       setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

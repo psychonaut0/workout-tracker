@@ -36,6 +36,9 @@ dependencies:
   share_plus: ^11.0.0
   # Ongoing workout notification (Android): chronometer elapsed / rest countdown.
   flutter_local_notifications: ^21.0.0
+  # OS-alarm scheduling for the rest-end notification revert (transitive via
+  # flutter_local_notifications; declared direct since we import tz/data).
+  timezone: ^0.11.0
   # Deterministic v5 ids for the template-absorb migration.
   uuid: ^4.5.0
 

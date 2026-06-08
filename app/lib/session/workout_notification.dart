@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 /// Pure payload mapping for the ongoing workout notification (testable, no
 /// plugin types). Elapsed mode: `when` = session start, Android chronometer
@@ -27,6 +29,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
   );
 }
 
+/// Absolute instant the rest countdown ends (used to schedule the OS-alarm
+/// revert back to elapsed mode).
+DateTime restRevertAt(DateTime restStart, int restTotal) =>
+    restStart.add(Duration(seconds: restTotal));
+
 /// Thin Android-only wrapper around flutter_local_notifications. All methods
 /// are no-ops off-Android (Linux dev builds never initialize the plugin).
 class WorkoutNotification {
@@ -38,6 +45,7 @@ class WorkoutNotification {
   bool _ready = false;
   bool _permissionAsked = false;
   ({String title, bool countdown, DateTime when})? _lastShown;
+  DateTime? _lastScheduledEnd;
 
   Future<void> init({void Function()? onTap}) async {
     if (!Platform.isAndroid) return;
@@ -56,7 +64,33 @@ class WorkoutNotification {
           importance: Importance.low,
           playSound: false,
         ));
+    tzdata.initializeTimeZones();
     _ready = true;
+  }
+
+  /// Builds the Android details for the ongoing notification. [countdown]
+  /// chooses chronometer direction (true = rest countdown, false = elapsed);
+  /// [when] anchors the chronometer (rest end for countdown, session start for
+  /// elapsed).
+  AndroidNotificationDetails _androidDetails({
+    required bool countdown,
+    required DateTime when,
+  }) {
+    return AndroidNotificationDetails(
+      _channelId,
+      'Workout session',
+      importance: Importance.low,
+      priority: Priority.low,
+      playSound: false,
+      ongoing: true,
+      autoCancel: false,
+      onlyAlertOnce: true,
+      showWhen: true,
+      usesChronometer: true,
+      chronometerCountDown: countdown,
+      when: when.millisecondsSinceEpoch,
+      category: AndroidNotificationCategory.stopwatch,
+    );
   }
 
   Future<void> showFor({
@@ -88,28 +122,36 @@ class WorkoutNotification {
       title: p.title,
       body: p.body,
       notificationDetails: NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          'Workout session',
-          importance: Importance.low,
-          priority: Priority.low,
-          playSound: false,
-          ongoing: true,
-          autoCancel: false,
-          onlyAlertOnce: true,
-          showWhen: true,
-          usesChronometer: true,
-          chronometerCountDown: p.countdown,
-          when: p.when.millisecondsSinceEpoch,
-          category: AndroidNotificationCategory.stopwatch,
-        ),
+        android: _androidDetails(countdown: p.countdown, when: p.when),
       ),
     );
+    // Schedule the OS alarm that reverts the countdown back to elapsed mode at
+    // rest end — Dart timers are suspended while backgrounded, so without this
+    // the chronometer counts into negatives. The scheduled notification reuses
+    // id=_id, so the OS REPLACES the live countdown at restEnd. Re-scheduling
+    // id=_id replaces any prior alarm.
+    final end = restStart == null ? null : restRevertAt(restStart, restTotal);
+    if (end != null && end.isAfter(DateTime.now())) {
+      if (_lastScheduledEnd != end) {
+        _lastScheduledEnd = end;
+        await _plugin.zonedSchedule(
+          id: _id,
+          title: name,
+          body: 'Workout in progress',
+          scheduledDate: tz.TZDateTime.from(end, tz.UTC),
+          notificationDetails: NotificationDetails(
+            android: _androidDetails(countdown: false, when: startedAt),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+      }
+    }
   }
 
   Future<void> cancel() async {
     if (!_ready) return;
     _lastShown = null;
-    await _plugin.cancel(id: _id);
+    _lastScheduledEnd = null;
+    await _plugin.cancel(id: _id); // cancels the shown notification AND the pending alarm
   }
 }

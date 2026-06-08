@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
 import '../data/active_session_draft.dart';
@@ -27,12 +25,7 @@ class SessionManager extends ChangeNotifier {
   /// Optional notification surface (null on Linux/tests).
   WorkoutNotification? notifier;
 
-  /// Stops the rest automatically when it expires while the screen is closed
-  /// (with the screen open, its ticker handles this; stopRest is guarded).
-  Timer? _restExpiry;
-
   void register(ActiveSessionController c) {
-    _restExpiry?.cancel(); // defensive: never let a stale timer poke a new session
     _active?.removeListener(_onControllerChange);
     _active = c;
     c.addListener(_onControllerChange);
@@ -53,7 +46,6 @@ class SessionManager extends ChangeNotifier {
       clear();
       return;
     }
-    _armRestExpiry(c);
     notifier?.showFor(
       name: c.draft.name,
       startedAt: c.draft.startedAt,
@@ -63,20 +55,7 @@ class SessionManager extends ChangeNotifier {
     notifyListeners(); // mini-bar rest-mode swap
   }
 
-  void _armRestExpiry(ActiveSessionController c) {
-    _restExpiry?.cancel();
-    final start = c.restStart;
-    if (start == null) return;
-    final remaining =
-        start.add(Duration(seconds: c.restTotal)).difference(DateTime.now());
-    _restExpiry = Timer(
-      remaining.isNegative ? Duration.zero : remaining + const Duration(seconds: 1),
-      c.stopRest, // guarded no-op if already stopped
-    );
-  }
-
   void clear() {
-    _restExpiry?.cancel();
     _active?.removeListener(_onControllerChange);
     _active = null;
     notifier?.cancel();
@@ -94,7 +73,6 @@ class SessionManager extends ChangeNotifier {
 
   @override
   void dispose() {
-    _restExpiry?.cancel();
     _active?.removeListener(_onControllerChange);
     super.dispose();
   }
