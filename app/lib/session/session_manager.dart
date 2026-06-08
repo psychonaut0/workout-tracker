@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/active_session_draft.dart';
 import 'active_session_controller.dart';
@@ -7,7 +8,7 @@ import 'workout_notification.dart';
 /// App-scoped owner of the active workout. The session screen renders
 /// [active]; minimizing the screen leaves the workout running here. Also the
 /// single driver of the ongoing Android notification (when [notifier] is set).
-class SessionManager extends ChangeNotifier {
+class SessionManager extends ChangeNotifier with WidgetsBindingObserver {
   ActiveSessionController? _active;
   ActiveSessionController? get active => _active;
   bool get hasActive => _active != null;
@@ -24,6 +25,42 @@ class SessionManager extends ChangeNotifier {
 
   /// Optional notification surface (null on Linux/tests).
   WorkoutNotification? notifier;
+
+  /// Registers the app-lifecycle observer (so a background +30s tap is
+  /// reconciled into the live controller on resume). Call once at startup.
+  void init() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Foreground +30s from the notification chip while the app is alive — the
+  /// live controller is the source of truth, so just extend it directly.
+  void add30FromNotification() {
+    _active?.addRestTime(30);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reconcileRestFromBlob();
+    }
+  }
+
+  Future<void> _reconcileRestFromBlob() async {
+    final c = _active;
+    if (c == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final startMs = prefs.getInt(restBlobStartMs);
+    final total = prefs.getInt(restBlobTotal);
+    if (startMs == null || total == null) return;
+    final blobStart = DateTime.fromMillisecondsSinceEpoch(startMs);
+    // A background +30s changed the blob but not the live controller. Reconcile
+    // only when it's the same rest (same start) with a different total.
+    if (c.restStart != null &&
+        c.restStart!.millisecondsSinceEpoch == startMs &&
+        c.restTotal != total) {
+      c.setRestRaw(blobStart, total);
+    }
+  }
 
   void register(ActiveSessionController c) {
     _active?.removeListener(_onControllerChange);
@@ -73,6 +110,7 @@ class SessionManager extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _active?.removeListener(_onControllerChange);
     super.dispose();
   }

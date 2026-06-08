@@ -408,6 +408,15 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sets rest state directly (used to reconcile after a background +30s tap
+  /// that the live controller didn't see). No-op if unchanged.
+  void setRestRaw(DateTime? restStart, int restTotal) {
+    if (this.restStart == restStart && this.restTotal == restTotal) return;
+    this.restStart = restStart;
+    this.restTotal = restTotal;
+    notifyListeners();
+  }
+
   // ── Computed getters ──────────────────────────────────────────────────────
 
   /// Wall-clock elapsed since the session started.

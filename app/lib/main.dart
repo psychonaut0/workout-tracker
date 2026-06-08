@@ -56,11 +56,15 @@ Future<void> main() async {
   await absorbTemplates(db, identity.currentUserId);
 
   final sessionManager = SessionManager();
+  sessionManager.init();
   final workoutNotification = WorkoutNotification();
-  await workoutNotification.init(onTap: () {
-    final ctx = appNavigatorKey.currentContext;
-    if (ctx != null) openActiveSession(ctx, sessionManager);
-  });
+  await workoutNotification.init(
+    onTap: () {
+      final ctx = appNavigatorKey.currentContext;
+      if (ctx != null) openActiveSession(ctx, sessionManager);
+    },
+    onAdd30: () => sessionManager.add30FromNotification(),
+  );
   sessionManager.notifier = workoutNotification;
   await sessionManager.resumeFromDraft();
 

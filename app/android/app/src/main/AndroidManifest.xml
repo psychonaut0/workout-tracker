@@ -36,6 +36,8 @@
             android:value="2" />
         <!-- Posts the scheduled rest-end notification (reverts countdown → elapsed). -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>
+        <!-- Routes the "+30s" action tap to the background isolate (app may be killed). -->
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
