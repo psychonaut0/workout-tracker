@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
@@ -53,10 +54,12 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   }
 
   /// Group exercises by muscle group, preserving insertion order.
-  Map<String, List<Exercise>> _group(List<Exercise> exercises) {
+  /// Exercises with no muscle group fall under [otherLabel].
+  Map<String, List<Exercise>> _group(
+      List<Exercise> exercises, String otherLabel) {
     final result = <String, List<Exercise>>{};
     for (final ex in exercises) {
-      final key = ex.muscleGroup.isEmpty ? 'Other' : ex.muscleGroup;
+      final key = ex.muscleGroup.isEmpty ? otherLabel : ex.muscleGroup;
       (result[key] ??= []).add(ex);
     }
     return result;
@@ -65,8 +68,9 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final filtered = _filtered;
-    final grouped = _group(filtered);
+    final grouped = _group(filtered, l.sessionOtherMuscle);
     final muscles = grouped.keys.toList()..sort();
 
     return DraggableScrollableSheet(
@@ -104,7 +108,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 child: Row(
                   children: [
                     Text(
-                      'Add exercise',
+                      l.sessionAddExercise,
                       style: WorkoutType.display(
                         size: 18,
                         weight: FontWeight.w700,
@@ -143,7 +147,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                           style: WorkoutType.body(
                               size: 14, color: tokens.text),
                           decoration: InputDecoration(
-                            hintText: 'Search exercises…',
+                            hintText: l.sessionSearchExercises,
                             hintStyle: WorkoutType.body(
                                 size: 14, color: tokens.faint),
                             border: InputBorder.none,
@@ -310,7 +314,7 @@ class _EmptyState extends StatelessWidget {
             Icon(WIcons.dumbbell, size: 32, color: tokens.faint),
             const SizedBox(height: 12),
             Text(
-              'No exercises found',
+              AppLocalizations.of(context).sessionNoExercisesFound,
               style: WorkoutType.body(
                   size: 15, weight: FontWeight.w600, color: tokens.dim),
             ),

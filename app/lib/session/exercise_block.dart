@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/motion.dart';
@@ -46,6 +47,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
   Widget build(BuildContext context) {
     super.build(context);
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final block = widget.block;
     final ex = block.exercise;
     final resolved = block.resolved;
@@ -201,7 +203,11 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // "Last · <ago>" reference row — last-session top set
-                  _LastTopRow(lastTop: block.lastTop, unit: unit, tokens: tokens),
+                  _LastTopRow(
+                      lastTop: block.lastTop,
+                      unit: unit,
+                      tokens: tokens,
+                      l: l),
                   const SizedBox(height: 10),
 
                   // Column headers: SET / WEIGHT / REPS / RIR / (check btn)
@@ -210,7 +216,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                       SizedBox(
                         width: 26,
                         child: Text(
-                          'SET',
+                          l.sessionColSet,
                           textAlign: TextAlign.center,
                           style: WorkoutType.mono(
                             size: 9.5,
@@ -226,7 +232,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                             Expanded(
                               flex: 100,
                               child: Text(
-                                'WEIGHT',
+                                l.sessionColWeight,
                                 textAlign: TextAlign.center,
                                 style: WorkoutType.mono(
                                   size: 9.5,
@@ -239,7 +245,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                             Expanded(
                               flex: 76,
                               child: Text(
-                                'REPS',
+                                l.sessionColReps,
                                 textAlign: TextAlign.center,
                                 style: WorkoutType.mono(
                                   size: 9.5,
@@ -252,7 +258,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                             Expanded(
                               flex: 77,
                               child: Text(
-                                'RIR',
+                                l.sessionColRir,
                                 textAlign: TextAlign.center,
                                 style: WorkoutType.mono(
                                   size: 9.5,
@@ -313,7 +319,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                   _DashedBlockButton(
                     height: 38,
                     icon: Icons.add,
-                    label: 'Add set',
+                    label: l.sessionAddSet,
                     tokens: tokens,
                     onTap: () => widget.onAddSet(block),
                   ),
@@ -322,6 +328,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                   const SizedBox(height: 8),
                   _RemoveExerciseButton(
                     tokens: tokens,
+                    label: l.sessionRemoveExercise,
                     onTap: () => widget.onRemoveBlock(block),
                   ),
                 ],
@@ -338,8 +345,8 @@ class _ExerciseBlockState extends State<ExerciseBlock>
 /// Returns a human-readable "days ago" label from an ISO date string
 /// (yyyy-mm-dd) compared to today.
 ///
-/// Returns "today", "yesterday", or "{n}d ago".
-String _daysAgoLabel(String isoDate) {
+/// Returns the localized "today", "yesterday", or "{n}d ago".
+String _daysAgoLabel(String isoDate, AppLocalizations l) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   try {
@@ -351,9 +358,9 @@ String _daysAgoLabel(String isoDate) {
       int.parse(parts[2]),
     );
     final diff = today.difference(date).inDays;
-    if (diff == 0) return 'today';
-    if (diff == 1) return 'yesterday';
-    return '${diff}d ago';
+    if (diff == 0) return l.sessionToday;
+    if (diff == 1) return l.sessionYesterday;
+    return l.sessionDaysAgo(diff);
   } catch (_) {
     return isoDate;
   }
@@ -369,11 +376,13 @@ class _LastTopRow extends StatelessWidget {
     required this.lastTop,
     required this.unit,
     required this.tokens,
+    required this.l,
   });
 
   final ({double weight, int reps, String date})? lastTop;
   final UnitService unit;
   final WorkoutTokens tokens;
+  final AppLocalizations l;
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +398,7 @@ class _LastTopRow extends StatelessWidget {
             Icon(WIcons.history, size: 15, color: tokens.faint),
             const SizedBox(width: 8),
             Text(
-              'No previous data',
+              l.sessionNoPreviousData,
               style: WorkoutType.mono(
                 size: 10.5,
                 color: tokens.faint,
@@ -401,7 +410,7 @@ class _LastTopRow extends StatelessWidget {
       );
     }
 
-    final agoLabel = _daysAgoLabel(lastTop!.date);
+    final agoLabel = _daysAgoLabel(lastTop!.date, l);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -413,7 +422,7 @@ class _LastTopRow extends StatelessWidget {
           Icon(WIcons.history, size: 15, color: tokens.faint),
           const SizedBox(width: 8),
           Text(
-            'LAST · ${agoLabel.toUpperCase()}',
+            l.sessionLastLabel(agoLabel.toUpperCase()),
             style: WorkoutType.mono(
               size: 10.5,
               color: tokens.faint,
@@ -485,10 +494,12 @@ class _DashedBlockButton extends StatelessWidget {
 class _RemoveExerciseButton extends StatelessWidget {
   const _RemoveExerciseButton({
     required this.tokens,
+    required this.label,
     required this.onTap,
   });
 
   final WorkoutTokens tokens;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -505,7 +516,7 @@ class _RemoveExerciseButton extends StatelessWidget {
             Icon(Icons.delete_outline, size: 14, color: tokens.faint),
             const SizedBox(width: 6),
             Text(
-              'Remove exercise',
+              label,
               style: WorkoutType.mono(
                 size: 11.5,
                 weight: FontWeight.w600,
@@ -533,5 +544,5 @@ class TopTag extends StatelessWidget {
   const TopTag({super.key});
   @override
   Widget build(BuildContext context) =>
-      const Tag(label: 'TOP', tone: TagTone.solid);
+      Tag(label: AppLocalizations.of(context).sessionTagTop, tone: TagTone.solid);
 }

@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/exercise_block.dart';
-import 'package:workout_tracker/theme/app_theme.dart';
-import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+
+import '../support/l10n_harness.dart';
 
 void main() {
   BlockState makeBlock() {
@@ -45,23 +45,20 @@ void main() {
     );
   }
 
-  Widget host(BlockState b, {required bool showBlock}) => MaterialApp(
-        theme: buildTheme(Brightness.dark, accents[0]),
-        home: Scaffold(
-          body: showBlock
-              ? SingleChildScrollView(
-                  child: ExerciseBlock(
-                    key: const ValueKey('e1'),
-                    block: b,
-                    unit: UnitService(),
-                    onToggleDone: (_, __) {},
-                    onSetChanged: (_, __) {},
-                    onAddSet: (_) {},
-                    onRemoveBlock: (_) {},
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
+  Widget host(BlockState b, {required bool showBlock}) => wrapL10n(
+        showBlock
+            ? SingleChildScrollView(
+                child: ExerciseBlock(
+                  key: const ValueKey('e1'),
+                  block: b,
+                  unit: UnitService(),
+                  onToggleDone: (_, __) {},
+                  onSetChanged: (_, __) {},
+                  onAddSet: (_) {},
+                  onRemoveBlock: (_) {},
+                ),
+              )
+            : const SizedBox.shrink(),
       );
 
   testWidgets('collapse survives State disposal (scroll-out simulation)',

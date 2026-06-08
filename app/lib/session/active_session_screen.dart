@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../data/active_session_draft.dart';
 import '../data/exercise_repository.dart';
 import '../data/session_writer.dart';
+import '../l10n/app_localizations.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
@@ -129,12 +130,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       return;
     }
 
+    final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
-      title: 'Discard workout?',
-      message: 'Your logged sets will be lost.',
-      cancelLabel: 'Keep going',
-      confirmLabel: 'Discard',
+      title: l.sessionDiscardTitle,
+      message: l.sessionDiscardMessage,
+      cancelLabel: l.sessionKeepGoing,
+      confirmLabel: l.commonDiscard,
       destructive: true,
     );
 
@@ -167,7 +169,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save session: $e'),
+            content:
+                Text(AppLocalizations.of(context).sessionSaveFailed('$e')),
             backgroundColor: context.tokens.danger,
           ),
         );
@@ -182,6 +185,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     final controller = context.watch<ActiveSessionController>();
     final tokens = context.tokens;
     final unit = context.watch<UnitService>();
+    final l = AppLocalizations.of(context);
 
     if (!controller.hasSession) {
       // Should not normally be seen; the screen is only pushed when a session
@@ -226,6 +230,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                 prCount: prCount,
                 progress: progress,
                 tokens: tokens,
+                l: l,
                 onMinimize: () => Navigator.of(context).pop(),
                 onDiscard: () => _handleClose(context, controller),
               ),
@@ -238,7 +243,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                     // Empty-session placeholder
                     if (draft.blocks.isEmpty) ...[
                       const SizedBox(height: 40),
-                      _EmptySessionPlaceholder(tokens: tokens),
+                      _EmptySessionPlaceholder(tokens: tokens, l: l),
                       const SizedBox(height: 20),
                     ],
 
@@ -272,9 +277,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                             if (hasDone) {
                               final confirmed = await showWConfirm(
                                 context,
-                                title: 'Remove exercise?',
-                                message: 'Logged sets will be lost.',
-                                confirmLabel: 'Remove',
+                                title: l.sessionRemoveExerciseTitle,
+                                message: l.sessionRemoveExerciseMessage,
+                                confirmLabel: l.commonRemove,
                                 destructive: true,
                               );
                               if (confirmed == true) controller.removeBlock(b);
@@ -291,7 +296,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                     _DashedButton(
                       height: 46,
                       icon: WIcons.plus,
-                      label: 'Add exercise',
+                      label: l.sessionAddExercise,
                       tokens: tokens,
                       onTap: () async {
                         final repo = ExerciseRepository(db);
@@ -312,6 +317,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                     // "Finish workout" button
                     _FinishButton(
                       canFinish: controller.canFinish,
+                      label: l.sessionFinishWorkout,
                       tokens: tokens,
                       onTap: () => _handleFinish(context, controller),
                     ),
@@ -352,6 +358,7 @@ class _Header extends StatelessWidget {
     required this.prCount,
     required this.progress,
     required this.tokens,
+    required this.l,
     required this.onMinimize,
     required this.onDiscard,
   });
@@ -364,13 +371,14 @@ class _Header extends StatelessWidget {
   final int prCount;
   final double progress;
   final WorkoutTokens tokens;
+  final AppLocalizations l;
   final VoidCallback onMinimize;
   final VoidCallback onDiscard;
 
   @override
   Widget build(BuildContext context) {
-    final prText = prCount > 0 ? ' · $prCount PR${prCount > 1 ? 's' : ''}' : '';
-    final setsText = '$doneWork/$totalWork sets$prText';
+    final prText = prCount > 0 ? l.sessionPrCount(prCount) : '';
+    final setsText = '${l.sessionSetsProgress(doneWork, totalWork)}$prText';
 
     return Container(
       color: tokens.bg,
@@ -473,7 +481,7 @@ class _Header extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'ELAPSED',
+                      l.sessionElapsed,
                       style: WorkoutType.mono(
                         size: 9,
                         color: tokens.faint,
@@ -506,9 +514,10 @@ class _Header extends StatelessWidget {
 }
 
 class _EmptySessionPlaceholder extends StatelessWidget {
-  const _EmptySessionPlaceholder({required this.tokens});
+  const _EmptySessionPlaceholder({required this.tokens, required this.l});
 
   final WorkoutTokens tokens;
+  final AppLocalizations l;
 
   @override
   Widget build(BuildContext context) {
@@ -527,13 +536,13 @@ class _EmptySessionPlaceholder extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Empty session',
+          l.sessionEmptyTitle,
           style: WorkoutType.display(
               size: 18, weight: FontWeight.w700, color: tokens.text),
         ),
         const SizedBox(height: 6),
         Text(
-          'Add your first exercise to begin.',
+          l.sessionEmptySubtitle,
           style: WorkoutType.mono(size: 12, color: tokens.faint),
         ),
       ],
@@ -591,11 +600,13 @@ class _DashedButton extends StatelessWidget {
 class _FinishButton extends StatelessWidget {
   const _FinishButton({
     required this.canFinish,
+    required this.label,
     required this.tokens,
     required this.onTap,
   });
 
   final bool canFinish;
+  final String label;
   final WorkoutTokens tokens;
   final VoidCallback onTap;
 
@@ -611,7 +622,7 @@ class _FinishButton extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: Text(
-          'Finish workout',
+          label,
           style: WorkoutType.display(
             size: 16,
             weight: FontWeight.w700,

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/motion.dart';
@@ -72,7 +73,7 @@ class SetRow extends StatelessWidget {
               width: 26,
               child: set.isWarmup
                   ? Text(
-                      'W',
+                      AppLocalizations.of(context).sessionWarmupShort,
                       textAlign: TextAlign.center,
                       style: WorkoutType.mono(
                         size: 11,
@@ -319,7 +320,7 @@ class _DoneContent extends StatelessWidget {
         if (!set.isWarmup) ...[
           const SizedBox(width: 8),
           Text(
-            'RIR ${set.rir ?? 0}',
+            AppLocalizations.of(context).sessionRir(set.rir ?? 0),
             style: WorkoutType.mono(size: 10.5, color: tokens.faint),
           ),
         ],
@@ -330,7 +331,9 @@ class _DoneContent extends StatelessWidget {
         if (isLivePr)
           const PRBadge(small: true)
         else if (isLiveTop)
-          const Tag(label: 'TOP', tone: TagTone.solid),
+          Tag(
+              label: AppLocalizations.of(context).sessionTagTop,
+              tone: TagTone.solid),
       ],
     );
   }

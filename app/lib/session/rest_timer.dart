@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/motion.dart';
@@ -95,6 +96,7 @@ class _RestTimerCardState extends State<RestTimerCard>
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
 
     final remaining = _remaining;
     final mm = remaining ~/ 60;
@@ -166,7 +168,7 @@ class _RestTimerCardState extends State<RestTimerCard>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'REST',
+                  l.restLabel,
                   style: WorkoutType.mono(
                     size: 10,
                     color: tokens.faint,
@@ -201,7 +203,7 @@ class _RestTimerCardState extends State<RestTimerCard>
               ),
               alignment: Alignment.center,
               child: Text(
-                '+30s',
+                l.restAdd30s,
                 style: WorkoutType.mono(
                   size: 12,
                   weight: FontWeight.w700,
@@ -226,7 +228,7 @@ class _RestTimerCardState extends State<RestTimerCard>
               ),
               alignment: Alignment.center,
               child: Text(
-                'Skip',
+                l.commonSkip,
                 style: WorkoutType.mono(
                   size: 12,
                   weight: FontWeight.w700,

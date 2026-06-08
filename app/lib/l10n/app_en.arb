@@ -71,5 +71,100 @@
   "splitAddExercisesLive": "Add exercises live during the session",
   "splitStartEmpty": "Start empty",
   "splitStartWorkout": "Start workout",
-  "weekStripNext": "NEXT"
+  "weekStripNext": "NEXT",
+  "commonDiscard": "Discard",
+  "commonRemove": "Remove",
+  "commonSkip": "Skip",
+  "commonDone": "Done",
+  "sessionElapsed": "ELAPSED",
+  "sessionSetsProgress": "{done}/{total} sets",
+  "@sessionSetsProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionPrCount": "{count, plural, one{ · {count} PR} other{ · {count} PRs}}",
+  "@sessionPrCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionDiscardTitle": "Discard workout?",
+  "sessionDiscardMessage": "Your logged sets will be lost.",
+  "sessionKeepGoing": "Keep going",
+  "sessionRemoveExerciseTitle": "Remove exercise?",
+  "sessionRemoveExerciseMessage": "Logged sets will be lost.",
+  "sessionAddExercise": "Add exercise",
+  "sessionFinishWorkout": "Finish workout",
+  "sessionEmptyTitle": "Empty session",
+  "sessionEmptySubtitle": "Add your first exercise to begin.",
+  "sessionSaveFailed": "Failed to save session: {error}",
+  "@sessionSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionColSet": "SET",
+  "sessionColWeight": "WEIGHT",
+  "sessionColReps": "REPS",
+  "sessionColRir": "RIR",
+  "sessionAddSet": "Add set",
+  "sessionRemoveExercise": "Remove exercise",
+  "sessionNoPreviousData": "No previous data",
+  "sessionLastLabel": "LAST · {ago}",
+  "@sessionLastLabel": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionToday": "today",
+  "sessionYesterday": "yesterday",
+  "sessionDaysAgo": "{count}d ago",
+  "@sessionDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionTagTop": "TOP",
+  "sessionWarmupShort": "W",
+  "sessionRir": "RIR {value}",
+  "@sessionRir": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSearchExercises": "Search exercises…",
+  "sessionNoExercisesFound": "No exercises found",
+  "sessionOtherMuscle": "Other",
+  "restLabel": "REST",
+  "restAdd30s": "+30s",
+  "summarySessionNotFound": "Session not found.",
+  "summaryLoadFailed": "Failed to load session: {error}",
+  "@summaryLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTopSets": "TOP SETS",
+  "summaryDuration": "Duration",
+  "summarySets": "Sets",
+  "summaryVolume": "Volume",
+  "summaryPrs": "PRs"
 }

@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:workout_tracker/session/set_row.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/data/models.dart';
-import 'package:workout_tracker/theme/app_theme.dart';
-import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+
+import '../support/l10n_harness.dart';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,19 +38,17 @@ SetState _warmupSet() => SetState(
       done: false,
     );
 
-/// Pumps [child] inside a [SizedBox(width: 300)] with the app theme and a
-/// [UnitService] provider — narrow enough to trigger the overflow before the fix.
+/// Pumps [child] inside a [SizedBox(width: 300)] with the app theme,
+/// localization delegates, and a [UnitService] provider — narrow enough to
+/// trigger the overflow before the fix.
 Future<void> _pump(WidgetTester tester, Widget child) async {
   await tester.pumpWidget(
-    MaterialApp(
-      theme: buildTheme(Brightness.dark, accents[0]),
-      home: Scaffold(
-        body: ChangeNotifierProvider<UnitService>(
-          create: (_) => UnitService(),
-          child: SizedBox(
-            width: 300,
-            child: child,
-          ),
+    wrapL10n(
+      ChangeNotifierProvider<UnitService>(
+        create: (_) => UnitService(),
+        child: SizedBox(
+          width: 300,
+          child: child,
         ),
       ),
     ),
