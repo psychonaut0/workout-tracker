@@ -192,7 +192,7 @@ class _ProgressDialogState extends State<_ProgressDialog> {
                 child: TextButton(
                   onPressed: _cancel,
                   child: Text(
-                    l.updatesLater,
+                    l.commonCancel,
                     style: WorkoutType.mono(size: 13, color: tokens.dim),
                   ),
                 ),
