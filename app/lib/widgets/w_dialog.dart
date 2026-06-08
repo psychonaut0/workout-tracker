@@ -30,7 +30,7 @@ Future<T?> showWDialog<T>(
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Dismiss',
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.black.withValues(alpha: 0.55),
     transitionDuration: Motion.of(context, Motion.base),
     pageBuilder: (ctx, _, __) =>

@@ -518,5 +518,12 @@
   "muscleHamstrings": "Hamstrings",
   "muscleCalves": "Calves",
   "muscleBiceps": "Biceps",
-  "muscleTriceps": "Triceps"
+  "muscleTriceps": "Triceps",
+  "navToday": "Today",
+  "navProgress": "Progress",
+  "navHistory": "History",
+  "navPlan": "Plan",
+  "profileGroupData": "Data",
+  "progressChange": "CHANGE",
+  "notifChannelName": "Workout session"
 }

@@ -267,5 +267,12 @@
   "muscleHamstrings": "Femorali",
   "muscleCalves": "Polpacci",
   "muscleBiceps": "Bicipiti",
-  "muscleTriceps": "Tricipiti"
+  "muscleTriceps": "Tricipiti",
+  "navToday": "Oggi",
+  "navProgress": "Progressi",
+  "navHistory": "Cronologia",
+  "navPlan": "Scheda",
+  "profileGroupData": "Dati",
+  "progressChange": "CAMBIA",
+  "notifChannelName": "Sessione di allenamento"
 }

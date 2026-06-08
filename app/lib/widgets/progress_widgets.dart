@@ -232,7 +232,7 @@ class ProgressSelectorRow extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'CHANGE',
+                        AppLocalizations.of(context).progressChange,
                         style: WorkoutType.mono(
                           size: 10,
                           weight: FontWeight.w700,

@@ -23,10 +23,26 @@ const restBlobTotal = 'rest.total'; // seconds
 // BuildContext (and the +30s revert path runs in a background isolate), so
 // AppLocalizations is unreachable — this standalone map fills that gap.
 const _notifStrings = <String, Map<String, String>>{
-  'en': {'rest': 'Rest', 'inProgress': 'Workout in progress'},
-  'it': {'rest': 'Recupero', 'inProgress': 'Allenamento in corso'},
-  'de': {'rest': 'Pause', 'inProgress': 'Training läuft'},
-  'es': {'rest': 'Descanso', 'inProgress': 'Entrenamiento en curso'},
+  'en': {
+    'rest': 'Rest',
+    'inProgress': 'Workout in progress',
+    'channel': 'Workout session',
+  },
+  'it': {
+    'rest': 'Recupero',
+    'inProgress': 'Allenamento in corso',
+    'channel': 'Sessione di allenamento',
+  },
+  'de': {
+    'rest': 'Pause',
+    'inProgress': 'Training läuft',
+    'channel': 'Trainingssitzung',
+  },
+  'es': {
+    'rest': 'Descanso',
+    'inProgress': 'Entrenamiento en curso',
+    'channel': 'Sesión de entrenamiento',
+  },
 };
 
 /// Resolves a notification string for the active locale WITHOUT a BuildContext
@@ -73,15 +89,18 @@ DateTime restRevertAt(DateTime restStart, int restTotal) =>
 /// instance and the background isolate. [countdown] chooses chronometer
 /// direction (true = rest countdown, false = elapsed); [when] anchors the
 /// chronometer (rest end for countdown, session start for elapsed);
-/// [withAction] adds the "+30s" action chip (only on the live rest countdown).
+/// [withAction] adds the "+30s" action chip (only on the live rest countdown);
+/// [channelName] is the localized channel display name (resolved by the caller,
+/// which has the SharedPreferences this builder lacks).
 AndroidNotificationDetails buildWorkoutAndroidDetails({
   required bool countdown,
   required DateTime when,
   required bool withAction,
+  required String channelName,
 }) {
   return AndroidNotificationDetails(
     _kChannelId,
-    'Workout session',
+    channelName,
     importance: Importance.low,
     priority: Priority.low,
     playSound: false,
@@ -144,7 +163,10 @@ Future<void> workoutNotificationBackground(NotificationResponse resp) async {
     body: notifString(prefs, 'rest'),
     notificationDetails: NotificationDetails(
       android: buildWorkoutAndroidDetails(
-          countdown: true, when: end, withAction: true),
+          countdown: true,
+          when: end,
+          withAction: true,
+          channelName: notifString(prefs, 'channel')),
     ),
   );
   if (end.isAfter(DateTime.now())) {
@@ -155,7 +177,10 @@ Future<void> workoutNotificationBackground(NotificationResponse resp) async {
       scheduledDate: tz.TZDateTime.from(end, tz.UTC),
       notificationDetails: NotificationDetails(
         android: buildWorkoutAndroidDetails(
-            countdown: false, when: startedAt, withAction: false),
+            countdown: false,
+            when: startedAt,
+            withAction: false,
+            channelName: notifString(prefs, 'channel')),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
@@ -174,6 +199,7 @@ class WorkoutNotification {
 
   Future<void> init({void Function()? onTap, void Function()? onAdd30}) async {
     if (!Platform.isAndroid) return;
+    final prefs = await SharedPreferences.getInstance();
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -190,9 +216,9 @@ class WorkoutNotification {
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
+        ?.createNotificationChannel(AndroidNotificationChannel(
           _kChannelId,
-          'Workout session',
+          notifString(prefs, 'channel'),
           importance: Importance.low,
           playSound: false,
         ));
@@ -205,10 +231,14 @@ class WorkoutNotification {
   AndroidNotificationDetails _androidDetails({
     required bool countdown,
     required DateTime when,
+    required String channelName,
     bool withAction = false,
   }) =>
       buildWorkoutAndroidDetails(
-          countdown: countdown, when: when, withAction: withAction);
+          countdown: countdown,
+          when: when,
+          withAction: withAction,
+          channelName: channelName);
 
   Future<void> showFor({
     required String name,
@@ -255,8 +285,11 @@ class WorkoutNotification {
       title: p.title,
       body: notifString(prefs, p.countdown ? 'rest' : 'inProgress'),
       notificationDetails: NotificationDetails(
-        android:
-            _androidDetails(countdown: p.countdown, when: p.when, withAction: p.countdown),
+        android: _androidDetails(
+            countdown: p.countdown,
+            when: p.when,
+            withAction: p.countdown,
+            channelName: notifString(prefs, 'channel')),
       ),
     );
     // Schedule the OS alarm that reverts the countdown back to elapsed mode at
@@ -274,7 +307,10 @@ class WorkoutNotification {
           body: notifString(prefs, 'inProgress'),
           scheduledDate: tz.TZDateTime.from(end, tz.UTC),
           notificationDetails: NotificationDetails(
-            android: _androidDetails(countdown: false, when: startedAt),
+            android: _androidDetails(
+                countdown: false,
+                when: startedAt,
+                channelName: notifString(prefs, 'channel')),
           ),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         );

@@ -267,5 +267,12 @@
   "muscleHamstrings": "Isquiotibiales",
   "muscleCalves": "Pantorrillas",
   "muscleBiceps": "Bíceps",
-  "muscleTriceps": "Tríceps"
+  "muscleTriceps": "Tríceps",
+  "navToday": "Hoy",
+  "navProgress": "Progreso",
+  "navHistory": "Historial",
+  "navPlan": "Plan",
+  "profileGroupData": "Datos",
+  "progressChange": "CAMBIAR",
+  "notifChannelName": "Sesión de entrenamiento"
 }

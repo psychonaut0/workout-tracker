@@ -757,7 +757,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // ── Data ────────────────────────────────────────────────────
                 _Group(
-                  label: 'Data',
+                  label: l.profileGroupData,
                   children: [
                     _Row(
                       icon: WIcons.export,

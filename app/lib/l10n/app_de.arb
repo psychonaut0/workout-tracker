@@ -267,5 +267,12 @@
   "muscleHamstrings": "Beinbeuger",
   "muscleCalves": "Waden",
   "muscleBiceps": "Bizeps",
-  "muscleTriceps": "Trizeps"
+  "muscleTriceps": "Trizeps",
+  "navToday": "Heute",
+  "navProgress": "Fortschritt",
+  "navHistory": "Verlauf",
+  "navPlan": "Plan",
+  "profileGroupData": "Daten",
+  "progressChange": "ÄNDERN",
+  "notifChannelName": "Trainingssitzung"
 }
