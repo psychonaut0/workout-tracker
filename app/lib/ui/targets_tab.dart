@@ -69,7 +69,6 @@ class TargetsList extends StatelessWidget {
         for (final entry in kMuscleLabels.entries)
           _TargetRow(
             muscle: entry.key,
-            label: entry.value,
             sets: targets[entry.key]?.targetSets ?? 0,
             tokens: tokens,
             onChanged: onChanged,
@@ -82,14 +81,12 @@ class TargetsList extends StatelessWidget {
 class _TargetRow extends StatelessWidget {
   const _TargetRow({
     required this.muscle,
-    required this.label,
     required this.sets,
     required this.tokens,
     required this.onChanged,
   });
 
   final String muscle;
-  final String label;
   final int sets;
   final WorkoutTokens tokens;
   final void Function(String muscle, int sets) onChanged;
@@ -117,7 +114,7 @@ class _TargetRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    label,
+                    localizedMuscle(context, muscle),
                     style: WorkoutType.body(
                       size: 15.5,
                       weight: FontWeight.w600,

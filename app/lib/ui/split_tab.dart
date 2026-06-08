@@ -86,7 +86,8 @@ class _DayCard extends StatelessWidget {
     final weekBadge = (day.scheduledWeekday != null &&
             day.scheduledWeekday! >= 0 &&
             day.scheduledWeekday! <= 6)
-        ? weekdayShort(day.scheduledWeekday!)
+        ? weekdayShort(day.scheduledWeekday!,
+            Localizations.localeOf(context).toLanguageTag())
         : '–';
 
     return Padding(

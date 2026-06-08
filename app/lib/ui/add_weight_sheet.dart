@@ -152,7 +152,11 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
                 ),
               ),
               Text(
-                fmtDate(today, weekday: true),
+                fmtDate(
+                  today,
+                  Localizations.localeOf(context).toLanguageTag(),
+                  weekday: true,
+                ),
                 style: WorkoutType.mono(size: 11.5, color: tokens.faint),
               ),
             ],

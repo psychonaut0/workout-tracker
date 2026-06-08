@@ -338,7 +338,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             items: muscleItems,
             selected: _muscleGroup,
             onSelect: (v) => setState(() => _muscleGroup = v),
-            labelOf: muscleLabel,
+            labelOf: (m) => localizedMuscle(context, m),
           ),
         ),
 

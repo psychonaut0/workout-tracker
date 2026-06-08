@@ -255,6 +255,7 @@ class _DayEditorState extends State<DayEditor> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final tokens = context.tokens;
+    final localeName = Localizations.localeOf(context).toLanguageTag();
 
     if (!_loaded) {
       return const Center(child: CircularProgressIndicator());
@@ -292,7 +293,7 @@ class _DayEditorState extends State<DayEditor> {
             items: List.generate(7, (i) => i),
             selected: _weekday,
             onSelect: (v) => setState(() => _weekday = v),
-            labelOf: weekdayShort,
+            labelOf: (i) => weekdayShort(i, localeName),
           ),
         ),
 

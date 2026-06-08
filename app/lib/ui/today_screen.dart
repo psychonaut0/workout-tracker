@@ -8,6 +8,7 @@ import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscle_target_repository.dart';
+import '../data/muscles.dart';
 import '../data/session_repository.dart';
 import '../data/stats_repository.dart';
 import '../l10n/app_localizations.dart';
@@ -162,6 +163,7 @@ class _TodayScreenState extends State<TodayScreen> {
     // Reactive session manager — swap the hero to a resume card when active.
     final manager = context.watch<SessionManager>();
     final tokens = context.tokens;
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     final now = DateTime.now();
     final ws = weekStart(now);
 
@@ -199,7 +201,7 @@ class _TodayScreenState extends State<TodayScreen> {
             children: [
               _GreetingHeader(
                 dateLabel:
-                    '${fmtDate(isoDate(now), weekday: true)} · $restOrTrain',
+                    '${fmtDate(isoDate(now), localeName, weekday: true)} · $restOrTrain',
                 onTapProfile: widget.onOpenProfile,
               ),
               const SizedBox(height: 18),
@@ -281,10 +283,11 @@ class _TodayScreenState extends State<TodayScreen> {
   // ── Section builders ──────────────────────────────────────────────────────────
 
   Widget _buildSplitCard() {
+    final l = AppLocalizations.of(context);
     // Build SplitCard entries: exerciseCount from slots, lastAgo from sessions.
     final entries = _dayList.map((day) {
       final lastDate = _lastDateForDay(day.id);
-      final lastAgo = lastDate != null ? daysAgo(lastDate) : '—';
+      final lastAgo = lastDate != null ? localizedDaysAgo(l, lastDate) : '—';
       return (
         day: day,
         exerciseCount: day.slots.length,
@@ -497,7 +500,11 @@ class _TodayScreenState extends State<TodayScreen> {
             // so VolumeBars never sees null and goalless muscles show on-target.
             final rows = volRows.map((v) {
               final target = targetMap[v.muscle] ?? v.sets;
-              return (muscle: v.muscle, sets: v.sets, target: target);
+              return (
+                muscle: localizedMuscle(context, v.muscle),
+                sets: v.sets,
+                target: target,
+              );
             }).toList();
 
             return Column(
@@ -659,7 +666,11 @@ class _PrRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  fmtDate(pr.date, weekday: true),
+                  fmtDate(
+                    pr.date,
+                    Localizations.localeOf(context).toLanguageTag(),
+                    weekday: true,
+                  ),
                   style: WorkoutType.mono(
                     size: 11,
                     color: tokens.faint,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
@@ -316,7 +317,10 @@ class _WeekHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            l.historyWeekOf(fmtDate(weekKey).toUpperCase()),
+            l.historyWeekOf(fmtDate(
+              weekKey,
+              Localizations.localeOf(context).toLanguageTag(),
+            ).toUpperCase()),
             style: WorkoutType.mono(
               size: 11,
               weight: FontWeight.w600,
@@ -360,13 +364,11 @@ class _SessionCardState extends State<SessionCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     final session = widget.session;
     final date = DateTime.parse('${session.date}T00:00:00');
-
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
+    final monthLabel = DateFormat.MMM(localeName).format(date);
 
     // Parse split_label into name + focus parts.
     final label = session.splitLabel ?? '';
@@ -410,7 +412,7 @@ class _SessionCardState extends State<SessionCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            months[date.month - 1].toUpperCase(),
+                            monthLabel.toUpperCase(),
                             style: WorkoutType.mono(
                               size: 9.5,
                               color: tokens.faint,
@@ -494,7 +496,7 @@ class _SessionCardState extends State<SessionCard> {
                               ],
                               const SizedBox(width: 12),
                               Text(
-                                daysAgo(session.date),
+                                localizedDaysAgo(l, session.date),
                                 style: WorkoutType.mono(
                                   size: 10.5,
                                   color: tokens.faint,

@@ -13,6 +13,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../util/dates.dart';
 import '../util/format.dart';
 import '../widgets/card.dart';
 import '../widgets/line_chart.dart';
@@ -189,7 +190,7 @@ class _LiftView extends StatelessWidget {
     });
 
     // Subtitle for selector row.
-    final muscleStr = muscleLabel(exercise.muscleGroup);
+    final muscleStr = localizedMuscle(context, exercise.muscleGroup);
     final equipStr = exercise.equip ?? '';
     final subtitle =
         equipStr.isNotEmpty ? '$muscleStr · $equipStr' : muscleStr;
@@ -405,6 +406,7 @@ class _SessionLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first.
     final reversed = List.generate(rawSeries.length, (i) {
       final origIdx = rawSeries.length - 1 - i;
@@ -438,7 +440,7 @@ class _SessionLogCard extends StatelessWidget {
                 SizedBox(
                   width: 58,
                   child: Text(
-                    _fmtDate(p.date),
+                    fmtDate(p.date, localeName),
                     style: WorkoutType.mono(size: 12, color: tokens.dim),
                   ),
                 ),
@@ -476,20 +478,6 @@ class _SessionLogCard extends StatelessWidget {
         }),
       ),
     );
-  }
-}
-
-String _fmtDate(String iso) {
-  // Reuse dates.dart fmtDate without weekday.
-  try {
-    final d = DateTime.parse('${iso}T00:00:00');
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${d.day} ${months[d.month - 1]}';
-  } catch (_) {
-    return iso;
   }
 }
 

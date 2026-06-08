@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_store.dart';
@@ -34,6 +35,10 @@ bool shouldConnectSync({required bool syncEnabled, required bool loggedIn}) =>
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load locale date symbols so DateFormat can render localized weekday and
+  // month names for every supported locale (it/de/es), not just en.
+  await initializeDateFormatting();
 
   // Load client-local settings first so apiBaseUrl is set before
   // openDatabase/connectSync (PowerSync and the connector read it at startup).

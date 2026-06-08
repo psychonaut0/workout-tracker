@@ -69,8 +69,10 @@ class _DayChip extends StatelessWidget {
 
     final bgColor = isNext ? tokens.accent : tokens.surface;
     final borderColor = isNext ? Colors.transparent : tokens.line;
-    final weekdayLabel =
-        day.weekday != null ? weekdayShort(day.weekday!) : '';
+    final weekdayLabel = day.weekday != null
+        ? weekdayShort(
+            day.weekday!, Localizations.localeOf(context).toLanguageTag())
+        : '';
 
     return Container(
       decoration: BoxDecoration(

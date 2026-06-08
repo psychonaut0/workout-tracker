@@ -163,7 +163,7 @@ class _MuscleSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
           child: Text(
-            muscleLabel(muscle).toUpperCase(),
+            localizedMuscle(context, muscle).toUpperCase(),
             style: WorkoutType.mono(
               size: 10.5,
               weight: FontWeight.w700,
@@ -214,11 +214,11 @@ class _ExerciseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    // Sub-label: '{equip ?? muscleLabel(muscleGroup)}{ · compound}'
+    // Sub-label: '{equip ?? localizedMuscle(muscleGroup)}{ · compound}'
     final subParts = <String>[
       exercise.equip?.isNotEmpty == true
           ? exercise.equip!
-          : muscleLabel(exercise.muscleGroup),
+          : localizedMuscle(context, exercise.muscleGroup),
       if (exercise.compound) '· ${l.exerciseCompound}',
     ];
     final subLabel = subParts.join(' ');

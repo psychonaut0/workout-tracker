@@ -138,6 +138,14 @@
       }
     }
   },
+  "sessionWeeksAgo": "{count}w ago",
+  "@sessionWeeksAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sessionTagTop": "TOP",
   "sessionWarmupShort": "W",
   "sessionRir": "RIR {value}",
@@ -502,5 +510,13 @@
         "type": "int"
       }
     }
-  }
+  },
+  "muscleChest": "Chest",
+  "muscleBack": "Back",
+  "muscleShoulders": "Shoulders",
+  "muscleQuads": "Quads",
+  "muscleHamstrings": "Hamstrings",
+  "muscleCalves": "Calves",
+  "muscleBiceps": "Biceps",
+  "muscleTriceps": "Triceps"
 }

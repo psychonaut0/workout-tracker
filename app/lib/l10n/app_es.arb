@@ -65,6 +65,7 @@
   "sessionToday": "hoy",
   "sessionYesterday": "ayer",
   "sessionDaysAgo": "hace {count}d",
+  "sessionWeeksAgo": "hace {count} sem",
   "sessionTagTop": "TOP",
   "sessionWarmupShort": "C",
   "sessionRir": "RIR {value}",
@@ -258,5 +259,13 @@
   "syncJustNow": "ahora mismo",
   "syncMinutesAgo": "{count, plural, other{hace {count} min}}",
   "syncHoursAgo": "{count, plural, other{hace {count} h}}",
-  "syncDateShort": "{day}/{month}"
+  "syncDateShort": "{day}/{month}",
+  "muscleChest": "Pecho",
+  "muscleBack": "Espalda",
+  "muscleShoulders": "Hombros",
+  "muscleQuads": "Cuádriceps",
+  "muscleHamstrings": "Isquiotibiales",
+  "muscleCalves": "Pantorrillas",
+  "muscleBiceps": "Bíceps",
+  "muscleTriceps": "Tríceps"
 }

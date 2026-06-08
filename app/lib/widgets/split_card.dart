@@ -103,7 +103,8 @@ class DaySlide extends StatelessWidget {
     final eyebrow = isNext
         ? l.splitNextInRotation
         : l.splitSwitchTo((day.scheduledWeekday != null
-                ? weekdayShort(day.scheduledWeekday!)
+                ? weekdayShort(day.scheduledWeekday!,
+                    Localizations.localeOf(context).toLanguageTag())
                 : day.name)
             .toUpperCase());
 

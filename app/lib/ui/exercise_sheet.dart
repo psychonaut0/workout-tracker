@@ -154,7 +154,7 @@ class _ExerciseSheetState extends State<_ExerciseSheet> {
                     // Exercise groups
                     for (final muscle in muscles) ...[
                       _SectionLabel(
-                        label: muscleLabel(muscle).toUpperCase(),
+                        label: localizedMuscle(context, muscle).toUpperCase(),
                         tokens: tokens,
                       ),
                       for (final ex in grouped[muscle]!) ...[

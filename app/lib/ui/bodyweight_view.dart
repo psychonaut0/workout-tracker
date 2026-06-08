@@ -301,6 +301,7 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first, capped at 24.
     final items = series.reversed.take(24).toList();
 
@@ -329,7 +330,7 @@ class _HistoryCard extends StatelessWidget {
                 SizedBox(
                   width: 64,
                   child: Text(
-                    fmtDate(entry.date, weekday: true),
+                    fmtDate(entry.date, localeName, weekday: true),
                     style: WorkoutType.mono(size: 12, color: tokens.dim),
                   ),
                 ),
