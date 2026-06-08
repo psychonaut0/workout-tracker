@@ -66,8 +66,8 @@ ExerciseDeleteAction decideExerciseDelete({
       sql: 'INSERT INTO exercises '
           '(id, slug, name, muscle_group, equip, compound, base_weight_kg, plate_step_kg, '
           'default_rep_low, default_rep_high, default_warmup_sets, default_working_sets, '
-          'default_rir_low, default_rir_high) '
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'default_rir_low, default_rir_high, default_rest_seconds) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       args: [
         newId,
         slug,
@@ -83,6 +83,7 @@ ExerciseDeleteAction decideExerciseDelete({
         d.defaultWorkingSets,
         d.defaultRirLow,
         d.defaultRirHigh,
+        d.defaultRestSeconds,
       ],
     );
   } else {
@@ -91,7 +92,7 @@ ExerciseDeleteAction decideExerciseDelete({
           'name = ?, muscle_group = ?, equip = ?, compound = ?, base_weight_kg = ?, '
           'plate_step_kg = ?, default_rep_low = ?, default_rep_high = ?, '
           'default_warmup_sets = ?, default_working_sets = ?, '
-          'default_rir_low = ?, default_rir_high = ? '
+          'default_rir_low = ?, default_rir_high = ?, default_rest_seconds = ? '
           'WHERE id = ?',
       args: [
         d.name,
@@ -106,6 +107,7 @@ ExerciseDeleteAction decideExerciseDelete({
         d.defaultWorkingSets,
         d.defaultRirLow,
         d.defaultRirHigh,
+        d.defaultRestSeconds,
         existingId,
       ],
     );

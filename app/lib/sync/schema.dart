@@ -32,6 +32,7 @@ const schema = Schema([
     Column.integer('default_working_sets'),
     Column.integer('default_rir_low'),
     Column.integer('default_rir_high'),
+    Column.integer('default_rest_seconds'),
   ]),
   Table('sessions', [
     Column.text('user_id'),

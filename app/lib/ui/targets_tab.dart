@@ -63,7 +63,7 @@ class TargetsList extends StatelessWidget {
     final tokens = context.tokens;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, kBottomNavInset),
       children: [
         for (final entry in kMuscleLabels.entries)
           _TargetRow(

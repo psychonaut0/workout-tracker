@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/shell/session_mini_bar.dart';
+import 'package:workout_tracker/shell/session_indicator.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
+import 'package:workout_tracker/theme/tokens.dart';
 
 void main() {
-  testWidgets('shows session name and ticking elapsed', (tester) async {
+  testWidgets('shows ticking elapsed and taps through', (tester) async {
     var tapped = false;
     await tester.pumpWidget(MaterialApp(
+      theme: buildTheme(Brightness.dark, accents[0]),
       home: Scaffold(
-        body: SessionMiniBar(
-          name: 'Upper A',
+        body: SessionIndicator(
           startedAt: DateTime.now().subtract(const Duration(minutes: 5)),
           restStart: null,
           restTotal: 0,
@@ -17,18 +19,17 @@ void main() {
       ),
     ));
     await tester.pump();
-    expect(find.text('Upper A'), findsOneWidget);
     expect(find.textContaining('5:0'), findsOneWidget); // 5:00–5:09 window
-    await tester.tap(find.byType(SessionMiniBar));
+    await tester.tap(find.byType(SessionIndicator));
     expect(tapped, isTrue);
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('swaps to rest countdown while resting', (tester) async {
+  testWidgets('shows rest countdown while resting', (tester) async {
     await tester.pumpWidget(MaterialApp(
+      theme: buildTheme(Brightness.dark, accents[0]),
       home: Scaffold(
-        body: SessionMiniBar(
-          name: 'Upper A',
+        body: SessionIndicator(
           startedAt: DateTime.now().subtract(const Duration(minutes: 5)),
           restStart: DateTime.now().subtract(const Duration(seconds: 10)),
           restTotal: 90,
@@ -37,7 +38,6 @@ void main() {
       ),
     ));
     await tester.pump();
-    expect(find.textContaining('Rest'), findsOneWidget);
     expect(find.textContaining('1:'), findsOneWidget); // ~1:20 remaining
     await tester.pump(const Duration(seconds: 1));
   });

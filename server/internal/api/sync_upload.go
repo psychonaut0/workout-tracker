@@ -274,6 +274,7 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 		workingSets, _ := str(op.Data, "default_working_sets")
 		rirLow, _ := str(op.Data, "default_rir_low")
 		rirHigh, _ := str(op.Data, "default_rir_high")
+		restSeconds, _ := str(op.Data, "default_rest_seconds")
 		if slug != "" {
 			var taken bool
 			if err := tx.QueryRow(ctx,
@@ -289,7 +290,7 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 			`INSERT INTO exercises
 			   (id, name, slug, muscle_group, equip, compound, base_weight_kg, plate_step_kg,
 			    default_rep_low, default_rep_high, default_warmup_sets, default_working_sets,
-			    default_rir_low, default_rir_high, is_template, created_by)
+			    default_rir_low, default_rir_high, is_template, created_by, default_rest_seconds)
 			 VALUES ($1::uuid, $2, $3, $4, NULLIF($5,''),
 			    COALESCE(NULLIF($6,'')::bool, false),
 			    NULLIF($7,'')::numeric,
@@ -297,17 +298,18 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 			    NULLIF($9,'')::numeric::int, NULLIF($10,'')::numeric::int,
 			    NULLIF($11,'')::numeric::int, NULLIF($12,'')::numeric::int,
 			    NULLIF($13,'')::numeric::int, NULLIF($14,'')::numeric::int,
-			    false, $15::uuid)
+			    false, $15::uuid, NULLIF($16,'')::numeric::int)
 			 ON CONFLICT (id) DO UPDATE SET
 			   name=EXCLUDED.name, slug=EXCLUDED.slug, muscle_group=EXCLUDED.muscle_group,
 			   equip=EXCLUDED.equip, compound=EXCLUDED.compound,
 			   base_weight_kg=EXCLUDED.base_weight_kg, plate_step_kg=EXCLUDED.plate_step_kg,
 			   default_rep_low=EXCLUDED.default_rep_low, default_rep_high=EXCLUDED.default_rep_high,
 			   default_warmup_sets=EXCLUDED.default_warmup_sets, default_working_sets=EXCLUDED.default_working_sets,
-			   default_rir_low=EXCLUDED.default_rir_low, default_rir_high=EXCLUDED.default_rir_high
+			   default_rir_low=EXCLUDED.default_rir_low, default_rir_high=EXCLUDED.default_rir_high,
+			   default_rest_seconds=EXCLUDED.default_rest_seconds
 			 WHERE exercises.created_by = $15::uuid`,
 			op.ID, name, slug, muscle, equip, compound, baseWeight, plateStep,
-			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh, userID)
+			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh, userID, restSeconds)
 		return err
 	case "PATCH":
 		name, _ := str(op.Data, "name")
@@ -322,6 +324,11 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 		workingSets, _ := str(op.Data, "default_working_sets")
 		rirLow, _ := str(op.Data, "default_rir_low")
 		rirHigh, _ := str(op.Data, "default_rir_high")
+		restSeconds, _ := str(op.Data, "default_rest_seconds")
+		// PATCH opData carries ONLY changed columns, so key-presence means the
+		// client intends to set this. Honor an explicit null (clear-to-Default):
+		// present + '' → NULL; present + '120' → 120; absent → keep old value.
+		_, restPresent := op.Data["default_rest_seconds"]
 		_, err := tx.Exec(ctx,
 			`UPDATE exercises SET
 			   name           = COALESCE(NULLIF($3,''), name),
@@ -335,10 +342,13 @@ func applyExercise(ctx context.Context, tx pgx.Tx, userID string, op crudOp) err
 			   default_warmup_sets  = COALESCE(NULLIF($11,'')::numeric::int, default_warmup_sets),
 			   default_working_sets = COALESCE(NULLIF($12,'')::numeric::int, default_working_sets),
 			   default_rir_low      = COALESCE(NULLIF($13,'')::numeric::int, default_rir_low),
-			   default_rir_high     = COALESCE(NULLIF($14,'')::numeric::int, default_rir_high)
+			   default_rir_high     = COALESCE(NULLIF($14,'')::numeric::int, default_rir_high),
+			   default_rest_seconds = CASE WHEN $16::bool
+			                               THEN NULLIF($15,'')::numeric::int
+			                               ELSE default_rest_seconds END
 			 WHERE id=$1::uuid AND created_by=$2::uuid`,
 			op.ID, userID, name, muscle, equip, compound, baseWeight, plateStep,
-			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh)
+			repLow, repHigh, warmupSets, workingSets, rirLow, rirHigh, restSeconds, restPresent)
 		return err
 	case "DELETE":
 		_, err := tx.Exec(ctx, `DELETE FROM exercises WHERE id=$1::uuid AND created_by=$2::uuid`, op.ID, userID)

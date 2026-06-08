@@ -45,4 +45,9 @@ void main() {
     expect(p.when, started);
     expect(p.body, 'Workout in progress');
   });
+
+  test('restRevertAt = restStart + restTotal', () {
+    expect(restRevertAt(DateTime(2026, 1, 1, 10, 0, 0), 90),
+        DateTime(2026, 1, 1, 10, 1, 30));
+  });
 }

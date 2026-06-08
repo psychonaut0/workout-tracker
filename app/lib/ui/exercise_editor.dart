@@ -67,6 +67,9 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   int _workSets = 3;
   int _warmupSets = 0;
 
+  // Per-exercise rest (seconds); 0 = "Default" = null (use the global default).
+  int _restSeconds = 0;
+
   // PR (kg, 0 = no PR)
   double _prKg = 0;
 
@@ -165,6 +168,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       _repHigh = ex.defaultRepHigh ?? 12;
       _workSets = ex.defaultWorkingSets ?? 3;
       _warmupSets = ex.defaultWarmupSets ?? 0;
+      _restSeconds = ex.defaultRestSeconds ?? 0;
       _rirCtrl.text = rirText;
       _prKg = prKg;
       _extraMuscle = extra;
@@ -218,6 +222,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       defaultWorkingSets: _workSets,
       defaultRirLow: rir?.low,
       defaultRirHigh: rir?.high,
+      defaultRestSeconds: _restSeconds == 0 ? null : _restSeconds,
     );
 
     if (_editId != null) {
@@ -313,7 +318,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     ];
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomNavInset),
       children: [
         // ── Identity ──────────────────────────────────────────────────────
 
@@ -546,6 +551,19 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
               ),
             ),
           ],
+        ),
+
+        // Per-exercise rest — 0 = "Default" = inherit the global rest default.
+        Field(
+          label: 'Rest',
+          hint: 'Rest between sets. Default inherits the global rest setting.',
+          child: WStepper(
+            value: _restSeconds.toDouble(),
+            step: 15,
+            format: (v) => v == 0 ? 'Default' : '${v.round()}s',
+            onChanged: (v) =>
+                setState(() => _restSeconds = v.round() < 0 ? 0 : v.round()),
+          ),
         ),
 
         // RIR target — raw text, parsed via rirTryParse on save only.

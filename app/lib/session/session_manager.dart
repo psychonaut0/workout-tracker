@@ -1,6 +1,5 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/active_session_draft.dart';
 import 'active_session_controller.dart';
@@ -9,7 +8,7 @@ import 'workout_notification.dart';
 /// App-scoped owner of the active workout. The session screen renders
 /// [active]; minimizing the screen leaves the workout running here. Also the
 /// single driver of the ongoing Android notification (when [notifier] is set).
-class SessionManager extends ChangeNotifier {
+class SessionManager extends ChangeNotifier with WidgetsBindingObserver {
   ActiveSessionController? _active;
   ActiveSessionController? get active => _active;
   bool get hasActive => _active != null;
@@ -27,12 +26,57 @@ class SessionManager extends ChangeNotifier {
   /// Optional notification surface (null on Linux/tests).
   WorkoutNotification? notifier;
 
-  /// Stops the rest automatically when it expires while the screen is closed
-  /// (with the screen open, its ticker handles this; stopRest is guarded).
-  Timer? _restExpiry;
+  /// Registers the app-lifecycle observer (so a background +30s tap is
+  /// reconciled into the live controller on resume). Call once at startup.
+  void init() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Foreground +30s from the notification chip while the app is alive — the
+  /// live controller is the source of truth, so just extend it directly.
+  void add30FromNotification() {
+    _active?.addRestTime(30);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reconcileRestFromBlob();
+    }
+  }
+
+  Future<void> _reconcileRestFromBlob() async {
+    final c = _active;
+    if (c == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // background +30s wrote disk; refresh the frozen cache
+    final startMs = prefs.getInt(restBlobStartMs);
+    final total = prefs.getInt(restBlobTotal);
+    if (startMs != null && total != null) {
+      final blobStart = DateTime.fromMillisecondsSinceEpoch(startMs);
+      // A background +30s changed the blob but not the live controller.
+      // Reconcile only when it's the same rest (same start) with a different
+      // total.
+      if (c.restStart != null &&
+          c.restStart!.millisecondsSinceEpoch == startMs &&
+          c.restTotal != total) {
+        c.setRestRaw(blobStart, total);
+      }
+    }
+    // If rest already elapsed (e.g. expired while backgrounded, screen closed),
+    // reconcile the controller to stopped — the OS alarm reverted the notif but
+    // nothing cleared the live controller.
+    final rs = c.restStart;
+    if (rs != null &&
+        DateTime.now().isAfter(rs.add(Duration(seconds: c.restTotal)))) {
+      c.stopRest();
+    }
+  }
+
+  @visibleForTesting
+  Future<void> reconcileForTest() => _reconcileRestFromBlob();
 
   void register(ActiveSessionController c) {
-    _restExpiry?.cancel(); // defensive: never let a stale timer poke a new session
     _active?.removeListener(_onControllerChange);
     _active = c;
     c.addListener(_onControllerChange);
@@ -53,7 +97,6 @@ class SessionManager extends ChangeNotifier {
       clear();
       return;
     }
-    _armRestExpiry(c);
     notifier?.showFor(
       name: c.draft.name,
       startedAt: c.draft.startedAt,
@@ -63,20 +106,7 @@ class SessionManager extends ChangeNotifier {
     notifyListeners(); // mini-bar rest-mode swap
   }
 
-  void _armRestExpiry(ActiveSessionController c) {
-    _restExpiry?.cancel();
-    final start = c.restStart;
-    if (start == null) return;
-    final remaining =
-        start.add(Duration(seconds: c.restTotal)).difference(DateTime.now());
-    _restExpiry = Timer(
-      remaining.isNegative ? Duration.zero : remaining + const Duration(seconds: 1),
-      c.stopRest, // guarded no-op if already stopped
-    );
-  }
-
   void clear() {
-    _restExpiry?.cancel();
     _active?.removeListener(_onControllerChange);
     _active = null;
     notifier?.cancel();
@@ -94,7 +124,7 @@ class SessionManager extends ChangeNotifier {
 
   @override
   void dispose() {
-    _restExpiry?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _active?.removeListener(_onControllerChange);
     super.dispose();
   }

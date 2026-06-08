@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
@@ -12,7 +10,8 @@ import 'card.dart';
 /// Each row shows:
 ///   • A 74 px muscle label
 ///   • A proportional fill bar (muted `lineStrong` when `sets < target`,
-///     `accent` when `sets >= target`) with a 1.5 px tick at `target/max`
+///     `accent` when `sets >= target`), normalized against this muscle's own
+///     `target`, with the 1.5 px target tick fixed at the 100% right edge
 ///   • A right-aligned `'{sets}/{target}'` value (dim when under target)
 ///
 /// `target` is always a non-null int; Task 7 coalesces goalless muscles to
@@ -36,13 +35,6 @@ class VolumeBars extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
 
-    // Compute the scale maximum across all sets + targets, with a floor of 1
-    // to avoid division by zero when the list is empty.
-    final maxVal = rows.fold<int>(
-      1,
-      (m, r) => [m, r.sets, r.target].reduce(max),
-    );
-
     return WCard(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(
@@ -53,7 +45,6 @@ class VolumeBars extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 11),
               child: _VolumeRow(
                 row: row,
-                maxVal: maxVal,
                 tokens: tokens,
                 index: index,
               ),
@@ -67,13 +58,11 @@ class VolumeBars extends StatelessWidget {
 class _VolumeRow extends StatelessWidget {
   const _VolumeRow({
     required this.row,
-    required this.maxVal,
     required this.tokens,
     required this.index,
   });
 
   final ({String muscle, int sets, int target}) row;
-  final int maxVal;
   final WorkoutTokens tokens;
 
   /// Row position, used to stagger the bar grow-in (~20ms per row).
@@ -85,8 +74,11 @@ class _VolumeRow extends StatelessWidget {
     final fillColor = underTarget ? tokens.lineStrong : tokens.accent;
     final valueColor = underTarget ? tokens.dim : tokens.text;
 
-    final fillFraction = row.sets / maxVal;
-    final tickFraction = row.target / maxVal;
+    // Normalize against THIS muscle's own target (0% = none, 100% = target).
+    final fillFraction =
+        row.target > 0 ? (row.sets / row.target).clamp(0.0, 1.0) : 0.0;
+    // The target tick sits at the right edge (100%) once normalized to target.
+    const tickFraction = 1.0;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

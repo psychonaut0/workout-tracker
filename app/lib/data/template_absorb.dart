@@ -53,32 +53,42 @@ List<AbsorbOp> absorbOps({
   required Set<String> affectedSessionDayIds,
   required Set<String> existingIds,
   required Set<String> alreadyAbsorbed,
+  required Map<String, String> ownedExerciseByKey, // 'lower(name)|muscle' → owned id
+  required Map<String, String> ownedDayByName, // 'lower(name)' → owned id
   required String nowIso,
 }) {
   final ops = <AbsorbOp>[];
 
-  // Map EVERY template exercise id → its copy id (re-points route through this
-  // even for exercises absorbed on an earlier boot — the template rows keep
-  // syncing down, so they're always in [templateExercises]).
+  // Map EVERY template exercise id → its target id. Normally the deterministic
+  // copy id, BUT when an owned row already exists by name+muscle (e.g. the
+  // onboarding seed created it with a random id), the target is that existing
+  // owned id so re-points route there and no duplicate copy is created.
+  String exTargetId(Map<String, Object?> e) {
+    final key = '${(e['name'] as String).toLowerCase()}|${e['muscle_group']}';
+    return ownedExerciseByKey[key] ?? absorbCopyId(userId, e['id'] as String);
+  }
+
   final exCopyIds = {
-    for (final e in templateExercises)
-      e['id'] as String: absorbCopyId(userId, e['id'] as String),
+    for (final e in templateExercises) e['id'] as String: exTargetId(e),
   };
 
   for (final e in templateExercises) {
     final oldId = e['id'] as String;
-    final copyId = exCopyIds[oldId]!;
+    final target = exCopyIds[oldId]!;
+    // Owned name+muscle twin already exists — re-point references to it, never
+    // insert a copy (the deterministic copy id would be a duplicate exercise).
+    if (target != absorbCopyId(userId, oldId)) continue;
     // Emit the INSERT only when the copy neither exists nor was absorbed before.
-    if (!existingIds.contains(copyId) && !alreadyAbsorbed.contains(oldId)) {
+    if (!existingIds.contains(target) && !alreadyAbsorbed.contains(oldId)) {
       ops.add((
         sql: 'INSERT INTO exercises '
             '(id, slug, name, muscle_group, equip, compound, base_weight_kg, plate_step_kg, '
             'default_rep_low, default_rep_high, default_warmup_sets, default_working_sets, '
-            'default_rir_low, default_rir_high, is_template, created_by, created_at) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'default_rir_low, default_rir_high, default_rest_seconds, is_template, created_by, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
-          copyId,
-          uniqueSlug(e['name'] as String, copyId),
+          target,
+          uniqueSlug(e['name'] as String, target),
           e['name'],
           e['muscle_group'],
           e['equip'],
@@ -91,6 +101,7 @@ List<AbsorbOp> absorbOps({
           e['default_working_sets'],
           e['default_rir_low'],
           e['default_rir_high'],
+          e['default_rest_seconds'],
           0,
           userId,
           nowIso,
@@ -169,7 +180,10 @@ List<AbsorbOp> absorbOps({
 
   for (final d in templateDays) {
     final oldId = d['id'] as String;
-    final copyId = absorbCopyId(userId, oldId);
+    // When an owned day already exists by name (onboarding seed), re-point to it
+    // instead of creating a duplicate copy.
+    final ownedDay = ownedDayByName[(d['name'] as String).toLowerCase()];
+    final copyId = ownedDay ?? absorbCopyId(userId, oldId);
     // Re-point sessions that still reference this template day. Emitted even
     // when the day copy already exists, so late-synced sessions catch up.
     if (affectedSessionDayIds.contains(oldId)) {
@@ -178,6 +192,8 @@ List<AbsorbOp> absorbOps({
         args: [copyId, oldId],
       ));
     }
+    // Owned name twin exists — don't copy the day or its items, just re-point.
+    if (ownedDay != null) continue;
     if (existingIds.contains(copyId) || alreadyAbsorbed.contains(oldId)) {
       continue;
     }
@@ -246,6 +262,22 @@ Future<int> absorbTemplates(PowerSyncDatabase db, String userId) async {
     ...existingDays.map((r) => r['id'] as String),
   };
 
+  // Owned rows keyed by name so an absorb whose deterministic copy id misses an
+  // existing onboarding-seeded twin re-points to it instead of duplicating.
+  final ownedExRows = await db.getAll(
+      'SELECT id, name, muscle_group FROM exercises WHERE is_template = 0');
+  final ownedExerciseByKey = {
+    for (final r in ownedExRows)
+      '${(r['name'] as String).toLowerCase()}|${r['muscle_group']}':
+          r['id'] as String,
+  };
+  final ownedDayRows = await db
+      .getAll('SELECT id, name FROM day_templates WHERE is_template = 0');
+  final ownedDayByName = {
+    for (final r in ownedDayRows)
+      (r['name'] as String).toLowerCase(): r['id'] as String,
+  };
+
   // Template ids whose owned copies (sets / items / sessions) might still point
   // at the template — selected so re-points catch up even on later boots.
   final exTemplateIds = [for (final r in exRows) r['id'] as String];
@@ -293,6 +325,8 @@ Future<int> absorbTemplates(PowerSyncDatabase db, String userId) async {
     affectedSessionDayIds: affectedSessionDayIds,
     existingIds: existingIds,
     alreadyAbsorbed: alreadyAbsorbed,
+    ownedExerciseByKey: ownedExerciseByKey,
+    ownedDayByName: ownedDayByName,
     nowIso: DateTime.now().toUtc().toIso8601String(),
   );
   if (ops.isEmpty) return 0;

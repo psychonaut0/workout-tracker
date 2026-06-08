@@ -16,7 +16,7 @@ import '../session/session_manager.dart';
 import '../theme/motion.dart';
 import 'back_dispatch.dart';
 import 'session_launcher.dart' as launcher;
-import 'session_mini_bar.dart';
+import 'session_indicator.dart';
 import 'w_tab_bar.dart';
 
 /// The top-level 5-tab shell of the app.
@@ -143,6 +143,10 @@ class _AppShellState extends State<AppShell> {
                     onStart: _start,
                     onOpenExercise: _openExercise,
                     onOpenProfile: _openProfile,
+                    onResume: () {
+                      final m = context.read<SessionManager>();
+                      launcher.openActiveSession(context, m);
+                    },
                   ),
                   ProgressScreen(
                     key: ValueKey(_progressTarget),
@@ -153,23 +157,18 @@ class _AppShellState extends State<AppShell> {
                 ],
               ),
             ),
-            // Workout-in-progress mini-bar (only when the session screen is closed).
-            // bottom: 105 puts the 46px pill above the WTabBar (≈77px tall, plus
-            // bottom safe-area) and clears the FAB, whose 22px upward overhang
-            // reaches ≈99px from the screen bottom — so the pill bottom (105px)
-            // sits ≈6px above the FAB top with a wider gap once safe-area is added.
+            // Workout-in-progress indicator: compact, top-right, on every tab
+            // EXCEPT Today (index 0), where the resume hero covers it.
             Builder(builder: (context) {
               final manager = context.watch<SessionManager>();
               final c = manager.active;
-              if (c == null || manager.screenOpen) {
+              if (c == null || manager.screenOpen || _index == 0) {
                 return const SizedBox.shrink();
               }
               return Positioned(
-                left: 16,
+                top: MediaQuery.paddingOf(context).top + 8,
                 right: 16,
-                bottom: 105,
-                child: SessionMiniBar(
-                  name: c.draft.name,
+                child: SessionIndicator(
                   startedAt: c.draft.startedAt,
                   restStart: c.restStart,
                   restTotal: c.restTotal,

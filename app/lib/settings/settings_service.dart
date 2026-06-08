@@ -18,6 +18,8 @@ class SettingsService extends ChangeNotifier {
   String _serverUrl = 'http://localhost:8080';
   bool _syncEnabled = false;
   bool _ambientEnabled = true;
+  int _restCompoundSeconds = 180;
+  int _restIsolationSeconds = 90;
 
   String get mode => _mode;
   Color get accent => _accent;
@@ -25,6 +27,8 @@ class SettingsService extends ChangeNotifier {
   String get serverUrl => _serverUrl;
   bool get syncEnabled => _syncEnabled;
   bool get ambientEnabled => _ambientEnabled;
+  int get restCompoundSeconds => _restCompoundSeconds;
+  int get restIsolationSeconds => _restIsolationSeconds;
 
   /// Derived brightness from the stored mode string.
   Brightness get brightness =>
@@ -42,6 +46,9 @@ class SettingsService extends ChangeNotifier {
     _serverUrl = prefs.getString(_kServerUrl) ?? 'http://localhost:8080';
     _syncEnabled = prefs.getBool('settings.sync_enabled') ?? false;
     _ambientEnabled = prefs.getBool('settings.ambient_enabled') ?? true;
+    _restCompoundSeconds = prefs.getInt('settings.rest_compound_seconds') ?? 180;
+    _restIsolationSeconds =
+        prefs.getInt('settings.rest_isolation_seconds') ?? 90;
 
     // Accent: stored as ARGB int via toARGB32(). Reconstruct via Color.fromARGB
     // (not Color(int) — deprecated in Flutter 3.44). Fall back to accents[0]
@@ -110,6 +117,22 @@ class SettingsService extends ChangeNotifier {
     _ambientEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('settings.ambient_enabled', value);
+    notifyListeners();
+  }
+
+  /// Set the global default rest for compound exercises (seconds) and persist.
+  Future<void> setRestCompoundSeconds(int v) async {
+    _restCompoundSeconds = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings.rest_compound_seconds', v);
+    notifyListeners();
+  }
+
+  /// Set the global default rest for isolation exercises (seconds) and persist.
+  Future<void> setRestIsolationSeconds(int v) async {
+    _restIsolationSeconds = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings.rest_isolation_seconds', v);
     notifyListeners();
   }
 }

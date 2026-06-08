@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../data/active_session_draft.dart';
 import '../data/exercise_repository.dart';
 import '../data/session_writer.dart';
+import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -60,6 +61,17 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       _handleRestHaptics();
+      // Screen-open rest revert: when remaining hits 0 while the screen is
+      // open, stop the rest here (the OS alarm covers the backgrounded case;
+      // the deleted SessionManager Dart timer used to cover this one).
+      // stopRest is a guarded no-op if already stopped.
+      final c = _controller;
+      final start = c?.restStart;
+      if (c != null && start != null) {
+        final remaining =
+            c.restTotal - DateTime.now().difference(start).inSeconds;
+        if (remaining <= 0) c.stopRest();
+      }
       setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -240,9 +252,17 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                           onToggleDone: (b, s) {
                             final wasDone = s.done;
                             controller.toggleDone(b, s);
-                            // Start rest timer when a working set is completed
+                            // Start rest timer when a working set is completed.
+                            // Resolve duration: per-exercise override, else the
+                            // global compound/isolation default from Settings.
                             if (!wasDone && !s.isWarmup) {
-                              controller.startRest(b.exercise.compound ? 180 : 90);
+                              final settings = context.read<SettingsService>();
+                              controller.startRest(
+                                b.exercise.defaultRestSeconds ??
+                                    (b.exercise.compound
+                                        ? settings.restCompoundSeconds
+                                        : settings.restIsolationSeconds),
+                              );
                             }
                           },
                           onSetChanged: (b, s) => controller.markChanged(),

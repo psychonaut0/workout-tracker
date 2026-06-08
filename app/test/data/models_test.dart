@@ -17,5 +17,14 @@ void main() {
     expect(ex.compound, true);
     expect(ex.plateStepKg, 2.5);
     expect(ex.baseWeightKg, 72.5);
+    expect(ex.defaultRestSeconds, isNull); // key absent → null
+  });
+  test('Exercise.fromRow reads default_rest_seconds', () {
+    final ex = Exercise.fromRow({
+      'id': 'x', 'name': 'Incline', 'slug': 'incline-bench',
+      'muscle_group': 'chest', 'plate_step_kg': '2.5',
+      'default_rest_seconds': 120,
+    });
+    expect(ex.defaultRestSeconds, 120);
   });
 }

@@ -109,6 +109,8 @@ void main() {
         affectedSessionDayIds: const {},
         existingIds: const {},
         alreadyAbsorbed: const {},
+        ownedExerciseByKey: const {},
+        ownedDayByName: const {},
         nowIso: '2026-06-04T10:00:00Z',
       );
       final copyId = absorbCopyId(user, 'ex-t');
@@ -163,6 +165,8 @@ void main() {
         affectedSessionDayIds: {'day-t'},
         existingIds: const {},
         alreadyAbsorbed: const {},
+        ownedExerciseByKey: const {},
+        ownedDayByName: const {},
         nowIso: '2026-06-04T10:00:00Z',
       );
       final dayCopy = absorbCopyId(user, 'day-t');
@@ -198,6 +202,8 @@ void main() {
         affectedSessionDayIds: const {},
         existingIds: {absorbCopyId(user, 'ex-t'), absorbCopyId(user, 'day-t')},
         alreadyAbsorbed: const {},
+        ownedExerciseByKey: const {},
+        ownedDayByName: const {},
         nowIso: '2026-06-04T10:00:00Z',
       );
       expect(ops, isEmpty);
@@ -215,6 +221,8 @@ void main() {
         affectedSessionDayIds: const {},
         existingIds: const {},
         alreadyAbsorbed: {'ex-t', 'day-t'},
+        ownedExerciseByKey: const {},
+        ownedDayByName: const {},
         nowIso: '2026-06-04T10:00:00Z',
       );
       expect(ops, isEmpty);
@@ -234,6 +242,8 @@ void main() {
         affectedSessionDayIds: const {},
         existingIds: {absorbCopyId(user, 'ex-t')},
         alreadyAbsorbed: const {},
+        ownedExerciseByKey: const {},
+        ownedDayByName: const {},
         nowIso: 'x',
       );
       // No INSERT exercises (copy exists) but the set is still re-pointed.
@@ -255,6 +265,8 @@ void main() {
           affectedSessionDayIds: const {},
           existingIds: const {},
           alreadyAbsorbed: const {},
+          ownedExerciseByKey: const {},
+          ownedDayByName: const {},
           nowIso: 'x',
         ),
         isEmpty,
@@ -272,11 +284,90 @@ void main() {
         affectedSessionDayIds: const {},
         existingIds: const {},
         alreadyAbsorbed: const {},
+        ownedExerciseByKey: const {},
+        ownedDayByName: const {},
         nowIso: 'x',
       );
       final itemInsert = ops
           .firstWhere((o) => o.sql.startsWith('INSERT INTO day_template_items'));
       expect(itemInsert.args, contains('ex-owned'));
+    });
+  });
+
+  group('name-dedup', () {
+    test('template exercise with an owned name+muscle twin emits no insert and re-points to it',
+        () {
+      final ops = absorbOps(
+        userId: user,
+        templateExercises: [tmplExercise('ex-t', name: 'Bench Press')],
+        templateDays: const [],
+        templateItems: const [],
+        affectedSets: [
+          {
+            'id': 'set-1', 'session_id': 's1', 'exercise_id': 'ex-t',
+            'set_number': 1, 'weight_kg': '80', 'reps': 8, 'rir': 1,
+            'is_warmup': 0, 'is_top_set': 1, 'is_pr': 0,
+            'created_at': 'x', 'updated_at': null,
+          },
+        ],
+        affectedItems: const [],
+        affectedSessionDayIds: const {},
+        existingIds: const {},
+        alreadyAbsorbed: const {},
+        ownedExerciseByKey: {'bench press|chest': 'owned-ex'},
+        ownedDayByName: const {},
+        nowIso: 'x',
+      );
+      expect(ops.where((o) => o.sql.startsWith('INSERT INTO exercises')), isEmpty);
+      final ins = ops.firstWhere((o) => o.sql.startsWith('INSERT INTO sets'));
+      expect(ins.args, contains('owned-ex'));
+      expect(ins.args, contains('set-1'));
+    });
+
+    test('case-insensitive name match', () {
+      final ops = absorbOps(
+        userId: user,
+        templateExercises: [tmplExercise('ex-t', name: 'BENCH press')],
+        templateDays: const [], templateItems: const [],
+        affectedSets: const [], affectedItems: const [],
+        affectedSessionDayIds: const {},
+        existingIds: const {}, alreadyAbsorbed: const {},
+        ownedExerciseByKey: {'bench press|chest': 'owned-ex'},
+        ownedDayByName: const {}, nowIso: 'x',
+      );
+      expect(ops.where((o) => o.sql.startsWith('INSERT INTO exercises')), isEmpty);
+    });
+
+    test('different muscle group does NOT merge (creates a copy)', () {
+      final ops = absorbOps(
+        userId: user,
+        templateExercises: [tmplExercise('ex-t', name: 'Row')],
+        templateDays: const [], templateItems: const [],
+        affectedSets: const [], affectedItems: const [],
+        affectedSessionDayIds: const {},
+        existingIds: const {}, alreadyAbsorbed: const {},
+        ownedExerciseByKey: {'row|back': 'owned-back-row'},
+        ownedDayByName: const {}, nowIso: 'x',
+      );
+      expect(ops.where((o) => o.sql.startsWith('INSERT INTO exercises')),
+          isNotEmpty);
+    });
+
+    test('template day with an owned name twin emits no insert', () {
+      final ops = absorbOps(
+        userId: user,
+        templateExercises: const [],
+        templateDays: [tmplDay('day-t', name: 'Upper A')],
+        templateItems: const [],
+        affectedSets: const [], affectedItems: const [],
+        affectedSessionDayIds: const {},
+        existingIds: const {}, alreadyAbsorbed: const {},
+        ownedExerciseByKey: const {},
+        ownedDayByName: {'upper a': 'owned-day'},
+        nowIso: 'x',
+      );
+      expect(ops.where((o) => o.sql.startsWith('INSERT INTO day_templates')),
+          isEmpty);
     });
   });
 }
