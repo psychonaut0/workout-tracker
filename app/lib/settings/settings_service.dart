@@ -21,6 +21,8 @@ class SettingsService extends ChangeNotifier {
   int _restCompoundSeconds = 180;
   int _restIsolationSeconds = 90;
   String? _localeOverride;
+  bool _autoCheckUpdates = true;
+  int _lastUpdateCheckMs = 0;
 
   String get mode => _mode;
   Color get accent => _accent;
@@ -30,6 +32,8 @@ class SettingsService extends ChangeNotifier {
   bool get ambientEnabled => _ambientEnabled;
   int get restCompoundSeconds => _restCompoundSeconds;
   int get restIsolationSeconds => _restIsolationSeconds;
+  bool get autoCheckUpdates => _autoCheckUpdates;
+  int get lastUpdateCheckMs => _lastUpdateCheckMs;
 
   /// The persisted language-code override (e.g. 'it'), or null to follow the
   /// system locale.
@@ -59,6 +63,8 @@ class SettingsService extends ChangeNotifier {
     _restIsolationSeconds =
         prefs.getInt('settings.rest_isolation_seconds') ?? 90;
     _localeOverride = prefs.getString('settings.locale');
+    _autoCheckUpdates = prefs.getBool('settings.auto_check_updates') ?? true;
+    _lastUpdateCheckMs = prefs.getInt('settings.last_update_check_ms') ?? 0;
 
     // Accent: stored as ARGB int via toARGB32(). Reconstruct via Color.fromARGB
     // (not Color(int) — deprecated in Flutter 3.44). Fall back to accents[0]
@@ -156,6 +162,23 @@ class SettingsService extends ChangeNotifier {
     } else {
       await prefs.setString('settings.locale', code);
     }
+    notifyListeners();
+  }
+
+  /// Enable or disable the daily auto-check for app updates and persist.
+  Future<void> setAutoCheckUpdates(bool value) async {
+    _autoCheckUpdates = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('settings.auto_check_updates', value);
+    notifyListeners();
+  }
+
+  /// Record the timestamp (epoch millis) of the most recent update check and
+  /// persist, gating the once/day auto-check throttle.
+  Future<void> markUpdateChecked(int nowMs) async {
+    _lastUpdateCheckMs = nowMs;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings.last_update_check_ms', nowMs);
     notifyListeners();
   }
 }
