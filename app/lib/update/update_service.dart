@@ -63,6 +63,11 @@ class UpdateService {
   /// Checks GitHub for a newer release. Returns null when up-to-date, off
   /// Android, or on 304. On a real error: [force] (manual button) rethrows so
   /// the UI can show "couldn't check"; the auto path (force:false) swallows it.
+  ///
+  /// The manual ([force]) path never sends `If-None-Match`: it always
+  /// re-evaluates against a fresh body so a previously-deferred ("Later")
+  /// update can never be hidden behind a 304. The once/day auto-check keeps the
+  /// ETag — it stays cheap and won't re-nag about a release the user deferred.
   Future<UpdateInfo?> checkForUpdate({bool force = false}) async {
     if (!_isAndroid) return null;
     try {
@@ -72,7 +77,7 @@ class UpdateService {
         Uri.parse(_releasesUrl),
         headers: {
           'Accept': 'application/vnd.github+json',
-          if (etag != null) 'If-None-Match': etag,
+          if (!force && etag != null) 'If-None-Match': etag,
         },
       );
       if (res.statusCode == 304) return null;
@@ -94,7 +99,8 @@ class UpdateService {
       final url = apk['browser_download_url'] as String?;
       if (url == null) return null;
 
-      final v = tag.startsWith('v') ? tag.substring(1) : tag;
+      final v =
+          (tag.startsWith('v') || tag.startsWith('V')) ? tag.substring(1) : tag;
       return UpdateInfo(
         version: v,
         notes: (json['body'] as String?) ?? '',

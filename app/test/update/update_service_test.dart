@@ -85,7 +85,8 @@ void main() {
       expect(await svc.checkForUpdate(force: true), isNull);
     });
 
-    test('sends stored ETag and persists the new one on 200', () async {
+    test('auto-check sends stored ETag and persists the new one on 200',
+        () async {
       SharedPreferences.setMockInitialValues({'update.etag': 'old-etag'});
       String? sentIfNoneMatch;
       final svc = UpdateService(
@@ -99,11 +100,34 @@ void main() {
         }),
         isAndroidOverride: true,
       );
-      final info = await svc.checkForUpdate(force: true);
+      final info = await svc.checkForUpdate(); // auto path (force:false)
       expect(info, isNotNull);
       expect(sentIfNoneMatch, 'old-etag');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('update.etag'), 'new-etag');
+    });
+
+    test('manual check ignores stored ETag so a deferred update re-surfaces',
+        () async {
+      // After tapping "Later" the ETag is still stored; a 304 would otherwise
+      // hide the (still uninstalled) update. The manual button must NOT send
+      // If-None-Match, so it always re-evaluates against a fresh 200 body.
+      SharedPreferences.setMockInitialValues({'update.etag': 'deferred-etag'});
+      String? sentIfNoneMatch;
+      var headerSeen = false;
+      final svc = UpdateService(
+        client: MockClient((req) async {
+          headerSeen = true;
+          sentIfNoneMatch = req.headers['If-None-Match'];
+          return http.Response(releaseJson('v0.12.0'), 200);
+        }),
+        isAndroidOverride: true,
+      );
+      final info = await svc.checkForUpdate(force: true);
+      expect(headerSeen, isTrue);
+      expect(sentIfNoneMatch, isNull); // no conditional request on the manual path
+      expect(info, isNotNull);
+      expect(info!.version, '0.12.0');
     });
   });
 }

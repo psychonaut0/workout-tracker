@@ -21,9 +21,15 @@ class MainActivity : FlutterActivity() {
                     }
                     "openInstallSettings" -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startActivity(Intent(
-                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                Uri.parse("package:$packageName")))
+                            try {
+                                startActivity(Intent(
+                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:$packageName")))
+                            } catch (e: Exception) {
+                                // No "install unknown apps" Settings screen on this
+                                // build — degrade gracefully rather than throwing
+                                // a PlatformException across the channel.
+                            }
                         }
                         result.success(null)
                     }
