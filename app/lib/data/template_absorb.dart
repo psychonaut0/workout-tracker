@@ -84,8 +84,8 @@ List<AbsorbOp> absorbOps({
         sql: 'INSERT INTO exercises '
             '(id, slug, name, muscle_group, equip, compound, base_weight_kg, plate_step_kg, '
             'default_rep_low, default_rep_high, default_warmup_sets, default_working_sets, '
-            'default_rir_low, default_rir_high, is_template, created_by, created_at) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'default_rir_low, default_rir_high, default_rest_seconds, is_template, created_by, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           target,
           uniqueSlug(e['name'] as String, target),
@@ -101,6 +101,7 @@ List<AbsorbOp> absorbOps({
           e['default_working_sets'],
           e['default_rir_low'],
           e['default_rir_high'],
+          e['default_rest_seconds'],
           0,
           userId,
           nowIso,

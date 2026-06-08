@@ -61,6 +61,7 @@ class Exercise {
   final int? defaultWorkingSets;
   final int? defaultRirLow;
   final int? defaultRirHigh;
+  final int? defaultRestSeconds;
   final bool isTemplate;
 
   const Exercise({
@@ -78,6 +79,7 @@ class Exercise {
     this.defaultWorkingSets,
     this.defaultRirLow,
     this.defaultRirHigh,
+    this.defaultRestSeconds,
     required this.isTemplate,
   });
 
@@ -99,6 +101,7 @@ class Exercise {
       defaultWorkingSets: row['default_working_sets'] as int?,
       defaultRirLow: row['default_rir_low'] as int?,
       defaultRirHigh: row['default_rir_high'] as int?,
+      defaultRestSeconds: row['default_rest_seconds'] as int?,
       isTemplate: (row['is_template'] as int? ?? 0) != 0,
     );
   }
@@ -248,6 +251,7 @@ class ExerciseDraft {
   int? defaultWorkingSets;
   int? defaultRirLow;
   int? defaultRirHigh;
+  int? defaultRestSeconds;
 
   ExerciseDraft({
     this.id,
@@ -263,6 +267,7 @@ class ExerciseDraft {
     this.defaultWorkingSets,
     this.defaultRirLow,
     this.defaultRirHigh,
+    this.defaultRestSeconds,
   });
 }
 
