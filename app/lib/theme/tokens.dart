@@ -19,6 +19,10 @@ abstract final class AppSpacing {
   static const double gutter = 16;
 }
 
+/// Bottom inset for scrollable pages so trailing content (e.g. delete buttons)
+/// clears the straddling center FAB (~99px reach) + tab bar with a gap.
+const double kBottomNavInset = 112;
+
 // ── color tokens (ThemeExtension) ────────────────────────────────────────────
 class WorkoutTokens extends ThemeExtension<WorkoutTokens> {
   const WorkoutTokens({

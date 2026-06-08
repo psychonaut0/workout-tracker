@@ -32,7 +32,7 @@ class SplitTab extends StatelessWidget {
         final days = snap.data ?? [];
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomNavInset),
           children: [
             // Header count
             Padding(

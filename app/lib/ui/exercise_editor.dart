@@ -313,7 +313,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     ];
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomNavInset),
       children: [
         // ── Identity ──────────────────────────────────────────────────────
 
