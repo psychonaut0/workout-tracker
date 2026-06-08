@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../data/bodyweight_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
@@ -104,6 +105,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
   Widget build(BuildContext context) {
     final unitService = context.watch<UnitService>();
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final unit = unitService.uLabel;
     final today = isoDate(DateTime.now());
 
@@ -142,7 +144,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Log bodyweight',
+                l.bodyweightLogTitle,
                 style: WorkoutType.display(
                   size: 19,
                   weight: FontWeight.w700,
@@ -219,7 +221,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
               ),
               onPressed: _save,
               child: Text(
-                'Save entry',
+                l.bodyweightSaveEntry,
                 style: WorkoutType.display(
                   size: 16,
                   weight: FontWeight.w700,

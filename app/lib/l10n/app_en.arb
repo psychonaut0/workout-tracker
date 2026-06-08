@@ -281,5 +281,133 @@
     }
   },
   "targetsSetsPerWeek": "sets / wk",
-  "targetsNoGoal": "no goal"
+  "targetsNoGoal": "no goal",
+  "historyTitle": "History",
+  "historySessionsLogged": "{count, plural, =1{1 session logged} other{{count} sessions logged}}",
+  "@historySessionsLogged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyEmpty": "No sessions yet",
+  "historySummarySessions": "Sessions",
+  "historySummaryPrs": "PRs",
+  "historySummaryVolume": "Volume",
+  "historySummarySuffix": "{label} · 4wk",
+  "@historySummarySuffix": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "historyWeekOf": "WEEK OF {date}",
+  "@historyWeekOf": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "historyWeekSessions": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@historyWeekSessions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyExerciseCountShort": "{count} ex",
+  "@historyExerciseCountShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyEditSets": "Edit sets",
+  "historyDeleteSessionTitle": "Delete session?",
+  "historyDeleteSessionMessage": "This permanently removes the session and all its sets. This cannot be undone.",
+  "historyDeleteSession": "Delete session",
+  "historyDeleteSetTitle": "Delete set?",
+  "historyDeleteSetMessage": "This permanently removes this set.",
+  "progressProgression": "PROGRESSION",
+  "progressMetricTopSet": "Top set",
+  "progressMetricEst1rm": "Est. 1RM",
+  "progressMetricVolume": "Volume",
+  "progressMetricReps": "Reps",
+  "progressMetricTopReps": "Top reps",
+  "progressTrend": "{metric} trend",
+  "@progressTrend": {
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
+  },
+  "progressBySession": "{metric} by session",
+  "@progressBySession": {
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
+  },
+  "progressSessionsCount": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@progressSessionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "progressNoSessions": "No sessions logged yet",
+  "progressStatCurrent": "Current",
+  "progressStatBest": "Best",
+  "progressStat12wkDelta": "12wk Δ",
+  "progressEmpty": "No exercises found",
+  "progressChooseExercise": "Choose exercise",
+  "bodyweightTrend": "Bodyweight trend",
+  "bodyweightTitle": "Bodyweight",
+  "bodyweightDailyLog": "{count, plural, =1{Daily log · 1 entry} other{Daily log · {count} entries}}",
+  "@bodyweightDailyLog": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bodyweightStatCurrent": "Current",
+  "bodyweightStat30Day": "30-day",
+  "bodyweightStatLowest": "Lowest",
+  "bodyweightLogToday": "Log today's weight",
+  "bodyweightHistory": "History",
+  "bodyweightEntriesCount": "{count, plural, =1{1 entry} other{{count} entries}}",
+  "@bodyweightEntriesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bodyweightEmpty": "No bodyweight entries yet",
+  "bodyweightLogTitle": "Log bodyweight",
+  "bodyweightSaveEntry": "Save entry",
+  "exportAllData": "Export all data",
+  "exportFullBackup": "Full backup · JSON",
+  "exportHistory": "Export history",
+  "exportHistorySub": "Sessions in a date range · JSON",
+  "exportSavedTitle": "Export saved",
+  "exportSavedMessage": "Written to {path}",
+  "@exportSavedMessage": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "exportNoSessionsInRange": "No sessions in that range",
+  "exportFailedTitle": "Export failed"
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
@@ -44,6 +45,36 @@ const kMetrics = [
   Metric('volume', 'Volume', 'Volume', wt: true),
   Metric('reps', 'Top reps', 'Reps'),
 ];
+
+/// Localized full label for a metric (section headers, trend titles).
+String metricLabel(AppLocalizations l, String id) {
+  switch (id) {
+    case 'e1rm':
+      return l.progressMetricEst1rm;
+    case 'volume':
+      return l.progressMetricVolume;
+    case 'reps':
+      return l.progressMetricTopReps;
+    case 'top':
+    default:
+      return l.progressMetricTopSet;
+  }
+}
+
+/// Localized short label for a metric (the [MetricTabs] segments).
+String metricShort(AppLocalizations l, String id) {
+  switch (id) {
+    case 'e1rm':
+      return l.progressMetricEst1rm;
+    case 'volume':
+      return l.progressMetricVolume;
+    case 'reps':
+      return l.progressMetricReps;
+    case 'top':
+    default:
+      return l.progressMetricTopSet;
+  }
+}
 
 // ── BigStat ───────────────────────────────────────────────────────────────────
 
@@ -292,7 +323,7 @@ class _MetricSegment extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: Text(
-          metric.short,
+          metricShort(AppLocalizations.of(context), metric.id),
           style: WorkoutType.mono(
             size: 11.5,
             weight: FontWeight.w700,

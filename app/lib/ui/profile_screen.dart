@@ -472,29 +472,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _reportExport(ExportResult result) async {
+    final l = AppLocalizations.of(context);
     switch (result.outcome) {
       case ExportOutcome.shared:
         return; // the share sheet was the feedback
       case ExportOutcome.saved:
         await showWDialog<bool>(
           context,
-          title: 'Export saved',
-          message: 'Written to ${result.path}',
-          actions: const [WDialogAction(label: 'OK', value: true)],
+          title: l.exportSavedTitle,
+          message: l.exportSavedMessage(result.path ?? ''),
+          actions: [WDialogAction(label: l.commonOk, value: true)],
         );
       case ExportOutcome.empty:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No sessions in that range')),
+          SnackBar(content: Text(l.exportNoSessionsInRange)),
         );
     }
   }
 
   Future<void> _exportError(Object e) async {
+    final l = AppLocalizations.of(context);
     await showWDialog<bool>(
       context,
-      title: 'Export failed',
+      title: l.exportFailedTitle,
       message: '$e',
-      actions: const [WDialogAction(label: 'OK', value: true)],
+      actions: [WDialogAction(label: l.commonOk, value: true)],
     );
   }
 
@@ -755,15 +757,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     _Row(
                       icon: WIcons.export,
-                      title: 'Export all data',
-                      sub: 'Full backup · JSON',
+                      title: AppLocalizations.of(context).exportAllData,
+                      sub: AppLocalizations.of(context).exportFullBackup,
                       right: _exportingFull ? const _RowSpinner() : null,
                       onTap: _exportingFull ? null : _exportFull,
                     ),
                     _Row(
                       icon: WIcons.history,
-                      title: 'Export history',
-                      sub: 'Sessions in a date range · JSON',
+                      title: AppLocalizations.of(context).exportHistory,
+                      sub: AppLocalizations.of(context).exportHistorySub,
                       right: _exportingHistory ? const _RowSpinner() : null,
                       onTap: _exportingHistory ? null : _exportHistory,
                     ),
