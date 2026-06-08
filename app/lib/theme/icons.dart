@@ -32,4 +32,6 @@ abstract final class WIcons {
   static const IconData arrowUp = Icons.north;
   static const IconData flame = Icons.local_fire_department_outlined;
   static const IconData export = Icons.ios_share;
+  static const IconData update = Icons.system_update_outlined;
+  static const IconData refresh = Icons.refresh;
 }

@@ -274,5 +274,20 @@
   "navPlan": "Plan",
   "profileGroupData": "Daten",
   "progressChange": "ÄNDERN",
-  "notifChannelName": "Trainingssitzung"
+  "notifChannelName": "Trainingssitzung",
+  "updatesGroup": "Updates",
+  "updatesVersion": "Version {v}",
+  "updatesCheck": "Nach Updates suchen",
+  "updatesChecking": "Suche…",
+  "updatesUpToDate": "Du hast die neueste Version",
+  "updatesError": "Suche fehlgeschlagen",
+  "updatesAutoCheck": "Automatisch prüfen",
+  "updatesAvailableTitle": "Update verfügbar · v{v}",
+  "updatesInstall": "Herunterladen & installieren",
+  "updatesLater": "Später",
+  "updatesDownloading": "Wird heruntergeladen… {percent}%",
+  "updatesInstalling": "Wird installiert…",
+  "updatesPermissionTitle": "Updates erlauben",
+  "updatesPermissionMessage": "Reps benötigt die Berechtigung, App-Updates zu installieren. Aktiviere sie im nächsten Bildschirm und tippe dann erneut auf Installieren.",
+  "updatesOpenSettings": "Einstellungen öffnen"
 }

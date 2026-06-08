@@ -274,5 +274,20 @@
   "navPlan": "Plan",
   "profileGroupData": "Datos",
   "progressChange": "CAMBIAR",
-  "notifChannelName": "Sesión de entrenamiento"
+  "notifChannelName": "Sesión de entrenamiento",
+  "updatesGroup": "Actualizaciones",
+  "updatesVersion": "Versión {v}",
+  "updatesCheck": "Buscar actualizaciones",
+  "updatesChecking": "Comprobando…",
+  "updatesUpToDate": "Tienes la última versión",
+  "updatesError": "No se pudo buscar actualizaciones",
+  "updatesAutoCheck": "Comprobar automáticamente",
+  "updatesAvailableTitle": "Actualización disponible · v{v}",
+  "updatesInstall": "Descargar e instalar",
+  "updatesLater": "Más tarde",
+  "updatesDownloading": "Descargando… {percent}%",
+  "updatesInstalling": "Instalando…",
+  "updatesPermissionTitle": "Permitir actualizaciones",
+  "updatesPermissionMessage": "Reps necesita permiso para instalar actualizaciones. Actívalo en la siguiente pantalla y vuelve a tocar Instalar.",
+  "updatesOpenSettings": "Abrir ajustes"
 }

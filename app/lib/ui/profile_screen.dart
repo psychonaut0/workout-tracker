@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' show SyncStatus;
@@ -18,6 +20,8 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../update/update_service.dart';
+import '../update/update_ui.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
@@ -242,6 +246,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Data export state
   bool _exportingFull = false;
   bool _exportingHistory = false;
+
+  // Update-check state (Android only).
+  bool _checking = false;
 
   // Runtime app version (footer; reused by the Updates group).
   String _version = '';
@@ -507,6 +514,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
       message: '$e',
       actions: [WDialogAction(label: l.commonOk, value: true)],
     );
+  }
+
+  // ── Update check (manual button) ────────────────────────────────────────────
+
+  Future<void> _checkUpdates() async {
+    final l = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final settings = context.read<SettingsService>();
+    setState(() => _checking = true);
+    UpdateInfo? info;
+    var errored = false;
+    try {
+      info = await UpdateService().checkForUpdate(force: true);
+    } catch (_) {
+      errored = true;
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+    await settings.markUpdateChecked(DateTime.now().millisecondsSinceEpoch);
+    if (!mounted) return;
+    if (errored) {
+      messenger.showSnackBar(SnackBar(content: Text(l.updatesError)));
+    } else if (info == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l.updatesUpToDate)));
+    } else {
+      await showUpdateDialog(context, info);
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -780,6 +814,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       right: _exportingHistory ? const _RowSpinner() : null,
                       onTap: _exportingHistory ? null : _exportHistory,
                     ),
+                  ],
+                ),
+
+                // ── Updates ─────────────────────────────────────────────────
+                _Group(
+                  label: l.updatesGroup,
+                  children: [
+                    _Row(
+                      icon: WIcons.update,
+                      title: l.updatesVersion(
+                          _version.isEmpty ? '–' : _version),
+                    ),
+                    if (Platform.isAndroid) ...[
+                      _Row(
+                        icon: WIcons.refresh,
+                        title: _checking ? l.updatesChecking : l.updatesCheck,
+                        right: _checking ? const _RowSpinner() : null,
+                        onTap: _checking ? null : _checkUpdates,
+                      ),
+                      _Row(
+                        icon: WIcons.bolt,
+                        title: l.updatesAutoCheck,
+                        right: Toggle(
+                          value: settings.autoCheckUpdates,
+                          onChanged: (v) => context
+                              .read<SettingsService>()
+                              .setAutoCheckUpdates(v),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
 
