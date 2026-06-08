@@ -409,5 +409,98 @@
     }
   },
   "exportNoSessionsInRange": "No sessions in that range",
-  "exportFailedTitle": "Export failed"
+  "exportFailedTitle": "Export failed",
+  "profileTitle": "Profile",
+  "profileNamePlaceholder": "Your name",
+  "profileSaveName": "Save",
+  "profileTrainingSince": "Training since Mar 2026 · 4-day split",
+  "profileStatSessions": "Sessions",
+  "profileStatPrs": "PRs",
+  "profileStatBodyweight": "Bodyweight",
+  "profileGroupUnits": "Units",
+  "profileWeightUnit": "Weight unit",
+  "profileWeightUnitSub": "Applies everywhere",
+  "profileGroupAppearance": "Appearance",
+  "profileTheme": "Theme",
+  "profileThemeDark": "Dark",
+  "profileThemeLight": "Light",
+  "profileAccent": "Accent",
+  "profileAccentSub": "App highlight color",
+  "profileAmbientEffects": "Ambient effects",
+  "profileAmbientEffectsSub": "Drifting accent glow & grain",
+  "profileGroupRest": "Rest",
+  "profileCompoundRest": "Compound rest",
+  "profileCompoundRestSub": "Default between compound sets",
+  "profileIsolationRest": "Isolation rest",
+  "profileIsolationRestSub": "Default between isolation sets",
+  "profileGroupSync": "Sync & Backend",
+  "profileSyncServer": "Sync server",
+  "profileServerPlaceholder": "https://sync.example.dev",
+  "profileLocalFirstHint": "Local-first · data stays on device · syncs when connected",
+  "profileApplyServer": "Apply / Switch server",
+  "profileSignInToSync": "Sign in to sync",
+  "profileGroupAccount": "Account",
+  "profileSignedIn": "Signed in",
+  "profileSignOut": "Sign out",
+  "profileSwitchServerTitle": "Switch server?",
+  "profileSwitchServerMessage": "This signs you out and clears local data on this device.",
+  "profileSwitchServerConfirm": "Switch",
+  "profileReconcileTitle": "You have local data",
+  "profileReconcileMessage": "This device already has workout data. Keep it and merge with your account, or replace it with the account's data?",
+  "profileReconcileUseAccount": "Use the account's data",
+  "profileReconcileKeep": "Keep my data",
+  "profileSignOutTitle": "Sign out?",
+  "profileSignOutMessage": "You will need to sign in again to access your data.",
+  "onboardingWelcome": "Welcome",
+  "onboardingIntro": "How would you like to start? You can change everything later.",
+  "onboardingAddStarter": "Add starter exercises",
+  "onboardingStartEmpty": "Start empty",
+  "loginTitle": "Login",
+  "loginEmailLabel": "email",
+  "loginPasswordLabel": "password",
+  "loginBusy": "...",
+  "loginCreateAccount": "Create account",
+  "loginLogIn": "Log in",
+  "loginHaveAccount": "Have an account? Sign in",
+  "syncSyncing": "Syncing…",
+  "syncError": "Sync error",
+  "syncOffline": "Offline",
+  "syncSynced": "Synced",
+  "syncSyncedAt": "Synced · {time}",
+  "@syncSyncedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNotConnected": "Not connected",
+  "syncJustNow": "just now",
+  "syncMinutesAgo": "{count, plural, other{{count}m ago}}",
+  "@syncMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncHoursAgo": "{count, plural, other{{count}h ago}}",
+  "@syncHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncDateShort": "{day}/{month}",
+  "@syncDateShort": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      }
+    }
+  }
 }

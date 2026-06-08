@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/motion.dart';
 
 enum OnboardingChoice { empty, starter }
@@ -35,6 +36,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -44,12 +46,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               StaggeredEntrance(
-                  index: 0, child: Text('Welcome', style: t.headlineMedium)),
+                  index: 0,
+                  child: Text(l.onboardingWelcome, style: t.headlineMedium)),
               const SizedBox(height: 12),
               StaggeredEntrance(
                 index: 1,
                 child: Text(
-                  'How would you like to start? You can change everything later.',
+                  l.onboardingIntro,
                   style: t.bodyMedium,
                 ),
               ),
@@ -59,9 +62,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: FilledButton(
                   onPressed:
                       _busy ? null : () => _choose(OnboardingChoice.starter),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Text('Add starter exercises'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Text(l.onboardingAddStarter),
                   ),
                 ),
               ),
@@ -71,9 +74,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: OutlinedButton(
                   onPressed:
                       _busy ? null : () => _choose(OnboardingChoice.empty),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Text('Start empty'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Text(l.onboardingStartEmpty),
                   ),
                 ),
               ),

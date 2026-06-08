@@ -324,11 +324,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final url = _serverCtrl.text.trim();
     if (url.isEmpty || !url.startsWith('http')) return;
 
+    final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
-      title: 'Switch server?',
-      message: 'This signs you out and clears local data on this device.',
-      confirmLabel: 'Switch',
+      title: l.profileSwitchServerTitle,
+      message: l.profileSwitchServerMessage,
+      confirmLabel: l.profileSwitchServerConfirm,
       destructive: true,
     );
 
@@ -377,19 +378,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // context before using it so we don't trip
             // use_build_context_synchronously.
             if (!navigator.mounted) return;
+            final l = AppLocalizations.of(navigator.context);
             final choice = await showWDialog<_ReconcileChoice>(
               navigator.context,
-              title: 'You have local data',
-              message:
-                  'This device already has workout data. Keep it and merge with '
-                  "your account, or replace it with the account's data?",
-              actions: const [
+              title: l.profileReconcileTitle,
+              message: l.profileReconcileMessage,
+              actions: [
                 WDialogAction(
-                  label: "Use the account's data",
+                  label: l.profileReconcileUseAccount,
                   value: _ReconcileChoice.discard,
                   destructive: true,
                 ),
-                WDialogAction(label: 'Keep my data', value: _ReconcileChoice.keep),
+                WDialogAction(
+                    label: l.profileReconcileKeep, value: _ReconcileChoice.keep),
               ],
             );
 
@@ -414,11 +415,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Sign-out flow ─────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
-      title: 'Sign out?',
-      message: 'You will need to sign in again to access your data.',
-      confirmLabel: 'Sign out',
+      title: l.profileSignOutTitle,
+      message: l.profileSignOutMessage,
+      confirmLabel: l.profileSignOut,
     );
 
     if (confirmed != true) return;
@@ -507,6 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final settings = context.watch<SettingsService>();
     final unitService = context.watch<UnitService>();
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
 
     // Keep _currentServerUrl in sync when settings change externally.
     if (_currentServerUrl != settings.serverUrl &&
@@ -558,7 +561,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Profile',
+                      l.profileTitle,
                       style: WorkoutType.display(
                         size: 19,
                         weight: FontWeight.w700,
@@ -588,12 +591,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // ── Units ───────────────────────────────────────────────────
                 _Group(
-                  label: 'Units',
+                  label: l.profileGroupUnits,
                   children: [
                     _Row(
                       icon: WIcons.scale,
-                      title: 'Weight unit',
-                      sub: 'Applies everywhere',
+                      title: l.profileWeightUnit,
+                      sub: l.profileWeightUnitSub,
                       right: ChipSelect<Unit>(
                         items: Unit.values,
                         selected: unitService.unit,
@@ -606,30 +609,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // ── Appearance ──────────────────────────────────────────────
                 _Group(
-                  label: 'Appearance',
+                  label: l.profileGroupAppearance,
                   children: [
                     _Row(
                       icon: settings.mode == 'dark'
                           ? WIcons.flame
                           : WIcons.bolt,
-                      title: 'Theme',
+                      title: l.profileTheme,
                       right: ChipSelect<String>(
                         items: const ['dark', 'light'],
                         selected: settings.mode,
-                        labelOf: (m) => m == 'dark' ? 'Dark' : 'Light',
+                        labelOf: (m) =>
+                            m == 'dark' ? l.profileThemeDark : l.profileThemeLight,
                         onSelect: settings.setMode,
                       ),
                     ),
                     _Row(
                       icon: WIcons.target,
-                      title: 'Accent',
-                      sub: 'App highlight color',
+                      title: l.profileAccent,
+                      sub: l.profileAccentSub,
                       right: _buildAccentSwatches(settings, tokens),
                     ),
                     _Row(
                       icon: WIcons.bolt,
-                      title: 'Ambient effects',
-                      sub: 'Drifting accent glow & grain',
+                      title: l.profileAmbientEffects,
+                      sub: l.profileAmbientEffectsSub,
                       right: Toggle(
                         value: settings.ambientEnabled,
                         onChanged: settings.setAmbientEnabled,
@@ -637,7 +641,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     _Row(
                       icon: WIcons.gear,
-                      title: AppLocalizations.of(context).settingsLanguage,
+                      title: l.settingsLanguage,
                       sub: _languageLabel(context, settings.localeOverride),
                       onTap: () => _pickLanguage(context, settings),
                     ),
@@ -646,12 +650,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // ── Rest ────────────────────────────────────────────────────
                 _Group(
-                  label: 'Rest',
+                  label: l.profileGroupRest,
                   children: [
                     _Row(
                       icon: WIcons.timer,
-                      title: 'Compound rest',
-                      sub: 'Default between compound sets',
+                      title: l.profileCompoundRest,
+                      sub: l.profileCompoundRestSub,
                       right: SizedBox(
                         width: 120,
                         child: WStepper(
@@ -665,8 +669,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     _Row(
                       icon: WIcons.timer,
-                      title: 'Isolation rest',
-                      sub: 'Default between isolation sets',
+                      title: l.profileIsolationRest,
+                      sub: l.profileIsolationRestSub,
                       right: SizedBox(
                         width: 120,
                         child: WStepper(
@@ -683,11 +687,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // ── Sync & Backend ──────────────────────────────────────────
                 _Group(
-                  label: 'Sync & Backend',
+                  label: l.profileGroupSync,
                   children: [
                     _Row(
                       icon: WIcons.cloud,
-                      title: 'Sync server',
+                      title: l.profileSyncServer,
                       sub: settings.serverUrl,
                       right: signedIn && settings.syncEnabled
                           ? const _SyncStatusRight()
@@ -704,7 +708,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Not connected',
+                                  l.syncNotConnected,
                                   style: WorkoutType.mono(
                                     size: 11,
                                     weight: FontWeight.w600,
@@ -721,12 +725,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           TextInput(
                             controller: _serverCtrl,
-                            placeholder: 'https://sync.example.dev',
+                            placeholder: l.profileServerPlaceholder,
                             onChanged: (_) => setState(() {}),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Local-first · data stays on device · syncs when connected',
+                            l.profileLocalFirstHint,
                             style: WorkoutType.mono(
                               size: 10.5,
                               color: tokens.faint,
@@ -735,13 +739,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 10),
                           if (signedIn)
                             PrimaryBtn(
-                              'Apply / Switch server',
+                              l.profileApplyServer,
                               enabled: serverChanged,
                               onTap: () => _applyServer(settings),
                             )
                           else
                             PrimaryBtn(
-                              'Sign in to sync',
+                              l.profileSignInToSync,
                               enabled: true,
                               onTap: () => _signIn(settings),
                             ),
@@ -775,16 +779,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // ── Account ─────────────────────────────────────────────────
                 if (signedIn)
                   _Group(
-                    label: 'Account',
+                    label: l.profileGroupAccount,
                     children: [
                       _Row(
                         icon: WIcons.user,
-                        title: 'Signed in',
+                        title: l.profileSignedIn,
                         sub: widget.auth.email ?? '–',
                       ),
                       _Row(
                         icon: WIcons.logout,
-                        title: 'Sign out',
+                        title: l.profileSignOut,
                         danger: true,
                         onTap: _signOut,
                       ),
@@ -812,6 +816,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Sub-builders ──────────────────────────────────────────────────────────
 
   Widget _buildProfileHeader(SettingsService settings, WorkoutTokens tokens) {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
         // 66px accent avatar
@@ -840,7 +845,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (_editingName)
                 TextInput(
                   controller: _nameCtrl,
-                  placeholder: 'Your name',
+                  placeholder: l.profileNamePlaceholder,
                   onChanged: (_) => setState(() {}),
                 )
               else
@@ -870,7 +875,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 GestureDetector(
                   onTap: () => _submitName(settings),
                   child: Text(
-                    'Save',
+                    l.profileSaveName,
                     style: WorkoutType.mono(
                       size: 11,
                       weight: FontWeight.w600,
@@ -881,7 +886,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ] else ...[
                 const SizedBox(height: 3),
                 Text(
-                  'Training since Mar 2026 · 4-day split',
+                  l.profileTrainingSince,
                   style: WorkoutType.mono(size: 11, color: tokens.faint),
                 ),
               ],
@@ -893,6 +898,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildQuickStats(UnitService unitService, WorkoutTokens tokens) {
+    final l = AppLocalizations.of(context);
     final sessionRepo = SessionRepository(db);
     final bwRepo = BodyweightRepository(db);
 
@@ -916,16 +922,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return Row(
               children: [
                 Expanded(
-                    child: _StatCard(label: 'Sessions', value: sessionCount)),
+                    child: _StatCard(
+                        label: l.profileStatSessions, value: sessionCount)),
                 const SizedBox(width: 8),
-                Expanded(child: _StatCard(label: 'PRs', value: prCount)),
+                Expanded(
+                    child: _StatCard(label: l.profileStatPrs, value: prCount)),
                 const SizedBox(width: 8),
                 // Expanded must stay the direct Row child; UnitSwap's
                 // AnimatedSwitcher cannot host a flex ParentDataWidget.
                 Expanded(
                   child: UnitSwap(
                     unitKey: unitService.unit,
-                    child: _StatCard(label: 'Bodyweight', value: bwText),
+                    child: _StatCard(
+                        label: l.profileStatBodyweight, value: bwText),
                   ),
                 ),
               ],
@@ -980,6 +989,7 @@ class _SyncStatusRight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     return StreamBuilder<SyncStatus>(
       stream: db.statusStream,
       initialData: db.currentStatus,
@@ -1001,7 +1011,7 @@ class _SyncStatusRight extends StatelessWidget {
             _SyncDot(color: color, pulsing: state == SyncDotState.syncing),
             const SizedBox(width: 6),
             Text(
-              syncLabelFor(state, s?.lastSyncedAt, DateTime.now()),
+              _syncLabel(l, state, s?.lastSyncedAt),
               style: WorkoutType.mono(
                 size: 11,
                 weight: FontWeight.w600,
@@ -1012,6 +1022,34 @@ class _SyncStatusRight extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// Localized counterpart of the (now pure) sync-status mapping: turns a
+  /// [SyncDotState] + last-synced timestamp into a display string using ARB
+  /// keys. The relative-time phrasing comes from the pure [relativeTimeBucket].
+  static String _syncLabel(
+      AppLocalizations l, SyncDotState state, DateTime? lastSyncedAt) {
+    switch (state) {
+      case SyncDotState.syncing:
+        return l.syncSyncing;
+      case SyncDotState.error:
+        return l.syncError;
+      case SyncDotState.offline:
+        return l.syncOffline;
+      case SyncDotState.synced:
+        if (lastSyncedAt == null) return l.syncSynced;
+        return l.syncSyncedAt(_relativeTime(l, lastSyncedAt, DateTime.now()));
+    }
+  }
+
+  static String _relativeTime(AppLocalizations l, DateTime t, DateTime now) {
+    final b = relativeTimeBucket(t, now);
+    return switch (b.kind) {
+      RelativeTimeKind.justNow => l.syncJustNow,
+      RelativeTimeKind.minutes => l.syncMinutesAgo(b.value),
+      RelativeTimeKind.hours => l.syncHoursAgo(b.value),
+      RelativeTimeKind.date => l.syncDateShort(b.date!.day, b.date!.month),
+    };
   }
 }
 

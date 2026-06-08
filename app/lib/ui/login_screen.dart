@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/auth_store.dart';
+import '../l10n/app_localizations.dart';
 
 /// Sign-in / registration against the configured sync server.
 class LoginScreen extends StatefulWidget {
@@ -49,8 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: Text(l.loginTitle)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -58,12 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             TextField(
               controller: _email,
-              decoration: const InputDecoration(labelText: 'email'),
+              decoration: InputDecoration(labelText: l.loginEmailLabel),
               keyboardType: TextInputType.emailAddress,
             ),
             TextField(
               controller: _password,
-              decoration: const InputDecoration(labelText: 'password'),
+              decoration: InputDecoration(labelText: l.loginPasswordLabel),
               obscureText: true,
             ),
             const SizedBox(height: 16),
@@ -73,8 +75,8 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _busy ? null : _submit,
               child: Text(
                 _busy
-                    ? '...'
-                    : (_registering ? 'Create account' : 'Log in'),
+                    ? l.loginBusy
+                    : (_registering ? l.loginCreateAccount : l.loginLogIn),
               ),
             ),
             TextButton(
@@ -85,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         _error = null;
                       }),
               child: Text(
-                _registering ? 'Have an account? Sign in' : 'Create account',
+                _registering ? l.loginHaveAccount : l.loginCreateAccount,
               ),
             ),
           ],
