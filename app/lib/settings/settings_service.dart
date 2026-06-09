@@ -17,7 +17,6 @@ class SettingsService extends ChangeNotifier {
   String _profileName = 'Athlete';
   String _serverUrl = 'http://localhost:8080';
   bool _syncEnabled = false;
-  bool _ambientEnabled = true;
   int _restCompoundSeconds = 180;
   int _restIsolationSeconds = 90;
   String? _localeOverride;
@@ -29,7 +28,6 @@ class SettingsService extends ChangeNotifier {
   String get profileName => _profileName;
   String get serverUrl => _serverUrl;
   bool get syncEnabled => _syncEnabled;
-  bool get ambientEnabled => _ambientEnabled;
   int get restCompoundSeconds => _restCompoundSeconds;
   int get restIsolationSeconds => _restIsolationSeconds;
   bool get autoCheckUpdates => _autoCheckUpdates;
@@ -58,7 +56,6 @@ class SettingsService extends ChangeNotifier {
     _profileName = prefs.getString(_kProfileName) ?? 'Athlete';
     _serverUrl = prefs.getString(_kServerUrl) ?? 'http://localhost:8080';
     _syncEnabled = prefs.getBool('settings.sync_enabled') ?? false;
-    _ambientEnabled = prefs.getBool('settings.ambient_enabled') ?? true;
     _restCompoundSeconds = prefs.getInt('settings.rest_compound_seconds') ?? 180;
     _restIsolationSeconds =
         prefs.getInt('settings.rest_isolation_seconds') ?? 90;
@@ -125,14 +122,6 @@ class SettingsService extends ChangeNotifier {
     _syncEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('settings.sync_enabled', value);
-    notifyListeners();
-  }
-
-  /// Enable or disable the ambient visual layer and persist.
-  Future<void> setAmbientEnabled(bool value) async {
-    _ambientEnabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('settings.ambient_enabled', value);
     notifyListeners();
   }
 

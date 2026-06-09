@@ -11,9 +11,7 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
 
   return ThemeData(
     brightness: brightness,
-    // Transparent: AmbientLayer (wrapped via MaterialApp.builder) paints the
-    // app background BENEATH all routes so the ambient sits behind content.
-    scaffoldBackgroundColor: Colors.transparent,
+    scaffoldBackgroundColor: tokens.bg,
     extensions: [tokens],
     textTheme: WorkoutType.hankenTextTheme,
     colorScheme: ColorScheme(

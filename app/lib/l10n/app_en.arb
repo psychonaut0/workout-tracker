@@ -434,8 +434,6 @@
   "profileThemeLight": "Light",
   "profileAccent": "Accent",
   "profileAccentSub": "App highlight color",
-  "profileAmbientEffects": "Ambient effects",
-  "profileAmbientEffectsSub": "Drifting accent glow & grain",
   "profileGroupRest": "Rest",
   "profileCompoundRest": "Compound rest",
   "profileCompoundRestSub": "Default between compound sets",

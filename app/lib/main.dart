@@ -21,7 +21,6 @@ import 'sync/db.dart';
 import 'theme/app_theme.dart';
 import 'ui/onboarding_screen.dart';
 import 'units/unit_service.dart';
-import 'widgets/ambient_layer.dart';
 
 final appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -139,7 +138,6 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: widget.settingsService),
         ChangeNotifierProvider.value(value: widget.identity),
         ChangeNotifierProvider.value(value: widget.sessionManager),
-        ChangeNotifierProvider(create: (_) => AmbientController()),
       ],
       // Builder is required so that ctx.watch<SettingsService>() is a
       // descendant of the MultiProvider (calling watch in _AppState.build()
@@ -161,7 +159,6 @@ class _AppState extends State<App> {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.supportedLocales,
-            builder: (ctx, child) => AmbientLayer(child: child!),
             home: homeRouteFor(
                         onboardingComplete: identity.onboardingComplete) ==
                     HomeRoute.onboarding
