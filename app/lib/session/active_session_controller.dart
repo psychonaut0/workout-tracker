@@ -492,11 +492,24 @@ class ActiveSessionController extends ChangeNotifier {
   }
 
   /// Appends a new block for [exercise] using the exercise's own defaults.
-  void addBlock(Exercise exercise) {
+  ///
+  /// Seeds the block from logged history exactly like [buildFromTemplate] so a
+  /// mid-workout add shows previous data ("last time …"), a history-based
+  /// suggested weight, and PR detection — for custom and template exercises
+  /// alike. (Previously this skipped the lookup, so any added exercise read as
+  /// "No previous data" even when it had history.)
+  Future<void> addBlock(
+    Exercise exercise, {
+    required SessionRepository sessionRepo,
+  }) async {
     // Build a default slot from the exercise's own defaults (no slot overrides).
     final slot = Slot(exerciseId: exercise.id, position: draft.blocks.length);
     final resolved = resolveSlot(slot, exercise);
-    final block = buildBlock(resolved: resolved);
+    final lastTop = await sessionRepo.lastTopSet(exercise.id);
+    final bestKg = await sessionRepo.bestTopSet(exercise.id);
+    final block = buildBlock(resolved: resolved, lastTopKg: lastTop?.weight);
+    block.bestKg = bestKg;
+    block.lastTop = lastTop;
     draft.blocks.add(block);
     notifyListeners();
   }
