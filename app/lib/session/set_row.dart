@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 
 import '../data/models.dart';
 import '../l10n/app_localizations.dart';
@@ -10,7 +9,6 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
-import '../widgets/ambient_layer.dart';
 import '../widgets/pr_badge.dart';
 import '../widgets/rir_picker.dart';
 import '../widgets/stepper.dart';
@@ -150,7 +148,6 @@ class SetRow extends StatelessWidget {
                   // Toggling TO done: PR landing gets the heaviest impact.
                   if (isLivePr) {
                     HapticFeedback.heavyImpact();
-                    context.read<AmbientController>().bloom();
                   } else {
                     HapticFeedback.mediumImpact();
                   }

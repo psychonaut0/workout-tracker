@@ -214,8 +214,6 @@
   "profileThemeLight": "Claro",
   "profileAccent": "Acento",
   "profileAccentSub": "Color de resaltado de la app",
-  "profileAmbientEffects": "Efectos ambientales",
-  "profileAmbientEffectsSub": "Brillo de acento y grano flotantes",
   "profileGroupRest": "Descanso",
   "profileCompoundRest": "Descanso compuestos",
   "profileCompoundRestSub": "Predeterminado entre series compuestas",

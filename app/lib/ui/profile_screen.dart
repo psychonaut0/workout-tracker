@@ -677,15 +677,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       right: _buildAccentSwatches(settings, tokens),
                     ),
                     _Row(
-                      icon: WIcons.bolt,
-                      title: l.profileAmbientEffects,
-                      sub: l.profileAmbientEffectsSub,
-                      right: Toggle(
-                        value: settings.ambientEnabled,
-                        onChanged: settings.setAmbientEnabled,
-                      ),
-                    ),
-                    _Row(
                       icon: WIcons.gear,
                       title: l.settingsLanguage,
                       sub: _languageLabel(context, settings.localeOverride),
