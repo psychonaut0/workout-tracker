@@ -168,6 +168,75 @@ class _Row extends StatelessWidget {
 
 // ── Quick-stats card ──────────────────────────────────────────────────────────
 
+/// Quick-stats row (sessions / PRs / bodyweight).
+///
+/// A StatefulWidget so its DB watch-streams are created ONCE in field
+/// initializers and cached — never in `build()`. Creating a single-subscription
+/// stream in `build()` re-subscribes it when the profile list recycles/keeps
+/// this row alive on scroll, throwing "Stream has already been listened to";
+/// in a release build that uncaught error renders as a gray ErrorWidget over
+/// the top of the screen (the reported "infinite gray box").
+class _QuickStats extends StatefulWidget {
+  const _QuickStats();
+
+  @override
+  State<_QuickStats> createState() => _QuickStatsState();
+}
+
+class _QuickStatsState extends State<_QuickStats> {
+  late final Stream<List<HistorySessionRow>> _sessions =
+      SessionRepository(db).watchSessionStats();
+  late final Stream<List<BodyweightEntry>> _bodyweight =
+      BodyweightRepository(db).watchSeriesAsc();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final unitService = context.watch<UnitService>();
+
+    return StreamBuilder<List<HistorySessionRow>>(
+      stream: _sessions,
+      builder: (context, sessionSnap) {
+        final sessions = sessionSnap.data ?? [];
+        final sessionCount = sessions.length.toString();
+        final prCount =
+            sessions.fold<int>(0, (sum, s) => sum + s.prCount).toString();
+
+        return StreamBuilder<List<BodyweightEntry>>(
+          stream: _bodyweight,
+          builder: (context, bwSnap) {
+            final bwEntries = bwSnap.data ?? [];
+            final bwText = bwEntries.isEmpty
+                ? '–'
+                : '${unitService.fmtWt(bwEntries.last.weightKg)}${unitService.uLabel}';
+
+            return Row(
+              children: [
+                Expanded(
+                    child: _StatCard(
+                        label: l.profileStatSessions, value: sessionCount)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _StatCard(label: l.profileStatPrs, value: prCount)),
+                const SizedBox(width: 8),
+                // Expanded must stay the direct Row child; UnitSwap's
+                // AnimatedSwitcher cannot host a flex ParentDataWidget.
+                Expanded(
+                  child: UnitSwap(
+                    unitKey: unitService.unit,
+                    child: _StatCard(
+                        label: l.profileStatBodyweight, value: bwText),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   const _StatCard({required this.label, required this.value});
 
@@ -631,7 +700,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 22),
 
                 // ── Quick stats ─────────────────────────────────────────────
-                _buildQuickStats(unitService, tokens),
+                const _QuickStats(),
 
                 const SizedBox(height: 22),
 
@@ -966,53 +1035,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildQuickStats(UnitService unitService, WorkoutTokens tokens) {
-    final l = AppLocalizations.of(context);
-    final sessionRepo = SessionRepository(db);
-    final bwRepo = BodyweightRepository(db);
-
-    return StreamBuilder<List<HistorySessionRow>>(
-      stream: sessionRepo.watchSessionStats(),
-      builder: (context, sessionSnap) {
-        final sessions = sessionSnap.data ?? [];
-        final sessionCount = sessions.length.toString();
-        final prCount = sessions
-            .fold<int>(0, (sum, s) => sum + s.prCount)
-            .toString();
-
-        return StreamBuilder<List<BodyweightEntry>>(
-          stream: bwRepo.watchSeriesAsc(),
-          builder: (context, bwSnap) {
-            final bwEntries = bwSnap.data ?? [];
-            final bwText = bwEntries.isEmpty
-                ? '–'
-                : '${unitService.fmtWt(bwEntries.last.weightKg)}${unitService.uLabel}';
-
-            return Row(
-              children: [
-                Expanded(
-                    child: _StatCard(
-                        label: l.profileStatSessions, value: sessionCount)),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _StatCard(label: l.profileStatPrs, value: prCount)),
-                const SizedBox(width: 8),
-                // Expanded must stay the direct Row child; UnitSwap's
-                // AnimatedSwitcher cannot host a flex ParentDataWidget.
-                Expanded(
-                  child: UnitSwap(
-                    unitKey: unitService.unit,
-                    child: _StatCard(
-                        label: l.profileStatBodyweight, value: bwText),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
   Widget _buildAccentSwatches(SettingsService settings, WorkoutTokens tokens) {
     return Row(
