@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../data/active_session_draft.dart';
 import '../data/exercise_repository.dart';
+import '../data/session_repository.dart';
 import '../data/session_writer.dart';
 import '../l10n/app_localizations.dart';
 import '../settings/settings_service.dart';
@@ -307,7 +308,10 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                           exercises: all,
                         );
                         if (picked != null) {
-                          controller.addBlock(picked);
+                          await controller.addBlock(
+                            picked,
+                            sessionRepo: SessionRepository(db),
+                          );
                         }
                       },
                     ),
