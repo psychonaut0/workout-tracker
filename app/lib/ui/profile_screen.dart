@@ -59,12 +59,17 @@ class _Group extends StatelessWidget {
             ),
           ),
           Container(
+            // No clipBehavior: the rounded fill + border come from the
+            // decoration, and the children (transparent rows, interior
+            // dividers) never paint into the corners — so an anti-aliased clip
+            // does no visual work here. It only forces an offscreen clip layer,
+            // which Impeller's raster cache mis-composites as a stale gray box
+            // at the wrong scroll position (the reported artifact).
             decoration: BoxDecoration(
               color: tokens.surface,
               border: Border.all(color: tokens.line),
               borderRadius: BorderRadius.circular(AppRadius.radius),
             ),
-            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 for (int i = 0; i < children.length; i++) ...[
