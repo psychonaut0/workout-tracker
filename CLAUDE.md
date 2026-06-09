@@ -26,7 +26,7 @@ Everything runs from the **repo root** with explicit paths — never `cd` (commi
 
 ## Releases
 
-- Tag `v*` on main → `.github/workflows/android-release.yml` builds and publishes the signed `reps-vX.Y.Z.apk` to GitHub Releases (signing via repo secrets; release runbook in `app/android/RELEASE.md`).
+- Tag `v*` on main → `.github/workflows/android-release.yml` builds and publishes the signed `reps-vX.Y.Z.apk` to GitHub Releases (signing via repo secrets; release runbook in `app/android/RELEASE.md`). **Before tagging `vX.Y.Z`, bump `app/pubspec.yaml` `version:` to `X.Y.Z+N`** — the in-app OTA updater reads the running version from there, and the release workflow hard-fails if the pubspec version (sans `+build`) doesn't match the tag.
 - Push to main → `.github/workflows/build.yml` publishes the server image to GHCR (`ghcr.io/psychonaut0/workout-tracker-server`, public). Production runs on the homelab (`ct-workout` LXC); deployment lives in the separate infra repo (`personal/infra/stacks/ct-workout/`).
 
 ## Cross-cutting architecture facts
