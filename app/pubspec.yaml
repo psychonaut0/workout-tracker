@@ -1,7 +1,7 @@
 name: workout_tracker
 description: Workout tracker Flutter client (local-first via PowerSync).
 publish_to: none
-version: 0.12.4+16
+version: 0.12.5+17
 
 environment:
   sdk: ^3.8.0
