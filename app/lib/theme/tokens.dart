@@ -6,6 +6,7 @@ const List<Color> accents = [
   Color(0xFF5ce6a4), // mint
   Color(0xFFffc24b), // amber
   Color(0xFF5cc8ff), // sky
+  Color(0xFFc084fc), // purple
 ];
 
 // ── radius / spacing constants ───────────────────────────────────────────────
