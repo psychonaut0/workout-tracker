@@ -18,6 +18,7 @@ import 'settings/settings_service.dart';
 import 'shell/app_shell.dart';
 import 'shell/session_launcher.dart';
 import 'sync/db.dart';
+import 'theme/app_scroll_behavior.dart';
 import 'theme/app_theme.dart';
 import 'ui/onboarding_screen.dart';
 import 'units/unit_service.dart';
@@ -151,6 +152,7 @@ class _AppState extends State<App> {
           final identity = ctx.watch<IdentityService>();
           return MaterialApp(
             navigatorKey: appNavigatorKey,
+            scrollBehavior: const AppScrollBehavior(),
             title: 'workout-tracker',
             theme: buildTheme(s.brightness, s.accentColor),
             locale: s.locale,
