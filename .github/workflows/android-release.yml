@@ -40,6 +40,16 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
+      - name: Verify pubspec version matches tag
+        working-directory: app
+        run: |
+          TAG="${GITHUB_REF_NAME}"; WANT="${TAG#v}"
+          GOT=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
+          if [ "$GOT" != "$WANT" ]; then
+            echo "::error::pubspec version '$GOT' does not match tag '$WANT'"; exit 1
+          fi
+          echo "pubspec version $GOT matches tag $WANT"
+
       - name: Build signed release APK
         working-directory: app
         run: |

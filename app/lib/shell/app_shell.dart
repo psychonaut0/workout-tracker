@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,8 @@ import '../auth/auth_store.dart';
 import '../data/day_template_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../main.dart' show appNavigatorKey;
+import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../ui/history_screen.dart';
 import '../ui/plan_screen.dart';
@@ -14,6 +18,8 @@ import '../ui/progress_screen.dart';
 import '../ui/today_screen.dart';
 import '../session/session_manager.dart';
 import '../theme/motion.dart';
+import '../update/update_service.dart';
+import '../update/update_ui.dart';
 import 'back_dispatch.dart';
 import 'session_launcher.dart' as launcher;
 import 'session_indicator.dart';
@@ -59,6 +65,29 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _dayRepo = DayTemplateRepository(db);
     _sessionRepo = SessionRepository(db);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoCheck());
+  }
+
+  /// Fire-and-forget once/day update check (Android only). Always records the
+  /// check timestamp — even on null/304/error — so the throttle holds for a
+  /// day. On a real update, shows the dialog via the root navigator context.
+  Future<void> _maybeAutoCheck() async {
+    if (!Platform.isAndroid) return;
+    if (!mounted) return;
+    final settings = context.read<SettingsService>();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (!shouldAutoCheck(
+      enabled: settings.autoCheckUpdates,
+      lastCheckMs: settings.lastUpdateCheckMs,
+      nowMs: now,
+    )) {
+      return;
+    }
+    final info = await UpdateService().checkForUpdate(); // force:false, silent
+    await settings.markUpdateChecked(now);
+    if (info == null) return;
+    final ctx = appNavigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) await showUpdateDialog(ctx, info);
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────

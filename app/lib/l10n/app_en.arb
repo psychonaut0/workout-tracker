@@ -525,5 +525,41 @@
   "navPlan": "Plan",
   "profileGroupData": "Data",
   "progressChange": "CHANGE",
-  "notifChannelName": "Workout session"
+  "notifChannelName": "Workout session",
+  "updatesGroup": "Updates",
+  "updatesVersion": "Version {v}",
+  "@updatesVersion": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "updatesCheck": "Check for updates",
+  "updatesChecking": "Checking…",
+  "updatesUpToDate": "You're on the latest version",
+  "updatesError": "Couldn't check for updates",
+  "updatesAutoCheck": "Check automatically",
+  "updatesAvailableTitle": "Update available · v{v}",
+  "@updatesAvailableTitle": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "updatesInstall": "Download & install",
+  "updatesLater": "Later",
+  "updatesDownloading": "Downloading… {percent}%",
+  "@updatesDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "updatesInstalling": "Installing…",
+  "updatesPermissionTitle": "Allow updates",
+  "updatesPermissionMessage": "Reps needs permission to install app updates. Enable it on the next screen, then tap Install again.",
+  "updatesOpenSettings": "Open settings"
 }

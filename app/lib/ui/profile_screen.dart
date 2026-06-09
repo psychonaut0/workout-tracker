@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' show SyncStatus;
 import 'package:provider/provider.dart';
 
@@ -17,6 +20,8 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../update/update_service.dart';
+import '../update/update_ui.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
@@ -242,6 +247,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _exportingFull = false;
   bool _exportingHistory = false;
 
+  // Update-check state (Android only).
+  bool _checking = false;
+
+  // Runtime app version (footer; reused by the Updates group).
+  String _version = '';
+
   @override
   void initState() {
     super.initState();
@@ -249,6 +260,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameCtrl = TextEditingController(text: settings.profileName);
     _serverCtrl = TextEditingController(text: settings.serverUrl);
     _currentServerUrl = settings.serverUrl;
+    PackageInfo.fromPlatform().then((i) {
+      if (mounted) setState(() => _version = i.version);
+    });
   }
 
   @override
@@ -500,6 +514,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
       message: '$e',
       actions: [WDialogAction(label: l.commonOk, value: true)],
     );
+  }
+
+  // ── Update check (manual button) ────────────────────────────────────────────
+
+  Future<void> _checkUpdates() async {
+    final l = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final settings = context.read<SettingsService>();
+    setState(() => _checking = true);
+    UpdateInfo? info;
+    var errored = false;
+    try {
+      info = await UpdateService().checkForUpdate(force: true);
+    } catch (_) {
+      errored = true;
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+    await settings.markUpdateChecked(DateTime.now().millisecondsSinceEpoch);
+    if (!mounted) return;
+    if (errored) {
+      messenger.showSnackBar(SnackBar(content: Text(l.updatesError)));
+    } else if (info == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l.updatesUpToDate)));
+    } else {
+      await showUpdateDialog(context, info);
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -776,6 +817,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
 
+                // ── Updates ─────────────────────────────────────────────────
+                _Group(
+                  label: l.updatesGroup,
+                  children: [
+                    _Row(
+                      icon: WIcons.update,
+                      title: l.updatesVersion(
+                          _version.isEmpty ? '–' : _version),
+                    ),
+                    if (Platform.isAndroid) ...[
+                      _Row(
+                        icon: WIcons.refresh,
+                        title: _checking ? l.updatesChecking : l.updatesCheck,
+                        right: _checking ? const _RowSpinner() : null,
+                        onTap: _checking ? null : _checkUpdates,
+                      ),
+                      _Row(
+                        icon: WIcons.bolt,
+                        title: l.updatesAutoCheck,
+                        right: Toggle(
+                          value: settings.autoCheckUpdates,
+                          onChanged: (v) => context
+                              .read<SettingsService>()
+                              .setAutoCheckUpdates(v),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
                 // ── Account ─────────────────────────────────────────────────
                 if (signedIn)
                   _Group(
@@ -799,7 +870,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'workout-tracker · v1.0.0',
+                    _version.isEmpty
+                        ? 'workout-tracker'
+                        : 'workout-tracker · v$_version',
                     textAlign: TextAlign.center,
                     style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                   ),

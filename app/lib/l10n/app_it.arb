@@ -274,5 +274,20 @@
   "navPlan": "Scheda",
   "profileGroupData": "Dati",
   "progressChange": "CAMBIA",
-  "notifChannelName": "Sessione di allenamento"
+  "notifChannelName": "Sessione di allenamento",
+  "updatesGroup": "Aggiornamenti",
+  "updatesVersion": "Versione {v}",
+  "updatesCheck": "Controlla aggiornamenti",
+  "updatesChecking": "Controllo…",
+  "updatesUpToDate": "Hai la versione più recente",
+  "updatesError": "Impossibile controllare gli aggiornamenti",
+  "updatesAutoCheck": "Controlla automaticamente",
+  "updatesAvailableTitle": "Aggiornamento disponibile · v{v}",
+  "updatesInstall": "Scarica e installa",
+  "updatesLater": "Più tardi",
+  "updatesDownloading": "Download… {percent}%",
+  "updatesInstalling": "Installazione…",
+  "updatesPermissionTitle": "Consenti aggiornamenti",
+  "updatesPermissionMessage": "Reps ha bisogno dell'autorizzazione per installare gli aggiornamenti. Abilitala nella schermata successiva, poi tocca di nuovo Installa.",
+  "updatesOpenSettings": "Apri impostazioni"
 }
