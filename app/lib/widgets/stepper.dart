@@ -26,6 +26,7 @@ class WStepper extends StatefulWidget {
     required this.onChanged,
     this.editable = false,
     this.parseDisplay,
+    this.formatForEdit,
   });
 
   final double value;
@@ -33,6 +34,12 @@ class WStepper extends StatefulWidget {
 
   /// Formats the current value for display.
   final String Function(double) format;
+
+  /// Formats the value for the inline edit field's initial text. Defaults to
+  /// [format]. Provide a bare-number formatter when [format] appends units or
+  /// labels (e.g. "80kg", "Default") that would not round-trip through the
+  /// numeric parser on commit.
+  final String Function(double)? formatForEdit;
 
   final ValueChanged<double> onChanged;
 
@@ -72,7 +79,8 @@ class _WStepperState extends State<WStepper> {
 
   void _beginEdit() {
     if (!widget.editable) return;
-    _editCtrl = TextEditingController(text: widget.format(_internalValue));
+    final initial = (widget.formatForEdit ?? widget.format)(_internalValue);
+    _editCtrl = TextEditingController(text: initial);
     _editCtrl!.selection =
         TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
     setState(() => _editing = true);
@@ -99,10 +107,13 @@ class _WStepperState extends State<WStepper> {
   @override
   void didUpdateWidget(WStepper old) {
     super.didUpdateWidget(old);
-    // Keep internal value in sync when the parent provides a new value
-    // (e.g. after an undo or external reset).
-    if (widget.value != old.value) {
-      _up = widget.value > old.value;
+    // Re-sync to the parent's value whenever it differs from our internal copy
+    // — not just when it changed between builds. This also catches a typed or
+    // stepped value that the parent clamps to a value it ALREADY held (e.g. the
+    // field was already at the cap): without it, the out-of-range number lingers
+    // on screen while the clamped value is what actually gets saved.
+    if (widget.value != _internalValue) {
+      _up = widget.value > _internalValue;
       _internalValue = widget.value;
     }
   }
