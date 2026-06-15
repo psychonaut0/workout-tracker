@@ -226,28 +226,13 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       defaultRestSeconds: _restSeconds == 0 ? null : _restSeconds,
     );
 
-    try {
-      if (_editId != null) {
-        await _repo.updateExercise(_editId!, draft);
-      } else {
-        await _repo.createExercise(draft);
-      }
-      if (mounted) widget.onBack();
-    } catch (e, st) {
-      // Surface the failure instead of silently leaving the button disabled.
-      debugPrint('exercise save failed: $e\n$st');
-      if (mounted) {
-        final l = AppLocalizations.of(context);
-        await showWDialog<void>(
-          context,
-          title: l.editorSaveFailed,
-          message: '$e',
-          actions: [WDialogAction(label: l.commonOk, value: null)],
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    if (_editId != null) {
+      await _repo.updateExercise(_editId!, draft);
+    } else {
+      await _repo.createExercise(draft);
     }
+
+    if (mounted) widget.onBack();
   }
 
   // ── delete ───────────────────────────────────────────────────────────────────
@@ -483,8 +468,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             value: _baseWeightDisplay,
             step: _stepDisplay,
             format: (v) => '${fmtPlain(v)}${units.uLabel}',
-            formatForEdit: (v) => fmtPlain(v),
-            editable: true,
             onChanged: (v) {
               setState(() => _baseWeightDisplay = v < 0 ? 0 : v);
             },
@@ -508,7 +491,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   value: _repLow.toDouble(),
                   step: 1,
                   format: (v) => v.round().toString(),
-                  editable: true,
                   onChanged: (v) {
                     final low = v.round().clamp(1, 99);
                     setState(() {
@@ -527,7 +509,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   value: _repHigh.toDouble(),
                   step: 1,
                   format: (v) => v.round().toString(),
-                  editable: true,
                   onChanged: (v) {
                     final high = v.round().clamp(_repLow, 99);
                     setState(() => _repHigh = high);
@@ -548,7 +529,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   value: _workSets.toDouble(),
                   step: 1,
                   format: (v) => v.round().toString(),
-                  editable: true,
                   onChanged: (v) {
                     setState(() => _workSets = v.round().clamp(1, 99));
                   },
@@ -563,7 +543,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   value: _warmupSets.toDouble(),
                   step: 1,
                   format: (v) => v.round().toString(),
-                  editable: true,
                   onChanged: (v) {
                     setState(() => _warmupSets = v.round().clamp(0, 99));
                   },
@@ -583,10 +562,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             format: (v) => v == 0
                 ? l.exerciseEditorRestDefault
                 : l.exerciseEditorRestSeconds(v.round()),
-            // Edit field shows a bare number (blank for 0 = "Default") so the
-            // typed value round-trips through the numeric parser.
-            formatForEdit: (v) => v == 0 ? '' : v.round().toString(),
-            editable: true,
             onChanged: (v) =>
                 setState(() => _restSeconds = v.round() < 0 ? 0 : v.round()),
           ),

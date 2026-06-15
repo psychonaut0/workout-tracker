@@ -230,24 +230,8 @@ class _DayEditorState extends State<DayEditor> {
       slots: _slots.map((s) => s.draft).toList(),
     );
 
-    try {
-      await _dayRepo.saveDay(id: _editId, draft: draft);
-      if (mounted) widget.onBack();
-    } catch (e, st) {
-      // Surface the failure instead of silently leaving the button disabled.
-      debugPrint('day save failed: $e\n$st');
-      if (mounted) {
-        final l = AppLocalizations.of(context);
-        await showWDialog<void>(
-          context,
-          title: l.editorSaveFailed,
-          message: '$e',
-          actions: [WDialogAction(label: l.commonOk, value: null)],
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    await _dayRepo.saveDay(id: _editId, draft: draft);
+    if (mounted) widget.onBack();
   }
 
   Future<void> _delete() async {
@@ -623,7 +607,6 @@ class _SlotRowState extends State<_SlotRow> {
                             value: (d.workSets ?? 3).toDouble(),
                             step: 1,
                             format: (v) => v.round().toString(),
-                            editable: true,
                             onChanged: _updateWork,
                           ),
                         ),
@@ -636,7 +619,6 @@ class _SlotRowState extends State<_SlotRow> {
                             value: (d.warmupSets ?? 0).toDouble(),
                             step: 1,
                             format: (v) => v.round().toString(),
-                            editable: true,
                             onChanged: _updateWarmup,
                           ),
                         ),
@@ -654,7 +636,6 @@ class _SlotRowState extends State<_SlotRow> {
                             value: (d.repLow ?? 8).toDouble(),
                             step: 1,
                             format: (v) => v.round().toString(),
-                            editable: true,
                             onChanged: _updateRepLow,
                           ),
                         ),
@@ -667,7 +648,6 @@ class _SlotRowState extends State<_SlotRow> {
                             value: (d.repHigh ?? 12).toDouble(),
                             step: 1,
                             format: (v) => v.round().toString(),
-                            editable: true,
                             onChanged: _updateRepHigh,
                           ),
                         ),

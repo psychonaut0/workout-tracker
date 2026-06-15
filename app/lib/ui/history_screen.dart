@@ -90,7 +90,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final monthPrs = recent.fold<int>(0, (sum, s) => sum + s.prCount);
     final monthTonnageKg =
         recent.fold<double>(0, (sum, s) => sum + s.tonnageKg);
-    final monthVolDisplay = fmtTonnage(monthTonnageKg, units);
+    final monthVolDisplay = () {
+      final converted = UnitService.fromKg(monthTonnageKg, units.unit) / 1000;
+      final suffix = units.uLabel == 'kg' ? 't' : 'k';
+      return '${converted.toStringAsFixed(1)}$suffix';
+    }();
 
     // ── Week grouping ────────────────────────────────────────────────────────
     final groups = groupByWeek<HistorySessionRow>(sessions, (r) => r.date);
@@ -128,7 +132,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _WeekHeader(
             weekKey: wk,
             sessions: groups[wk]!,
-            units: units,
             tokens: tokens,
           ),
           const SizedBox(height: 10),
@@ -290,36 +293,23 @@ class _SummaryCard extends StatelessWidget {
 
 // ── Week header ───────────────────────────────────────────────────────────────
 
-/// Formats a kg tonnage into the display-unit summary string used by both the
-/// 4-week summary and the per-week header (e.g. "12.4t" for kg, "27.3k" for lb).
-String fmtTonnage(double tonnageKg, UnitService units) {
-  final converted = UnitService.fromKg(tonnageKg, units.unit) / 1000;
-  final suffix = units.uLabel == 'kg' ? 't' : 'k';
-  return '${converted.toStringAsFixed(1)}$suffix';
-}
-
 class _WeekHeader extends StatelessWidget {
   const _WeekHeader({
     required this.weekKey,
     required this.sessions,
-    required this.units,
     required this.tokens,
   });
 
   final String weekKey;
   final List<HistorySessionRow> sessions;
-  final UnitService units;
   final WorkoutTokens tokens;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final prs = sessions.fold<int>(0, (sum, s) => sum + s.prCount);
-    final tonnageKg = sessions.fold<double>(0, (sum, s) => sum + s.tonnageKg);
-    final prSuffix = prs > 0 ? l.sessionPrCount(prs) : '';
-    // Volume first (the requested metric), then sessions + PRs.
-    final rightLabel =
-        '${fmtTonnage(tonnageKg, units)} · ${l.historyWeekSessions(sessions.length)}$prSuffix';
+    final countLabel = l.historyWeekSessions(sessions.length) +
+        (prs > 0 ? l.sessionPrCount(prs) : '');
 
     return Padding(
       padding: const EdgeInsets.only(left: 2, right: 2),
@@ -338,16 +328,9 @@ class _WeekHeader extends StatelessWidget {
               letterSpacing: 0.08 * 11,
             ),
           ),
-          // Flexible so the volume + count string ellipsizes instead of
-          // overflowing on narrow phones.
-          Flexible(
-            child: Text(
-              rightLabel,
-              textAlign: TextAlign.end,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: WorkoutType.mono(size: 10.5, color: tokens.dim),
-            ),
+          Text(
+            countLabel,
+            style: WorkoutType.mono(size: 10.5, color: tokens.dim),
           ),
         ],
       ),

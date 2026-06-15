@@ -49,10 +49,7 @@ ExerciseDeleteAction decideExerciseDelete({
 ///   non-null → `toStringAsFixed(2)`.
 /// - [ExerciseDraft.plateStepKg] always `toStringAsFixed(2)`.
 /// - [ExerciseDraft.compound] → `0`/`1`.
-/// - OMIT user_id / created_at / created_by (server stamps).
-/// - SET is_template = 0 locally so the row is visible offline: the list
-///   queries hide templates, and an unset is_template (NULL) would be hidden
-///   too. The server still forces is_template for synced rows.
+/// - OMIT user_id / created_at / is_template (server stamps/forces).
 ({String sql, List<Object?> args}) exerciseUpsertOp(
   String? existingId,
   String newId,
@@ -69,8 +66,8 @@ ExerciseDeleteAction decideExerciseDelete({
       sql: 'INSERT INTO exercises '
           '(id, slug, name, muscle_group, equip, compound, base_weight_kg, plate_step_kg, '
           'default_rep_low, default_rep_high, default_warmup_sets, default_working_sets, '
-          'default_rir_low, default_rir_high, default_rest_seconds, is_template) '
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+          'default_rir_low, default_rir_high, default_rest_seconds) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       args: [
         newId,
         slug,
@@ -130,7 +127,7 @@ class ExerciseRepository {
   /// Emits a new list on every local DB change (sync down, user edits).
   Stream<List<Exercise>> watchCatalog() {
     return db
-        .watch('SELECT * FROM exercises WHERE is_template IS NOT 1 ORDER BY name')
+        .watch('SELECT * FROM exercises WHERE is_template = 0 ORDER BY name')
         .map((rs) => rs.map(Exercise.fromRow).toList());
   }
 
@@ -144,7 +141,7 @@ class ExerciseRepository {
   /// One-shot fetch of all exercises (for pickers, etc.).
   Future<List<Exercise>> all() async {
     final rows = await db
-        .getAll('SELECT * FROM exercises WHERE is_template IS NOT 1 ORDER BY name');
+        .getAll('SELECT * FROM exercises WHERE is_template = 0 ORDER BY name');
     return rows.map(Exercise.fromRow).toList();
   }
 

@@ -14,7 +14,6 @@ import '../data/stats_repository.dart';
 import '../l10n/app_localizations.dart';
 import '../session/active_session_controller.dart';
 import '../session/session_manager.dart';
-import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
@@ -544,12 +543,11 @@ class _GreetingHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final tokens = context.tokens;
-    final initials = context.watch<SettingsService>().profileInitials;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Avatar — 46px accent circle with the profile-name initials
+        // Avatar — 46px accent circle with initials placeholder
         GestureDetector(
           onTap: onTapProfile,
           child: Container(
@@ -561,7 +559,7 @@ class _GreetingHeader extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                initials,
+                'A',
                 style: WorkoutType.display(
                   size: 18,
                   weight: FontWeight.w700,

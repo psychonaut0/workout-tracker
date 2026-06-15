@@ -73,7 +73,7 @@ void main() {
     const newId = 'exercise-new-uuid-1234';
     const slug = 'bench-press-1234abcd';
 
-    test('INSERT (existingId==null): uses newId + slug, no user_id/created_at, sets is_template=0', () {
+    test('INSERT (existingId==null): uses newId + slug, no user_id/created_at/is_template', () {
       final d = _exerciseDraft(compound: true, baseWeightKg: 60.0);
       final op = exerciseUpsertOp(null, newId, d, slug);
 
@@ -82,8 +82,7 @@ void main() {
       expect(op.args, contains(slug));
       expect(op.sql, isNot(contains('user_id')));
       expect(op.sql, isNot(contains('created_at')));
-      // is_template = 0 is written locally so the row is visible offline.
-      expect(op.sql, contains('is_template'));
+      expect(op.sql, isNot(contains('is_template')));
     });
 
     test('INSERT compound → 1, non-compound → 0', () {
@@ -154,7 +153,7 @@ void main() {
       expect(op.args, contains('Chest'));
       expect(op.args, contains(0)); // weekday
       expect(op.args, contains(3)); // position
-      expect(op.sql, contains('is_template')); // is_template = 0 written locally
+      expect(op.sql, isNot(contains('is_template')));
       expect(op.sql, isNot(contains('created_by')));
       expect(op.sql, isNot(contains('user_id')));
       expect(op.sql, isNot(contains('created_at')));
@@ -195,7 +194,7 @@ void main() {
       expect(op.args, contains(1)); // position
       expect(op.args, contains(3)); // workSets
       expect(op.args, contains(8)); // repLow
-      expect(op.sql, contains('is_template')); // is_template = 0 written locally
+      expect(op.sql, isNot(contains('is_template')));
       expect(op.sql, isNot(contains('created_by')));
       expect(op.sql, isNot(contains('user_id')));
       expect(op.sql, isNot(contains('created_at')));
@@ -294,7 +293,7 @@ void main() {
       expect(ops[2].args, contains(2));
     });
 
-    test('new day: no user_id/created_at; INSERTs set is_template=0', () {
+    test('new day: no user_id, created_at, is_template in any op', () {
       final draft = DayDraft(
         name: 'Leg Day',
         focus: null,
@@ -311,12 +310,10 @@ void main() {
         newSlotId: (i) => 'slot-$i',
       );
 
-      // A new day produces only INSERTs (day + slots): all set is_template = 0
-      // locally, but never the server-stamped user_id / created_at.
       for (final op in ops) {
         expect(op.sql, isNot(contains('user_id')));
         expect(op.sql, isNot(contains('created_at')));
-        expect(op.sql, contains('is_template'));
+        expect(op.sql, isNot(contains('is_template')));
       }
     });
 
