@@ -101,7 +101,7 @@ class SessionRepository {
 
     final wt = row['weight_kg'];
     return (
-      weight: wt != null ? double.parse(wt.toString()) : 0.0,
+      weight: double.tryParse(wt?.toString() ?? '') ?? 0.0,
       reps: row['reps'] as int? ?? 0,
       date: row['date'] as String? ?? '',
     );
