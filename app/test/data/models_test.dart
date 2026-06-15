@@ -27,4 +27,30 @@ void main() {
     });
     expect(ex.defaultRestSeconds, 120);
   });
+  test('Exercise.fromRow tolerates empty-string / null weights (no throw)', () {
+    // A locally-created exercise with no base weight stores '' (the null
+    // sentinel). double.parse('') throws; one such row used to kill the whole
+    // catalog stream. tryParse must yield null base + default plate step.
+    final ex = Exercise.fromRow({
+      'id': 'x', 'name': 'Pectoral machine', 'slug': 'pectoral-machine-x',
+      'muscle_group': 'chest', 'is_template': 0, 'created_at': null,
+      'base_weight_kg': '', 'plate_step_kg': '',
+    });
+    expect(ex.baseWeightKg, isNull);
+    expect(ex.plateStepKg, 2.5);
+    // Also a missing key (null) must not throw.
+    final ex2 = Exercise.fromRow({
+      'id': 'y', 'name': 'm', 'slug': 'm-y', 'muscle_group': 'chest',
+    });
+    expect(ex2.baseWeightKg, isNull);
+    expect(ex2.plateStepKg, 2.5);
+  });
+
+  test('LoggedSet.fromRow tolerates empty-string weight (no throw)', () {
+    final s = LoggedSet.fromRow({
+      'id': 's', 'exercise_id': 'x', 'set_number': 1,
+      'weight_kg': '', 'reps': 10,
+    });
+    expect(s.weightKg, 0.0);
+  });
 }

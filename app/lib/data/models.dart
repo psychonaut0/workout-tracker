@@ -93,8 +93,11 @@ class Exercise {
       muscleGroup: row['muscle_group'] as String? ?? '',
       equip: row['equip'] as String?,
       compound: (row['compound'] as int? ?? 0) != 0,
-      baseWeightKg: baseWt != null ? double.parse(baseWt.toString()) : null,
-      plateStepKg: plateStep != null ? double.parse(plateStep.toString()) : 2.5,
+      // tryParse (not parse): a locally-created exercise with no base weight is
+      // stored as '' (the null sentinel the server NULLIFs). double.parse('')
+      // throws, and one bad row would break the whole catalog stream's map().
+      baseWeightKg: double.tryParse(baseWt?.toString() ?? ''),
+      plateStepKg: double.tryParse(plateStep?.toString() ?? '') ?? 2.5,
       defaultRepLow: row['default_rep_low'] as int?,
       defaultRepHigh: row['default_rep_high'] as int?,
       defaultWarmupSets: row['default_warmup_sets'] as int?,
@@ -302,7 +305,7 @@ class LoggedSet {
       id: row['id'] as String,
       exerciseId: row['exercise_id'] as String,
       setNumber: row['set_number'] as int? ?? 0,
-      weightKg: wt != null ? double.parse(wt.toString()) : 0.0,
+      weightKg: double.tryParse(wt?.toString() ?? '') ?? 0.0,
       reps: row['reps'] as int? ?? 0,
       rir: row['rir'] as int?,
       isWarmup: (row['is_warmup'] as int? ?? 0) != 0,
