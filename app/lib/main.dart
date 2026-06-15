@@ -8,6 +8,7 @@ import 'data/catalog_seed.dart';
 import 'data/muscle_target_repository.dart';
 import 'data/session_repository.dart';
 import 'data/session_writer.dart';
+import 'data/is_template_backfill.dart';
 import 'data/template_absorb.dart';
 import 'data/top_set_backfill.dart';
 import 'identity/identity_service.dart';
@@ -57,6 +58,10 @@ Future<void> main() async {
   );
 
   await backfillTopSets(db);
+
+  // Normalize is_template = NULL → 0 (rows created by pre-fix builds) BEFORE
+  // absorb so its de-dup queries (is_template = 0) can see owned rows.
+  await backfillIsTemplate(db);
 
   // Absorb synced template rows into user-owned rows (nothing is locked).
   await absorbTemplates(db, identity.currentUserId);

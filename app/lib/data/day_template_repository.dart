@@ -12,7 +12,9 @@ import 'session_repository.dart';
 /// - UPDATE when [existingId] is non-null (updates name/focus/weekday only;
 ///   position is NOT updated on a plain edit).
 ///
-/// OMIT is_template / created_by / slug / notes / user_id / created_at.
+/// OMIT created_by / slug / notes / user_id / created_at. SET is_template = 0
+/// locally so a new day is visible offline (list queries hide templates and an
+/// unset NULL is_template would be hidden too); the server still forces it.
 ({String sql, List<Object?> args}) dayTemplateUpsertOp(
   String? existingId,
   String newId,
@@ -23,8 +25,9 @@ import 'session_repository.dart';
 ) {
   if (existingId == null) {
     return (
-      sql: 'INSERT INTO day_templates (id, name, focus, scheduled_weekday, position) '
-          'VALUES (?, ?, ?, ?, ?)',
+      sql: 'INSERT INTO day_templates '
+          '(id, name, focus, scheduled_weekday, position, is_template) '
+          'VALUES (?, ?, ?, ?, ?, 0)',
       args: [newId, name, focus, weekday, position],
     );
   } else {
@@ -44,7 +47,8 @@ import 'session_repository.dart';
 /// - UPDATE when [itemId] is non-null (updates position + targets only; NOT
 ///   exercise_id or day_template_id).
 ///
-/// OMIT is_template / created_by / user_id / created_at.
+/// OMIT created_by / user_id / created_at. SET is_template = 0 locally (matches
+/// the day row) so the slot is treated as owned offline; the server forces it.
 ({String sql, List<Object?> args}) slotUpsertOp(
   String? itemId,
   String newId,
@@ -62,8 +66,9 @@ import 'session_repository.dart';
     return (
       sql: 'INSERT INTO day_template_items '
           '(id, day_template_id, exercise_id, position, target_working_sets, '
-          'target_warmup_sets, target_rep_low, target_rep_high, target_rir_low, target_rir_high) '
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'target_warmup_sets, target_rep_low, target_rep_high, target_rir_low, '
+          'target_rir_high, is_template) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
       args: [
         newId,
         dayId,
@@ -265,7 +270,7 @@ class DayTemplateRepository {
     return db
         .watch(
           'SELECT dt.id, dt.slug, dt.name, dt.focus, dt.scheduled_weekday, dt.position, dt.is_template '
-          'FROM day_templates dt WHERE dt.is_template = 0 ORDER BY dt.position',
+          'FROM day_templates dt WHERE dt.is_template IS NOT 1 ORDER BY dt.position',
         )
         .asyncMap((templateRows) async {
           // One-shot read of all items; fine — they change far less than live sets.

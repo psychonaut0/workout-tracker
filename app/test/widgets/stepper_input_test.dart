@@ -100,6 +100,62 @@ void main() {
     expect(changed, 125.0); // 250 display → 125 internal
   });
 
+  testWidgets('editable: formatForEdit prefills a bare number for suffixed display',
+      (tester) async {
+    double? changed;
+    await tester.pumpWidget(host(WStepper(
+      value: 80,
+      step: 2.5,
+      // Display carries a unit suffix that would not round-trip through parse.
+      format: (v) => '${v.toStringAsFixed(0)}kg',
+      formatForEdit: (v) => v.toStringAsFixed(0),
+      onChanged: (v) => changed = v,
+      editable: true,
+    )));
+    await tester.pumpAndSettle();
+
+    expect(find.text('80kg'), findsOneWidget);
+    await tester.tap(find.text('80kg'));
+    await tester.pumpAndSettle();
+
+    // The edit field is seeded with the bare number, not "80kg".
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, '80');
+
+    await tester.enterText(find.byType(TextField), '90');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(changed, 90.0);
+    expect(find.text('90kg'), findsOneWidget);
+  });
+
+  testWidgets('editable: typed value above a parent clamp shows the clamped value',
+      (tester) async {
+    // Mirrors the editor steppers: the parent clamps to a narrower range than
+    // the stepper's own (>=0) floor, and the field starts AT the cap.
+    int saved = 99;
+    await tester.pumpWidget(host(StatefulBuilder(
+      builder: (context, setState) => WStepper(
+        value: saved.toDouble(),
+        step: 1,
+        format: (v) => v.round().toString(),
+        editable: true,
+        onChanged: (v) => setState(() => saved = v.round().clamp(1, 99)),
+      ),
+    )));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('99'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '150');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(saved, 99);
+    expect(find.text('150'), findsNothing); // does not linger above the cap
+    expect(find.text('99'), findsOneWidget); // displays the clamped value
+  });
+
   testWidgets('non-editable: tapping the value does nothing', (tester) async {
     await tester.pumpWidget(host(WStepper(
       value: 10,
