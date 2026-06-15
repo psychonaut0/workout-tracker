@@ -8,6 +8,19 @@ const String _kAccent = 'accent';
 const String _kProfileName = 'profile_name';
 const String _kServerUrl = 'server_url';
 
+/// Avatar initials for a profile [name]: up to two leading letters of the first
+/// two words, uppercased; falls back to 'A' when empty.
+String initialsOf(String name) {
+  final letters = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .take(2)
+      .map((w) => w[0])
+      .join();
+  return letters.isEmpty ? 'A' : letters.toUpperCase();
+}
+
 /// Client-local settings: appearance (mode + accent), profile name, and
 /// backend server URL. Persisted via shared_preferences; loaded once at
 /// startup before the widget tree is built.
@@ -26,6 +39,9 @@ class SettingsService extends ChangeNotifier {
   String get mode => _mode;
   Color get accent => _accent;
   String get profileName => _profileName;
+
+  /// Avatar initials derived from [profileName] (shared by Profile + Today).
+  String get profileInitials => initialsOf(_profileName);
   String get serverUrl => _serverUrl;
   bool get syncEnabled => _syncEnabled;
   int get restCompoundSeconds => _restCompoundSeconds;

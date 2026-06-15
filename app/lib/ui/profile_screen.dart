@@ -348,15 +348,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  String _initials(String name) {
-    final words = name.trim().split(RegExp(r'\s+'));
-    final letters = words
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0])
-        .join();
-    return letters.isEmpty ? 'A' : letters.toUpperCase();
-  }
+  // Shared with the Today greeting avatar via [initialsOf] so they never diverge.
+  String _initials(String name) => initialsOf(name);
 
   void _submitName(SettingsService settings) {
     final trimmed = _nameCtrl.text.trim();
@@ -1096,7 +1089,7 @@ class _SyncStatusRight extends StatelessWidget {
           SyncDotState.offline => tokens.faint,
           SyncDotState.error => tokens.danger,
         };
-        return Row(
+        final row = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             _SyncDot(color: color, pulsing: state == SyncDotState.syncing),
@@ -1110,6 +1103,21 @@ class _SyncStatusRight extends StatelessWidget {
               ),
             ),
           ],
+        );
+
+        // On error, make the row tappable to reveal the underlying SDK error
+        // (download/upload) so a "sync error" can be diagnosed without logs.
+        if (state != SyncDotState.error) return row;
+        final err = s?.downloadError ?? s?.uploadError;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => showWDialog<void>(
+            context,
+            title: l.syncError,
+            message: err?.toString() ?? l.syncError,
+            actions: [WDialogAction(label: l.commonOk, value: null)],
+          ),
+          child: row,
         );
       },
     );
