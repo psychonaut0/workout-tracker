@@ -351,7 +351,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
         return IntrinsicHeight(
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // was .start
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
             // Bodyweight tile
             Expanded(

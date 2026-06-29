@@ -36,7 +36,6 @@ Future<void> startSession(
     await controller.buildFromTemplate(
       template,
       exerciseRepo: ExerciseRepository(db),
-      dayTemplateRepo: DayTemplateRepository(db),
       sessionRepo: SessionRepository(db),
     );
   } else {

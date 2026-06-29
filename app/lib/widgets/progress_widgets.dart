@@ -18,32 +18,26 @@ import '../theme/icons.dart';
 /// [pr] — PR dots are rendered on the chart for this metric.
 class Metric {
   final String id;
-  final String label;
-  final String short;
   final bool wt;
   final bool reps;
   final bool pr;
 
   const Metric(
-    this.id,
-    this.label,
-    this.short, {
+    this.id, {
     this.wt = false,
     this.reps = false,
     this.pr = false,
   });
 }
 
-/// The four progress metrics in display order.
-///
-/// `reps` carries distinct [Metric.label] ('Top reps') and [Metric.short]
-/// ('Reps') — callers use [Metric.short] for tab segments and
-/// [Metric.label] for section titles / trend headings.
+/// The four progress metrics in display order. Display names are localized via
+/// [metricLabel] (section titles / trend headings) and [metricShort] (tab
+/// segments), keyed by [Metric.id].
 const kMetrics = [
-  Metric('top', 'Top set', 'Top set', wt: true, reps: true, pr: true),
-  Metric('e1rm', 'Est. 1RM', 'Est. 1RM', wt: true),
-  Metric('volume', 'Volume', 'Volume', wt: true),
-  Metric('reps', 'Top reps', 'Reps'),
+  Metric('top', wt: true, reps: true, pr: true),
+  Metric('e1rm', wt: true),
+  Metric('volume', wt: true),
+  Metric('reps'),
 ];
 
 /// Localized full label for a metric (section headers, trend titles).

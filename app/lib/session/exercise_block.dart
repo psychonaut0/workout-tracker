@@ -8,7 +8,6 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../widgets/pr_badge.dart';
-import '../widgets/tag.dart';
 import 'active_session_controller.dart';
 import 'set_row.dart';
 
@@ -529,20 +528,4 @@ class _RemoveExerciseButton extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Exported for use in ExerciseBlock header
-class PRBadgeWidget extends StatelessWidget {
-  const PRBadgeWidget({super.key, this.small = false});
-  final bool small;
-  @override
-  Widget build(BuildContext context) => PRBadge(small: small);
-}
-
-/// Exported for use in ExerciseBlock
-class TopTag extends StatelessWidget {
-  const TopTag({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      Tag(label: AppLocalizations.of(context).sessionTagTop, tone: TagTone.solid);
 }
