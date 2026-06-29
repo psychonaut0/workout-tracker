@@ -35,12 +35,16 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late final SessionRepository _sessionRepo;
   late final ExerciseRepository _exerciseRepo;
+  // Catalog loaded once per screen mount (not re-queried on every stats
+  // emission — it changes far less often than the session stream).
+  late final Future<List<Exercise>> _catalog;
 
   @override
   void initState() {
     super.initState();
     _sessionRepo = SessionRepository(db);
     _exerciseRepo = ExerciseRepository(db);
+    _catalog = _exerciseRepo.all();
   }
 
   @override
@@ -56,7 +60,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
         // Build catalog map once (one-shot; catalog rarely changes).
         return FutureBuilder<List<Exercise>>(
-          future: _exerciseRepo.all(),
+          future: _catalog,
           builder: (context, catalogSnap) {
             final catalog = catalogSnap.data ?? [];
             final catalogMap = {for (final e in catalog) e.id: e};
@@ -518,7 +522,7 @@ class _SessionCardState extends State<SessionCard> {
                     const SizedBox(width: 8),
                     AnimatedRotation(
                       turns: _expanded ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 150),
+                      duration: Motion.of(context, const Duration(milliseconds: 150)),
                       child: Icon(
                         WIcons.chevron,
                         size: 16,

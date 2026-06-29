@@ -261,11 +261,14 @@ class DayTemplateRepository {
   /// The items are fetched in a separate query and grouped by template id in
   /// Dart, which avoids duplicating template columns for each item row.
   Stream<List<DayTemplate>> watchDays() {
-    // Watch day_templates; rebuild when either table changes.
+    // Re-emit on changes to EITHER table. The SQL only names day_templates, so
+    // without an explicit triggerOnTables an items-only change (e.g. absorb
+    // re-pointing a slot) would leave Split/Today stale.
     return db
         .watch(
           'SELECT dt.id, dt.slug, dt.name, dt.focus, dt.scheduled_weekday, dt.position, dt.is_template '
           'FROM day_templates dt WHERE dt.is_template = 0 ORDER BY dt.position',
+          triggerOnTables: const ['day_templates', 'day_template_items'],
         )
         .asyncMap((templateRows) async {
           // One-shot read of all items; fine — they change far less than live sets.
@@ -318,16 +321,17 @@ class DayTemplateRepository {
   }
 
   /// Returns the set of day_template_ids that were trained during the week
-  /// beginning at [weekStart] (Monday 00:00).
+  /// [weekStart, weekStart + 7 days) (Monday 00:00 origin).
   ///
-  /// Custom sessions (day_template_id IS NULL) are excluded.
+  /// Custom sessions (day_template_id IS NULL) are excluded. The upper bound
+  /// keeps any future-dated sessions out of "this week".
   Future<Set<String>> templateIdsTrainedThisWeek({
     required DateTime weekStart,
   }) async {
     final rows = await db.getAll(
       'SELECT DISTINCT day_template_id FROM sessions '
-      'WHERE date >= ? AND day_template_id IS NOT NULL',
-      [isoDate(weekStart)],
+      'WHERE date >= ? AND date < ? AND day_template_id IS NOT NULL',
+      [isoDate(weekStart), isoDate(weekStart.add(const Duration(days: 7)))],
     );
     return rows.map((r) => r['day_template_id'] as String).toSet();
   }
