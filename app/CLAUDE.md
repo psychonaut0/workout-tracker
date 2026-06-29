@@ -18,7 +18,7 @@ Toolchain gotchas: Android needs JDK 21 (`flutter config --jdk-dir` already set 
 
 ## Architecture
 
-State management is `provider`; app-wide ChangeNotifiers are created in `main.dart` and provided ABOVE MaterialApp (so any route context can read them): `SettingsService`, `UnitService`, `IdentityService`, `SessionManager`, `AmbientController`.
+State management is `provider`; app-wide ChangeNotifiers are created in `main.dart` and provided ABOVE MaterialApp (so any route context can read them): `SettingsService`, `UnitService`, `IdentityService`, `SessionManager`.
 
 - `lib/sync/` — PowerSync: `db.dart` exposes the single global `db` (`PowerSyncDatabase`); `schema.dart` mirrors the server tables; `connector.dart` builds `/sync/upload` batches. Boot order in `main()` matters: settings → openDatabase → identity → `backfillTopSets` → `absorbTemplates` → SessionManager/notification → resume draft → optional connectSync.
 - `lib/data/` — repositories (plain classes over `db`) + pure op-builders (`(sql, args)` records) that the repos execute in `db.writeTransaction`. Boot migrations: `top_set_backfill.dart`, `template_absorb.dart`.
@@ -45,7 +45,7 @@ Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.js
 - `late final AnimationController` fields must be constructed/started in `initState`, NOT via `..forward()` in the initializer — a reduced-motion build path that never touches the field makes `dispose()` lazily create a ticker on a deactivated element and crash. This bug shipped three times.
 - Flex widgets (`Expanded`) must be DIRECT children of their Row/Column — wrappers like `UnitSwap`/`AnimatedSwitcher` go inside the `Expanded`, never around it (ParentDataWidget crash that passes CI because no test renders the row).
 - Raw image pixels for `ui.ImageDescriptor.raw`/`decodeImageFromPixels` are PREMULTIPLIED alpha — color channels must be ≤ alpha (see `grainPixels`).
-- Scaffolds are transparent by theme; `AmbientLayer` (wrapped via `MaterialApp.builder`) paints the background. Don't give screens opaque `backgroundColor`.
+- Scaffolds use the opaque `tokens.bg` background (the ambient layer was removed in v0.12.4).
 - Steppers (`WStepper`) hold values in the CALLER's space (kg); `format` converts to display units; typed input converts back via `parseDisplay`.
 
 **Tests:**
