@@ -305,5 +305,6 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(_RingPainter old) =>
       old.progress != progress ||
       old.trackColor != trackColor ||
-      old.arcColor != arcColor;
+      old.arcColor != arcColor ||
+      old.strokeWidth != strokeWidth;
 }
