@@ -10,7 +10,6 @@ abstract final class WIcons {
   static const IconData plus = Icons.add;
   static const IconData minus = Icons.remove;
   static const IconData timer = Icons.timer_outlined;
-  static const IconData trophy = Icons.emoji_events_outlined;
   static const IconData bolt = Icons.bolt;
   static const IconData dumbbell = Icons.fitness_center;
   static const IconData chart = Icons.show_chart;
@@ -27,8 +26,6 @@ abstract final class WIcons {
   static const IconData target = Icons.my_location;
   static const IconData logout = Icons.logout;
   static const IconData cloud = Icons.cloud_outlined;
-  static const IconData more = Icons.more_horiz;
-  static const IconData grip = Icons.drag_indicator;
   static const IconData arrowUp = Icons.north;
   static const IconData flame = Icons.local_fire_department_outlined;
   static const IconData export = Icons.ios_share;

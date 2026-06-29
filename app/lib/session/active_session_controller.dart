@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart' show uuid;
 
 import '../data/active_session_draft.dart';
-import '../data/day_template_repository.dart';
+import '../data/day_template_repository.dart'; // resolveSlot, DayTemplate
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
@@ -328,7 +328,6 @@ class ActiveSessionController extends ChangeNotifier {
   Future<void> buildFromTemplate(
     DayTemplate template, {
     required ExerciseRepository exerciseRepo,
-    required DayTemplateRepository dayTemplateRepo,
     required SessionRepository sessionRepo,
   }) async {
     final blocks = <BlockState>[];

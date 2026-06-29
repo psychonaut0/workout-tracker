@@ -17,7 +17,6 @@ abstract final class AppRadius {
 
 abstract final class AppSpacing {
   static const double pad = 16;
-  static const double gutter = 16;
 }
 
 /// Bottom inset for scrollable pages so trailing content (e.g. delete buttons)

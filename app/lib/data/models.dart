@@ -1,7 +1,9 @@
 // Domain models for the workout tracker data layer.
 //
 // PowerSync rows arrive as `Map<String, dynamic>` with:
-// - NUMERIC columns → TEXT (parse via `double.parse`)
+// - NUMERIC columns → TEXT, and may be '' or NULL. Parse via `double.tryParse`,
+//   NEVER `double.parse` — `double.parse('')` throws and one bad row kills the
+//   whole list stream's map() (this crashed the catalog in v0.12.10).
 // - boolean columns → int 0/1 (compare with `!= 0`)
 // - dates/timestamps → TEXT (ISO-8601)
 

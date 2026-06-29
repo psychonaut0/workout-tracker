@@ -7,8 +7,8 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../util/dates.dart';
 import '../widgets/pr_badge.dart';
-import '../widgets/tag.dart';
 import 'active_session_controller.dart';
 import 'set_row.dart';
 
@@ -342,30 +342,6 @@ class _ExerciseBlockState extends State<ExerciseBlock>
 
 // ── Helper sub-widgets ────────────────────────────────────────────────────────
 
-/// Returns a human-readable "days ago" label from an ISO date string
-/// (yyyy-mm-dd) compared to today.
-///
-/// Returns the localized "today", "yesterday", or "{n}d ago".
-String _daysAgoLabel(String isoDate, AppLocalizations l) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  try {
-    final parts = isoDate.split('-');
-    if (parts.length != 3) return isoDate;
-    final date = DateTime(
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-      int.parse(parts[2]),
-    );
-    final diff = today.difference(date).inDays;
-    if (diff == 0) return l.sessionToday;
-    if (diff == 1) return l.sessionYesterday;
-    return l.sessionDaysAgo(diff);
-  } catch (_) {
-    return isoDate;
-  }
-}
-
 /// Ghosted reference row showing the last-session top set.
 ///
 /// Design: `screen-log.jsx` — "Last · {ago}" label on the left, weight×reps
@@ -410,7 +386,7 @@ class _LastTopRow extends StatelessWidget {
       );
     }
 
-    final agoLabel = _daysAgoLabel(lastTop!.date, l);
+    final agoLabel = localizedDaysAgo(l, lastTop!.date);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -529,20 +505,4 @@ class _RemoveExerciseButton extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Exported for use in ExerciseBlock header
-class PRBadgeWidget extends StatelessWidget {
-  const PRBadgeWidget({super.key, this.small = false});
-  final bool small;
-  @override
-  Widget build(BuildContext context) => PRBadge(small: small);
-}
-
-/// Exported for use in ExerciseBlock
-class TopTag extends StatelessWidget {
-  const TopTag({super.key});
-  @override
-  Widget build(BuildContext context) =>
-      Tag(label: AppLocalizations.of(context).sessionTagTop, tone: TagTone.solid);
 }

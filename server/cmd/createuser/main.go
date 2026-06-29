@@ -1,4 +1,6 @@
-// Command createuser inserts a user with a hashed password.
+// Command createuser inserts a user with a hashed password, or resets the
+// password if the email already exists (idempotent — also serves as the
+// password-reset tool for the self-hosted backend).
 // Run: make -C server create-user EMAIL=me@example.com PASSWORD=secret
 package main
 
@@ -40,9 +42,13 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Upsert: create the user, or reset the password if the email already
+	// exists. (email is UNIQUE.) Lets this double as the password-reset tool.
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO users (email, password_hash) VALUES ($1, $2)`, *email, hash); err != nil {
-		log.Fatalf("createuser: insert: %v", err)
+		`INSERT INTO users (email, password_hash) VALUES ($1, $2)
+		 ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+		*email, hash); err != nil {
+		log.Fatalf("createuser: upsert: %v", err)
 	}
-	log.Printf("createuser: created user %s", *email)
+	log.Printf("createuser: set password for %s", *email)
 }
