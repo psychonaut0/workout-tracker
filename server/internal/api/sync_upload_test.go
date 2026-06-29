@@ -233,6 +233,45 @@ func TestUpload_PatchPreservesWarmupAndUpdatesReps(t *testing.T) {
 	}
 }
 
+// Regression: a PATCH that changes ONLY rir (a History per-set RIR edit) must
+// persist server-side. rir was missing from the set PATCH allowlist, so the
+// synced copy silently diverged from local.
+func TestUpload_PatchUpdatesRir(t *testing.T) {
+	pool := uploadTestPool(t)
+	user := seedUploadUser(t, pool)
+	h := NewUploadHandler(pool)
+	ctx := context.Background()
+	var exID string
+	_ = pool.QueryRow(ctx, `SELECT id::text FROM exercises WHERE is_template=true LIMIT 1`).Scan(&exID)
+
+	sid := "88888888-8888-8888-8888-888888888888"
+	setID := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM sessions WHERE id=$1::uuid`, sid) })
+
+	postUpload(t, h, user, `{"batch":[
+	  {"op":"PUT","table":"sessions","id":"`+sid+`","data":{"id":"`+sid+`","date":"2026-05-29"}},
+	  {"op":"PUT","table":"sets","id":"`+setID+`","data":{"id":"`+setID+`","session_id":"`+sid+`","exercise_id":"`+exID+`","set_number":1,"weight_kg":"60.00","reps":8,"rir":2,"is_warmup":false}}
+	]}`)
+
+	// PATCH only rir.
+	rec := postUpload(t, h, user, `{"batch":[{"op":"PATCH","table":"sets","id":"`+setID+`","data":{"id":"`+setID+`","rir":0}}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch status: got %d %s", rec.Code, rec.Body.String())
+	}
+
+	var rir int
+	var reps int
+	if err := pool.QueryRow(ctx, `SELECT rir, reps FROM sets WHERE id=$1::uuid`, setID).Scan(&rir, &reps); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if rir != 0 {
+		t.Errorf("rir: got %d, want 0 (the rir PATCH must apply server-side)", rir)
+	}
+	if reps != 8 {
+		t.Errorf("reps: got %d, want 8 (omitted column must be preserved)", reps)
+	}
+}
+
 func TestUpload_CustomDayTemplateAndItems(t *testing.T) {
 	pool := uploadTestPool(t)
 	user := seedUploadUser(t, pool)

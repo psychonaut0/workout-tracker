@@ -390,6 +390,9 @@ func applySet(ctx context.Context, tx pgx.Tx, userID string, op crudOp, topGroup
 		reps, _ := str(op.Data, "reps")
 		setNum, _ := str(op.Data, "set_number")
 		warm, _ := str(op.Data, "is_warmup")
+		// rir is nullable (warm-up sets clear it). Key-present CASE: present →
+		// set (NULLIF '' → NULL clears it), absent → keep the stored value.
+		rir, rirPresent := str(op.Data, "rir")
 		var sessionID, exerciseID string
 		err := tx.QueryRow(ctx,
 			`UPDATE sets SET
@@ -397,10 +400,11 @@ func applySet(ctx context.Context, tx pgx.Tx, userID string, op crudOp, topGroup
 			   reps       = COALESCE(NULLIF($4,'')::numeric::int, reps),
 			   set_number = COALESCE(NULLIF($5,'')::numeric::int, set_number),
 			   is_warmup  = COALESCE(NULLIF($6,'')::bool, is_warmup),
+			   rir        = CASE WHEN $8::bool THEN NULLIF($7,'')::numeric::int ELSE rir END,
 			   updated_at = NOW()
 			 WHERE id=$1::uuid AND user_id=$2::uuid
 			 RETURNING session_id::text, exercise_id::text`,
-			op.ID, userID, weight, reps, setNum, warm).Scan(&sessionID, &exerciseID)
+			op.ID, userID, weight, reps, setNum, warm, rir, rirPresent).Scan(&sessionID, &exerciseID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil // not found / not owned — no-op
 		}
