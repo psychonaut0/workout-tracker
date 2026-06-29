@@ -6,6 +6,7 @@ import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../l10n/app_localizations.dart';
 import '../session/active_session_controller.dart';
 import '../session/active_session_screen.dart';
 import '../session/session_manager.dart';
@@ -23,6 +24,9 @@ Future<void> startSession(
   DayTemplate? template,
 }) async {
   final manager = context.read<SessionManager>();
+  // Read before any await so the context is still valid (used for the
+  // localized custom-session name below).
+  final customName = AppLocalizations.of(context).todayCustomSession;
 
   // A workout is already running → resume it instead of starting a new one.
   if (manager.hasActive) {
@@ -39,7 +43,7 @@ Future<void> startSession(
       sessionRepo: SessionRepository(db),
     );
   } else {
-    controller.seedEmpty(name: 'Custom', focus: '');
+    controller.seedEmpty(name: customName, focus: '');
   }
 
   manager.register(controller);
