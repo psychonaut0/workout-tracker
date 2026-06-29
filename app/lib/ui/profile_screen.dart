@@ -348,15 +348,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  String _initials(String name) {
-    final words = name.trim().split(RegExp(r'\s+'));
-    final letters = words
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0])
-        .join();
-    return letters.isEmpty ? 'A' : letters.toUpperCase();
-  }
+  // Shared with the Today greeting avatar via [initialsOf] so they never diverge.
+  String _initials(String name) => initialsOf(name);
 
   void _submitName(SettingsService settings) {
     final trimmed = _nameCtrl.text.trim();
