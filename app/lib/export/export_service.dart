@@ -56,6 +56,9 @@ class ExportService {
         'mode': settings.mode,
         'accent': '#$accent',
         'profile_name': settings.profileName,
+        'rest_compound_seconds': settings.restCompoundSeconds,
+        'rest_isolation_seconds': settings.restIsolationSeconds,
+        'locale': settings.localeOverride,
       },
       exportedAt: DateTime.now(),
     );
