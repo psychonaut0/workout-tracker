@@ -11,6 +11,8 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
+import '../widgets/dashed_border.dart';
+import '../widgets/delete_button.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
@@ -356,7 +358,11 @@ class _DayEditorState extends State<DayEditor> {
         // ── Delete button (owned days only) ───────────────────────────────
         if (isOwned) ...[
           const SizedBox(height: 10),
-          _DeleteButton(tokens: tokens, onTap: _delete),
+          WDeleteButton(
+            tokens: tokens,
+            label: AppLocalizations.of(context).dayEditorDeleteButton,
+            onTap: _delete,
+          ),
         ],
       ],
     );
@@ -754,7 +760,8 @@ class _AddExerciseButton extends StatelessWidget {
           color: Colors.transparent,
         ),
         child: CustomPaint(
-          painter: _DashedBorderPainter(color: tokens.lineStrong),
+          painter: DashedBorderPainter(
+              color: tokens.lineStrong, radius: AppRadius.radius * 0.6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -776,74 +783,3 @@ class _AddExerciseButton extends StatelessWidget {
   }
 }
 
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    const dashWidth = 6.0;
-    const dashSpace = 4.0;
-    const r = AppRadius.radius * 0.6;
-
-    final rRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
-      const Radius.circular(r),
-    );
-
-    final path = Path()..addRRect(rRect);
-    final metrics = path.computeMetrics();
-
-    for (final metric in metrics) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final next = (distance + dashWidth).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, next), paint);
-        distance += dashWidth + dashSpace;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) => old.color != color;
-}
-
-// ── Delete button ─────────────────────────────────────────────────────────────
-
-class _DeleteButton extends StatelessWidget {
-  const _DeleteButton({required this.tokens, required this.onTap});
-
-  final WorkoutTokens tokens;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        height: 46,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(WIcons.trash, size: 15, color: tokens.faint),
-            const SizedBox(width: 6),
-            Text(
-              l.dayEditorDeleteButton,
-              style: WorkoutType.mono(
-                size: 12.5,
-                weight: FontWeight.w600,
-                color: tokens.faint,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

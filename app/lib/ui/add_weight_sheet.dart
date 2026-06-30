@@ -67,16 +67,17 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
         'FROM bodyweight_logs ORDER BY date DESC LIMIT 1',
       );
       if (!mounted) return;
-      if (rows.isNotEmpty) {
-        final kg = (rows.first['weight'] as num).toDouble();
-        final unitService = context.read<UnitService>();
-        final display = UnitService.fromKg(kg, unitService.unit);
-        setState(() {
-          _val = double.parse(display.toStringAsFixed(1));
-        });
-      }
+      final unitService = context.read<UnitService>();
+      // Seed from the last entry, else a unit-aware 70 kg-equivalent default
+      // (a lb user should see ~154, not a raw 70 in the kg slot).
+      final kg =
+          rows.isNotEmpty ? (rows.first['weight'] as num).toDouble() : 70.0;
+      final display = UnitService.fromKg(kg, unitService.unit);
+      setState(() {
+        _val = double.parse(display.toStringAsFixed(1));
+      });
     } catch (_) {
-      // Keep the 70 kg default on error.
+      // Keep the initState default on error.
     }
   }
 
