@@ -7,65 +7,8 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
+import 'dashed_border.dart';
 import 'pressable.dart';
-
-// ── Dashed-border painter ─────────────────────────────────────────────────────
-
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({
-    required this.color,
-    required this.radius,
-  });
-
-  final Color color;
-  final double radius;
-  static const double strokeWidth = 1.0;
-  static const double dashLength = 6.0;
-  static const double gapLength = 4.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        strokeWidth / 2,
-        strokeWidth / 2,
-        size.width - strokeWidth,
-        size.height - strokeWidth,
-      ),
-      Radius.circular(radius),
-    );
-
-    // Approximate the perimeter as a path and dash it.
-    final path = Path()..addRRect(rrect);
-    final dashPath = _dashPath(path, dashLength, gapLength);
-    canvas.drawPath(dashPath, paint);
-  }
-
-  static Path _dashPath(Path source, double dash, double gap) {
-    final out = Path();
-    for (final metric in source.computeMetrics()) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final end = min(distance + dash, metric.length);
-        out.addPath(
-          metric.extractPath(distance, end),
-          Offset.zero,
-        );
-        distance += dash + gap;
-      }
-    }
-    return out;
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) =>
-      old.color != color || old.radius != radius;
-}
 
 // ── DaySlide ──────────────────────────────────────────────────────────────────
 
@@ -408,7 +351,7 @@ class _SplitCardState extends State<SplitCard> {
               if (_isCustom)
                 Positioned.fill(
                   child: CustomPaint(
-                    painter: _DashedBorderPainter(
+                    painter: DashedBorderPainter(
                       color: tokens.lineStrong,
                       radius: AppRadius.radius,
                     ),

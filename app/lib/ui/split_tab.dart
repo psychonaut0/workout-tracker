@@ -9,6 +9,7 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
+import '../widgets/dashed_border.dart';
 
 /// The Split sub-tab: a list of training days in rotation.
 ///
@@ -200,7 +201,8 @@ class _NewDayButton extends StatelessWidget {
           color: Colors.transparent,
         ),
         child: CustomPaint(
-          painter: _DashedBorderPainter(color: tokens.lineStrong),
+          painter: DashedBorderPainter(
+              color: tokens.lineStrong, radius: AppRadius.radius),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -222,39 +224,3 @@ class _NewDayButton extends StatelessWidget {
   }
 }
 
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    const dashWidth = 6.0;
-    const dashSpace = 4.0;
-    const r = AppRadius.radius;
-
-    final rRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
-      const Radius.circular(r),
-    );
-
-    final path = Path()..addRRect(rRect);
-    final metrics = path.computeMetrics();
-
-    for (final metric in metrics) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final next = (distance + dashWidth).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, next), paint);
-        distance += dashWidth + dashSpace;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) => old.color != color;
-}

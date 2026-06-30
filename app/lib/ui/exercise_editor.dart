@@ -13,6 +13,7 @@ import '../theme/typography.dart';
 import '../theme/tokens.dart';
 import '../units/unit_service.dart';
 import '../util/format.dart';
+import '../widgets/delete_button.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
@@ -587,44 +588,13 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
         if (_editId != null) ...[
           const SizedBox(height: 10),
-          _DeleteButton(tokens: tokens, onTap: _delete),
+          WDeleteButton(
+            tokens: tokens,
+            label: AppLocalizations.of(context).exerciseEditorDeleteButton,
+            onTap: _delete,
+          ),
         ],
       ],
-    );
-  }
-}
-
-// ── Delete button ─────────────────────────────────────────────────────────────
-
-class _DeleteButton extends StatelessWidget {
-  const _DeleteButton({required this.tokens, required this.onTap});
-
-  final WorkoutTokens tokens;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        height: 46,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(WIcons.trash, size: 15, color: tokens.faint),
-            const SizedBox(width: 6),
-            Text(
-              l.exerciseEditorDeleteButton,
-              style: WorkoutType.mono(
-                size: 12.5,
-                weight: FontWeight.w600,
-                color: tokens.faint,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
