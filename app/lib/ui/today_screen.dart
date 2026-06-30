@@ -95,6 +95,23 @@ class _TodayScreenState extends State<TodayScreen> {
   // ── Current days list (for SplitCard + WeekStrip) ────────────────────────────
   List<DayTemplate> _dayList = [];
 
+  // ── Cached section streams ────────────────────────────────────────────────────
+  // Created ONCE in initState (never in build) so the StreamBuilders subscribe
+  // exactly once. Building these in build() re-issued all 8 db.watch queries on
+  // every rebuild (unit/session-manager ticks) and is the "Stream already
+  // listened" crash class. The week-dependent ones bind to [_weekStart], a
+  // single mount-time boundary shared with the week strip for consistency.
+  late final DateTime _weekStart;
+  late final Stream<List<BodyweightEntry>> _bwStream;
+  late final Stream<int> _setsWeekStream;
+  late final Stream<int> _musclesWeekStream;
+  late final Stream<int> _prsWeekStream;
+  late final Stream<List<({String exerciseId, double weight, int reps, String date})>>
+      _recentPrsStream;
+  late final Stream<List<Exercise>> _catalogStream;
+  late final Stream<List<({String muscle, int sets})>> _volumeStream;
+  late final Stream<List<MuscleTarget>> _targetsStream;
+
   @override
   void initState() {
     super.initState();
@@ -105,32 +122,50 @@ class _TodayScreenState extends State<TodayScreen> {
     _sessions = SessionRepository(db);
     _exercises = ExerciseRepository(db);
 
-    // Subscribe to sessions so we can derive per-day "lastAgo".
-    _sessionsSub = _sessions.watchRecentSessions(limit: 100).listen((rows) {
-      if (mounted) setState(() => _recentSessions = rows);
-    });
+    // One mount-time week boundary, shared by the stat/volume streams and the
+    // week strip so they never disagree (a week rollover with the app open is
+    // corrected on the next launch).
+    _weekStart = weekStart(DateTime.now());
+    _bwStream = _bw.watchSeriesAsc();
+    _setsWeekStream = _stats.watchSetsThisWeek(weekStart: _weekStart);
+    _musclesWeekStream = _stats.watchDistinctMusclesThisWeek(weekStart: _weekStart);
+    _prsWeekStream = _stats.watchPrsThisWeek(weekStart: _weekStart);
+    _recentPrsStream = _stats.watchRecentPrs(limit: 6);
+    _catalogStream = _exercises.watchCatalog();
+    _volumeStream = _stats.watchWeeklyVolumeByMuscle(weekStart: _weekStart);
+    _targetsStream = _targets.watchTargets();
 
-    // Subscribe to day templates so we can recompute nextInRotation on change.
-    _daysSub = _days.watchDays().listen((days) async {
+    // Subscribe to sessions + day templates; recompute the rotation pick when
+    // EITHER changes (finishing a workout updates sessions, not days).
+    _sessionsSub = _sessions.watchRecentSessions(limit: 100).listen((rows) {
       if (!mounted) return;
-      // Find next-in-rotation from current session history.
-      final lastId = _recentSessions.isEmpty
-          ? null
-          : _recentSessions
-              .firstWhere(
-                (s) => s.dayTemplateId != null,
-                orElse: () => _recentSessions.first,
-              )
-              .dayTemplateId;
-      final next = selectNextDay(days, lastId);
-      if (mounted) {
-        setState(() {
-          _dayList = days;
-          _nextDay = next;
-          _rotationLoaded = true;
-        });
-      }
+      setState(() {
+        _recentSessions = rows;
+        _recomputeRotation();
+      });
     });
+    _daysSub = _days.watchDays().listen((days) {
+      if (!mounted) return;
+      setState(() {
+        _dayList = days;
+        _rotationLoaded = true;
+        _recomputeRotation();
+      });
+    });
+  }
+
+  /// Recompute the next-in-rotation pick from the current sessions + days.
+  /// Pure (no setState) — callers invoke it inside their own setState.
+  void _recomputeRotation() {
+    final lastId = _recentSessions.isEmpty
+        ? null
+        : _recentSessions
+            .firstWhere(
+              (s) => s.dayTemplateId != null,
+              orElse: () => _recentSessions.first,
+            )
+            .dayTemplateId;
+    _nextDay = selectNextDay(_dayList, lastId);
   }
 
   @override
@@ -166,7 +201,6 @@ class _TodayScreenState extends State<TodayScreen> {
     final tokens = context.tokens;
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final now = DateTime.now();
-    final ws = weekStart(now);
 
     // Derive a "train day" label: the first scheduled day that matches today,
     // if any, otherwise 'Rest day'.
@@ -242,7 +276,7 @@ class _TodayScreenState extends State<TodayScreen> {
             children: [
               SectionLabel(label: l.todayThisWeek),
               const SizedBox(height: 10),
-              _buildWeekStrip(ws),
+              _buildWeekStrip(_weekStart),
               const SizedBox(height: 22),
             ],
           ),
@@ -254,7 +288,7 @@ class _TodayScreenState extends State<TodayScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildStatTiles(units, tokens, ws),
+              _buildStatTiles(units, tokens),
               const SizedBox(height: 22),
             ],
           ),
@@ -275,7 +309,7 @@ class _TodayScreenState extends State<TodayScreen> {
         // ── 6. Weekly volume ───────────────────────────────────────────────────
         StaggeredEntrance(
           index: 5,
-          child: _buildWeeklyVolume(ws, tokens),
+          child: _buildWeeklyVolume(tokens),
         ),
       ],
     );
@@ -335,10 +369,9 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget _buildStatTiles(
     UnitService units,
     WorkoutTokens tokens,
-    DateTime ws,
   ) {
     return StreamBuilder<List<BodyweightEntry>>(
-      stream: _bw.watchSeriesAsc(),
+      stream: _bwStream,
       builder: (context, bwSnap) {
         final l = AppLocalizations.of(context);
         final bwEntries = bwSnap.data ?? [];
@@ -376,10 +409,10 @@ class _TodayScreenState extends State<TodayScreen> {
             // Sets/wk tile — nested streams
             Expanded(
               child: StreamBuilder<int>(
-                stream: _stats.watchSetsThisWeek(weekStart: ws),
+                stream: _setsWeekStream,
                 builder: (context, setsSnap) {
                   return StreamBuilder<int>(
-                    stream: _stats.watchDistinctMusclesThisWeek(weekStart: ws),
+                    stream: _musclesWeekStream,
                     builder: (context, musclesSnap) {
                       final sets = setsSnap.data ?? 0;
                       final muscles = musclesSnap.data ?? 0;
@@ -400,7 +433,7 @@ class _TodayScreenState extends State<TodayScreen> {
             // PRs/wk tile
             Expanded(
               child: StreamBuilder<int>(
-                stream: _stats.watchPrsThisWeek(weekStart: ws),
+                stream: _prsWeekStream,
                 builder: (context, prsSnap) {
                   final prs = prsSnap.data ?? 0;
                   return CountUp(
@@ -424,7 +457,7 @@ class _TodayScreenState extends State<TodayScreen> {
   Widget _buildRecentPrs(UnitService units, WorkoutTokens tokens) {
     return StreamBuilder<
         List<({String exerciseId, double weight, int reps, String date})>>(
-      stream: _stats.watchRecentPrs(limit: 6),
+      stream: _recentPrsStream,
       builder: (context, prsSnap) {
         final l = AppLocalizations.of(context);
         final allPrs = prsSnap.data ?? [];
@@ -432,7 +465,7 @@ class _TodayScreenState extends State<TodayScreen> {
         final count = allPrs.length;
 
         return StreamBuilder<List<Exercise>>(
-          stream: _exercises.watchCatalog(),
+          stream: _catalogStream,
           builder: (context, exSnap) {
             final exMap = {
               for (final ex in (exSnap.data ?? [])) ex.id: ex,
@@ -481,12 +514,12 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _buildWeeklyVolume(DateTime ws, WorkoutTokens tokens) {
+  Widget _buildWeeklyVolume(WorkoutTokens tokens) {
     return StreamBuilder<List<({String muscle, int sets})>>(
-      stream: _stats.watchWeeklyVolumeByMuscle(weekStart: ws),
+      stream: _volumeStream,
       builder: (context, volSnap) {
         return StreamBuilder<List<MuscleTarget>>(
-          stream: _targets.watchTargets(),
+          stream: _targetsStream,
           builder: (context, targetSnap) {
             final l = AppLocalizations.of(context);
             final volRows = volSnap.data ?? [];
