@@ -232,8 +232,24 @@ class _DayEditorState extends State<DayEditor> {
       slots: _slots.map((s) => s.draft).toList(),
     );
 
-    await _dayRepo.saveDay(id: _editId, draft: draft);
-    if (mounted) widget.onBack();
+    try {
+      await _dayRepo.saveDay(id: _editId, draft: draft);
+      if (mounted) widget.onBack();
+    } catch (e, st) {
+      // Surface the failure instead of silently leaving the button disabled.
+      debugPrint('day save failed: $e\n$st');
+      if (mounted) {
+        final l = AppLocalizations.of(context);
+        await showWDialog<void>(
+          context,
+          title: l.editorSaveFailed,
+          message: '$e',
+          actions: [WDialogAction(label: l.commonOk, value: null)],
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _delete() async {
