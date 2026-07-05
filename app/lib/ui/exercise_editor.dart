@@ -227,13 +227,28 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       defaultRestSeconds: _restSeconds == 0 ? null : _restSeconds,
     );
 
-    if (_editId != null) {
-      await _repo.updateExercise(_editId!, draft);
-    } else {
-      await _repo.createExercise(draft);
+    try {
+      if (_editId != null) {
+        await _repo.updateExercise(_editId!, draft);
+      } else {
+        await _repo.createExercise(draft);
+      }
+      if (mounted) widget.onBack();
+    } catch (e, st) {
+      // Surface the failure instead of silently leaving the button disabled.
+      debugPrint('exercise save failed: $e\n$st');
+      if (mounted) {
+        final l = AppLocalizations.of(context);
+        await showWDialog<void>(
+          context,
+          title: l.editorSaveFailed,
+          message: '$e',
+          actions: [WDialogAction(label: l.commonOk, value: null)],
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-
-    if (mounted) widget.onBack();
   }
 
   // ── delete ───────────────────────────────────────────────────────────────────
