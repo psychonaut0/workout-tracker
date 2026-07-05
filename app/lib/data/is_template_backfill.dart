@@ -15,6 +15,11 @@ import 'package:powersync/powersync.dart';
 /// only writes when there is something to fix; safe to run on every launch and
 /// MUST run before `absorbTemplates`.
 ///
+/// Sync note: these UPDATEs enqueue upstream PATCH ops carrying `is_template`.
+/// The server PATCH handlers apply explicit column allowlists that do NOT read
+/// `is_template`, so the ops apply as harmless no-op updates (verified against
+/// sync_upload.go) — no server state changes.
+///
 /// Every row this flips becomes newly visible to the catalog/day queries, so
 /// the row mappers MUST tolerate whatever those rows contain — see the
 /// `double.tryParse` rule in CLAUDE.md (an empty-string base weight in exactly
