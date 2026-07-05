@@ -32,7 +32,7 @@ Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.js
 ## Hard-won rules (violating these reintroduces shipped bugs)
 
 **Data:**
-- `weight_kg` columns are TEXT (NUMERIC arrives as string — parse at the edges); booleans are INTEGER 0/1; `sessions.date`/`bodyweight_logs.date` are date-only `YYYY-MM-DD` (`isoDate()` in `util/dates.dart` — inclusive string-compare ranges are exact); `created_at` is full ISO.
+- `weight_kg` columns are TEXT (NUMERIC arrives as string — parse at the edges **with `double.tryParse`, NEVER `double.parse`**: a locally-created row stores `''` for "no value" until the server NULLIFs it on sync, `double.parse('')` throws, and because list streams map the whole result set one bad row blanks the entire catalog/history — this shipped as the worst data-visibility bug to date); booleans are INTEGER 0/1; `sessions.date`/`bodyweight_logs.date` are date-only `YYYY-MM-DD` (`isoDate()` in `util/dates.dart` — inclusive string-compare ranges are exact); `created_at` is full ISO.
 - The client NEVER writes `user_id`/`created_by`/`is_top_set`/`is_pr` upstream — server stamps/computes. Locally, `is_top_set` is ALSO computed client-side (`session_writer.topSetIndex`, `_recomputeTopSet` after History edits) because offline users have no server recompute.
 - Server PATCH handlers apply explicit column allowlists; a local `UPDATE` on a column outside that list silently diverges (e.g. `sets.exercise_id`). Re-point such columns via DELETE+INSERT with the same id (PowerSync emits DELETE+PUT, no coalescing; PUT recomputes server flags).
 - `is_template=1` rows are filtered out of every list query (`watchDays`, `watchCatalog`, `all()`); `byId` stays unfiltered for stray references. Don't reintroduce clone-on-edit.
@@ -41,10 +41,11 @@ Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.js
 
 **UI/motion:**
 - Confirm dialogs: ALWAYS `showWConfirm`/`showWDialog` (`widgets/w_dialog.dart`) — never `AlertDialog`.
+- NEVER create a single-subscription stream (`db.watch()` / `repo.watchX()`) inside `build()` or a helper it calls — cache it in a `late final` field created once (see `_QuickStats` in profile_screen and the `_*Stream` fields in today_screen). A recycled `ListView` child re-subscribing throws `Bad state: Stream has already been listened to` (in release that renders as a gray ErrorWidget over the screen), and even the non-crashing case re-issues every watch query per rebuild. Safe only when the StreamBuilder is the screen's OUTER wrapper.
 - Motion: `theme/motion.dart` is the single source (fast/base/slow, easeOutCubic, zero bounce); every duration goes through `Motion.of(context, d)` (reduced-motion → zero); repeating controllers are skipped entirely under reduced motion. One-shot entrance widgets (`Reveal`, `StaggeredEntrance`, `MountProgress`) must keep stable keys so stream rebuilds don't replay them.
 - `late final AnimationController` fields must be constructed/started in `initState`, NOT via `..forward()` in the initializer — a reduced-motion build path that never touches the field makes `dispose()` lazily create a ticker on a deactivated element and crash. This bug shipped three times.
 - Flex widgets (`Expanded`) must be DIRECT children of their Row/Column — wrappers like `UnitSwap`/`AnimatedSwitcher` go inside the `Expanded`, never around it (ParentDataWidget crash that passes CI because no test renders the row).
-- Raw image pixels for `ui.ImageDescriptor.raw`/`decodeImageFromPixels` are PREMULTIPLIED alpha — color channels must be ≤ alpha (see `grainPixels`).
+- Raw image pixels for `ui.ImageDescriptor.raw`/`decodeImageFromPixels` are PREMULTIPLIED alpha — color channels must be ≤ alpha. (No current call sites — the helper this was learned from left with the ambient layer; the rule applies if raw-pixel images return.)
 - Scaffolds use the opaque `tokens.bg` background (the ambient layer was removed in v0.12.4).
 - Steppers (`WStepper`) hold values in the CALLER's space (kg); `format` converts to display units; typed input converts back via `parseDisplay`.
 
@@ -52,3 +53,8 @@ Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.js
 - Widget-test theme harness: `MaterialApp(theme: buildTheme(Brightness.dark, accents[0]))`; `context.tokens` has a theme-less fallback.
 - Perpetual-ticker widgets (ambient, mini-bar): use `pump(duration)` not `pumpAndSettle`, and end the test by pumping a replacement widget so tickers dispose. Reduced motion in tests: `tester.platformDispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures.allOn`.
 - CI runs analyze + tests but renders no pixels — visual output (painters, layouts no test pumps) is only verified on-device.
+- The op-builder tests assert SQL *strings* only — nothing executes against a PowerSync DB with realistic synced state (templates + owned copies + tombstones). A boot migration that changes which rows a query returns can detonate latent crashes in the row mappers for the newly-included rows; validate such changes against a realistic device DB (or a user's export) before shipping.
+
+**Debugging (device bugs):**
+- A featureless GRAY box on a release Android build is Flutter's release-mode `ErrorWidget` = an uncaught exception during build (debug shows the red screen). Get the stack trace or a local debug repro FIRST — don't theorize about renderers/compositors.
+- The in-app full export (Profile → Data) is the diagnostic of record for device-data bugs: it dumps every table verbatim (including `is_template`; only user-id columns stripped). Ask for it early; rows can be replayed through the real `fromRow` mappers in a throwaway test.

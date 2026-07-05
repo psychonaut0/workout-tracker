@@ -11,13 +11,13 @@ Run from the repo root. The dev Postgres must be up first (`docker compose -f in
 - `make -C server test` — injects `TEST_DATABASE_URL` (the dev DB). Single test: `TEST_DATABASE_URL='postgres://postgres:change-me-locally@localhost:5433/workout_tracker?sslmode=disable' go test ./internal/api -run TestName` (run with `-C server` or full package path).
 - `make -C server build` / `run` / `fmt` / `vet`
 - `make -C server gen-jwt-key` — RSA signing key → gitignored `server/.secrets/jwt_private_key.pem` (run it FROM a context where `server/go.mod` resolves; a wrong-cwd run once produced a 0-byte key)
-- `make -C server create-user` — dev login (`me@example.com` / `devpassword`)
+- `make -C server create-user EMAIL=me@example.com PASSWORD=devpassword` — dev login (EMAIL/PASSWORD have NO defaults; the bare target fatals). Upserts on email (`ON CONFLICT … DO UPDATE password_hash`), so it doubles as the **password-reset tool**: run with `DATABASE_URL=<prod> EMAIL=… PASSWORD=…`. After a reset, the app's re-login shows a keep/discard prompt — "use account data" wipes local data (`disconnectAndClear`); pick **Keep** whenever local data may be unsynced.
 - `make -C server migrate-up|down|status|reset` — manual goose control for dev; NOT needed for deploys
 - `make -C server lint-spec` — vacuum-lints `api/openapi.yaml`
 
 ## Architecture
 
-- `cmd/server/main.go` — wiring; **migrations are embedded** (`db/migrations/embed.go` + `internal/db/migrate.go`) and run on startup, so a fresh container self-provisions its schema. New migrations: add the `.sql` under `db/migrations/` and it ships with the binary.
+- `cmd/server/main.go` — wiring; **migrations are embedded** (`db/migrations/embed.go` + `internal/db/migrate.go`) and run on startup, so a fresh container self-provisions its schema. New migrations: add the `.sql` under `db/migrations/` AND bump the hardcoded `.sql`-file count in `db/migrations/embed_test.go` (it fails the suite otherwise — that's its job).
 - `internal/api/` — handlers. `sync_upload.go` is the heart: the PowerSync `uploadData` target.
 - `db/migrations/` — goose SQL, numbered; also the source of seed data (template exercises, starter split days).
 - Deployment: multi-stage distroless `Dockerfile`; CI pushes to GHCR on main; production = `ct-workout` LXC on the homelab (managed from the separate infra repo).
