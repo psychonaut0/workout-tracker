@@ -1236,6 +1236,18 @@ Then push the branch, open a PR so `app-ci` runs (its `push` trigger is scoped t
 - Start weight in lb mode: type `176`, save, reopen — it must still read `176`, not `80` or `388`.
 - The `lightImpact` haptic is actually perceptible.
 - The editable rows do not overflow at the device's font scale.
+- **Bodyweight sheet at maximum accessibility text scale, with a 3-digit lb value
+  (e.g. `388.8`):** the number must not ellipsize in a way that hides digits. The
+  52px display-font value now sits in a `Flexible`, so it truncates with an
+  ellipsis rather than bleeding over the adjacent round button — a better failure
+  than the alternative, but a silently truncated bodyweight is the same *shape* of
+  problem as this project's worst prior bug. If it does truncate, decide whether
+  tap-to-edit recoverability is enough or the display size needs to be
+  scale-aware.
+- **Session/history set rows at a large font scale:** the inline field is only
+  ~26px wide inside its flex column. The row cannot structurally overflow
+  (`Expanded > Center` bounds the field), but confirm typed digits are not
+  visually crowded inside the field itself.
 
 ---
 
