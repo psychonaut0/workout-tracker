@@ -1176,6 +1176,7 @@ class _EditRow extends StatelessWidget {
               format: (v) => units.fmtWt(v),
               editable: true,
               parseDisplay: (v) => UnitService.toKg(v, units.unit),
+              min: 0,
               onChanged: (v) {
                 set.weightKg = v;
                 onChanged();
@@ -1191,6 +1192,9 @@ class _EditRow extends StatelessWidget {
               value: set.reps.toDouble(),
               step: 1,
               format: (v) => v.toInt().toString(),
+              editable: true,
+              allowDecimal: false,
+              min: 0,
               onChanged: (v) {
                 set.reps = v.toInt();
                 onChanged();

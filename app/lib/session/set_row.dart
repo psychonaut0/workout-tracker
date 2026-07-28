@@ -216,6 +216,7 @@ class _EditContent extends StatelessWidget {
             format: (v) => unit.fmtWt(v),
             editable: true,
             parseDisplay: (v) => UnitService.toKg(v, unit.unit),
+            min: 0,
             onChanged: (v) {
               set.weightKg = v;
               onChanged(set);
@@ -231,6 +232,9 @@ class _EditContent extends StatelessWidget {
             value: set.reps.toDouble(),
             step: 1,
             format: (v) => v.toInt().toString(),
+            editable: true,
+            allowDecimal: false,
+            min: 0,
             onChanged: (v) {
               set.reps = v.toInt();
               onChanged(set);
