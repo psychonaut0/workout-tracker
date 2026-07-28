@@ -17,15 +17,21 @@ import '../widgets/stepper.dart';
 /// Streams [MuscleTargetRepository.watchTargets], keys rows by muscle, and
 /// renders a presentational [TargetsList]. Edits persist live via
 /// [MuscleTargetRepository.setTarget] (0 = no goal / deletes the row).
-class TargetsTab extends StatelessWidget {
+class TargetsTab extends StatefulWidget {
   const TargetsTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final repo = MuscleTargetRepository(db);
+  State<TargetsTab> createState() => _TargetsTabState();
+}
 
+class _TargetsTabState extends State<TargetsTab> {
+  late final MuscleTargetRepository _repo = MuscleTargetRepository(db);
+  late final Stream<List<MuscleTarget>> _targetsStream = _repo.watchTargets();
+
+  @override
+  Widget build(BuildContext context) {
     return StreamBuilder<List<MuscleTarget>>(
-      stream: repo.watchTargets(),
+      stream: _targetsStream,
       builder: (context, snap) {
         final byMuscle = {
           for (final t in snap.data ?? const <MuscleTarget>[]) t.muscle: t,
@@ -33,7 +39,7 @@ class TargetsTab extends StatelessWidget {
 
         return TargetsList(
           targets: byMuscle,
-          onChanged: (muscle, sets) => repo.setTarget(
+          onChanged: (muscle, sets) => _repo.setTarget(
             muscle: muscle,
             sets: sets,
             userId: context.read<IdentityService>().currentUserId,

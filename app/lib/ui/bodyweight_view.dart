@@ -36,6 +36,8 @@ class BodyweightView extends StatefulWidget {
 
 class _BodyweightViewState extends State<BodyweightView> {
   late final BodyweightRepository _bwRepo;
+  late final Stream<List<BodyweightEntry>> _seriesStream =
+      _bwRepo.watchSeriesAsc();
 
   @override
   void initState() {
@@ -50,7 +52,7 @@ class _BodyweightViewState extends State<BodyweightView> {
     final l = AppLocalizations.of(context);
 
     return StreamBuilder<List<BodyweightEntry>>(
-      stream: _bwRepo.watchSeriesAsc(),
+      stream: _seriesStream,
       builder: (context, snap) {
         final entries = snap.data ?? [];
         final unit = unitService.uLabel;
