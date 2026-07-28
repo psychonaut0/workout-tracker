@@ -199,7 +199,32 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('stepper-inc')));
     await tester.pump();
+    // Already at max — clamping produced no actual change, so no emission
+    // (same "only notify on an actual change" rule _commitEdit follows).
+    expect(changed, isNull);
+    expect(find.text('99'), findsOneWidget);
+  });
+
+  testWidgets('tapping + at max does not emit onChanged', (tester) async {
+    double? changed;
+    await tester.pumpWidget(host(WStepper(
+      value: 98,
+      step: 1,
+      min: 1,
+      max: 99,
+      format: (v) => v.round().toString(),
+      onChanged: (v) => changed = v,
+    )));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('stepper-inc'))); // 98 -> 99
+    await tester.pump();
     expect(changed, 99.0);
+
+    changed = null;
+    await tester.tap(find.byKey(const Key('stepper-inc'))); // already at max
+    await tester.pump();
+    expect(changed, isNull);
     expect(find.text('99'), findsOneWidget);
   });
 

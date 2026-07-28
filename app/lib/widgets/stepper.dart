@@ -76,7 +76,7 @@ class WStepper extends StatefulWidget {
   State<WStepper> createState() => _WStepperState();
 }
 
-class _WStepperState extends State<WStepper> {
+class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
   late double _internalValue;
 
   /// Direction of the most recent value change, used to slide the label in the
@@ -85,17 +85,64 @@ class _WStepperState extends State<WStepper> {
 
   bool _editing = false;
   TextEditingController? _editCtrl;
+  final FocusNode _focusNode = FocusNode();
+
+  /// Whether the soft keyboard has actually been up during this edit. The
+  /// inset-collapse check is only armed after we have seen insets, so it stays
+  /// inert on desktop and in widget tests where insets are always zero.
+  bool _sawKeyboard = false;
 
   @override
   void initState() {
     super.initState();
     _internalValue = widget.value;
+    WidgetsBinding.instance.addObserver(this);
+    _focusNode.addListener(_onFocusChange);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _focusNode
+      ..removeListener(_onFocusChange)
+      ..dispose();
     _editCtrl?.dispose();
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    // Sheet closed, route popped, or row recycled while editing — keep the
+    // value rather than discarding it. This must NOT go through setState:
+    // deactivation can happen mid-build (e.g. a GlobalKey-bearing ancestor
+    // such as Navigator's Overlay reconciling), and marking this element
+    // dirty from outside the currently-building subtree is illegal. Mutate
+    // fields directly instead — if the widget is genuinely gone, no further
+    // build occurs; if it is reinserted (GlobalKey move), the framework
+    // rebuilds it regardless of the dirty flag and picks up the new fields.
+    if (_editing) _applyCommit(rebuild: false);
+    super.deactivate();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus && _editing) _commitEdit();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_editing || !mounted) return;
+    final insets = View.of(context).viewInsets.bottom;
+    if (insets > 0) {
+      _sawKeyboard = true;
+      return;
+    }
+    if (_sawKeyboard) {
+      // The keyboard was dismissed by the system. Focus is NOT dropped by that
+      // on Android, so nothing else would ever commit this edit.
+      _sawKeyboard = false;
+      _commitEdit();
+      _focusNode.unfocus();
+    }
   }
 
   void _beginEdit() {
@@ -104,10 +151,21 @@ class _WStepperState extends State<WStepper> {
     _editCtrl = TextEditingController(text: initial);
     _editCtrl!.selection =
         TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
+    _sawKeyboard = false;
     setState(() => _editing = true);
   }
 
-  void _commitEdit() {
+  void _commitEdit() => _applyCommit(rebuild: true);
+
+  /// Parses the in-progress edit and, if it produced an actual change,
+  /// notifies [widget.onChanged]. Shared by every exit path (IME action,
+  /// focus loss, keyboard-inset collapse, deactivation).
+  ///
+  /// [rebuild] selects whether the field mutations go through [setState].
+  /// Every path except [deactivate] wants the immediate visual update,
+  /// which is safe there because those calls happen outside of a build. From
+  /// [deactivate] it must be false — see the comment there.
+  void _applyCommit({required bool rebuild}) {
     if (!_editing) return;
     final previous = _internalValue;
     final committed = parseNumberInput(
@@ -117,20 +175,29 @@ class _WStepperState extends State<WStepper> {
       emptyValue: widget.emptyValue,
       parseDisplay: widget.parseDisplay,
     );
-    setState(() {
+    void apply() {
       _editing = false;
       if (committed != null) {
         _up = committed > _internalValue;
         _internalValue = committed;
       }
-    });
+    }
+
+    if (rebuild) {
+      setState(apply);
+    } else {
+      apply();
+    }
     // Skip onChanged when the edit produced no actual change — e.g. an edit
     // where every keystroke was rejected by the input formatter (below)
     // reverts to the pre-edit text, which still parses to a valid number and
     // must not be mistaken for a genuine commit.
     if (committed != null && committed != previous) widget.onChanged(committed);
-    _editCtrl?.dispose();
+    final old = _editCtrl;
     _editCtrl = null;
+    if (old != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
   }
 
   @override
@@ -145,6 +212,7 @@ class _WStepperState extends State<WStepper> {
   }
 
   void _step(int dir) {
+    final previous = _internalValue;
     final clamped = clampRound2(
       _internalValue + dir * widget.step,
       min: widget.min,
@@ -155,7 +223,9 @@ class _WStepperState extends State<WStepper> {
       _internalValue = clamped;
     });
     HapticFeedback.selectionClick();
-    widget.onChanged(clamped);
+    // Skip onChanged when clamping produced no actual change — e.g. tapping
+    // "+" while already at max — for the same reason _commitEdit does.
+    if (clamped != previous) widget.onChanged(clamped);
   }
 
   @override
@@ -195,47 +265,44 @@ class _WStepperState extends State<WStepper> {
         Expanded(
           child: Center(
             child: _editing
-                ? Focus(
-                    onFocusChange: (f) {
-                      if (!f) _commitEdit();
-                    },
-                    child: TextField(
-                      controller: _editCtrl,
-                      autofocus: true,
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.numberWithOptions(
-                          decimal: widget.allowDecimal),
-                      inputFormatters: [
-                        // A whole-string predicate, NOT
-                        // FilteringTextInputFormatter.allow with an anchored
-                        // pattern: that treats non-matching text as entirely
-                        // banned and WIPES the field instead of rejecting the
-                        // edit. Empty stays allowed so a sentinel can be typed
-                        // back by clearing.
-                        TextInputFormatter.withFunction((oldValue, newValue) {
-                          // A leading '-' is allowed through (no on-screen
-                          // numeric keypad exposes one, but callers/tests can
-                          // still supply it) so a negative value reaches
-                          // clampRound2/parseNumberInput and gets clamped to
-                          // [min], instead of being wiped by the formatter.
-                          final ok = widget.allowDecimal
-                              ? RegExp(r'^-?\d*[.,]?\d*$')
-                                  .hasMatch(newValue.text)
-                              : RegExp(r'^-?\d*$').hasMatch(newValue.text);
-                          return ok ? newValue : oldValue;
-                        }),
-                      ],
-                      onSubmitted: (_) => _commitEdit(),
-                      style: WorkoutType.mono(
-                        size: 15,
-                        weight: FontWeight.w700,
-                        color: tokens.text,
-                      ),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                ? TextField(
+                    controller: _editCtrl,
+                    focusNode: _focusNode,
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                    textInputAction: TextInputAction.done,
+                    keyboardType: TextInputType.numberWithOptions(
+                        decimal: widget.allowDecimal),
+                    inputFormatters: [
+                      // A whole-string predicate, NOT
+                      // FilteringTextInputFormatter.allow with an anchored
+                      // pattern: that treats non-matching text as entirely
+                      // banned and WIPES the field instead of rejecting the
+                      // edit. Empty stays allowed so a sentinel can be typed
+                      // back by clearing.
+                      TextInputFormatter.withFunction((oldValue, newValue) {
+                        // A leading '-' is allowed through (no on-screen
+                        // numeric keypad exposes one, but callers/tests can
+                        // still supply it) so a negative value reaches
+                        // clampRound2/parseNumberInput and gets clamped to
+                        // [min], instead of being wiped by the formatter.
+                        final ok = widget.allowDecimal
+                            ? RegExp(r'^-?\d*[.,]?\d*$')
+                                .hasMatch(newValue.text)
+                            : RegExp(r'^-?\d*$').hasMatch(newValue.text);
+                        return ok ? newValue : oldValue;
+                      }),
+                    ],
+                    onSubmitted: (_) => _commitEdit(),
+                    style: WorkoutType.mono(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: tokens.text,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   )
                 : GestureDetector(
