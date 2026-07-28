@@ -487,6 +487,9 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             onChanged: (v) {
               setState(() => _baseWeightDisplay = v < 0 ? 0 : v);
             },
+            editable: true,
+            formatForEdit: (v) => fmtPlain(v),
+            min: 0,
           ),
         ),
 
@@ -514,6 +517,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                       if (_repHigh < low) _repHigh = low;
                     });
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 1,
+                  max: 99,
                 ),
               ),
             ),
@@ -529,6 +536,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                     final high = v.round().clamp(_repLow, 99);
                     setState(() => _repHigh = high);
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: _repLow.toDouble(),
+                  max: 99,
                 ),
               ),
             ),
@@ -548,6 +559,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   onChanged: (v) {
                     setState(() => _workSets = v.round().clamp(1, 99));
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 1,
+                  max: 99,
                 ),
               ),
             ),
@@ -562,6 +577,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   onChanged: (v) {
                     setState(() => _warmupSets = v.round().clamp(0, 99));
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 0,
+                  max: 99,
                 ),
               ),
             ),
@@ -580,6 +599,11 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                 : l.exerciseEditorRestSeconds(v.round()),
             onChanged: (v) =>
                 setState(() => _restSeconds = v.round() < 0 ? 0 : v.round()),
+            editable: true,
+            allowDecimal: false,
+            min: 0,
+            emptyValue: 0,
+            formatForEdit: (v) => v == 0 ? '' : v.round().toString(),
           ),
         ),
 
