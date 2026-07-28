@@ -8,6 +8,7 @@ on:
 jobs:
   analyze-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # real-DB tests fetch a native lib at build time; cap a stalled fetch instead of running for hours
     steps:
       - uses: actions/checkout@v5
 
