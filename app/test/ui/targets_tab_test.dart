@@ -29,4 +29,30 @@ void main() {
     expect(muscle, 'chest');
     expect(sets, 13);
   });
+
+  testWidgets('clearing the field commits the target sentinel (0 = no goal)',
+      (tester) async {
+    String? muscle;
+    int? sets;
+    await tester.pumpWidget(wrapL10n(TargetsList(
+      targets: const {'chest': MuscleTarget(id: 't1', muscle: 'chest', targetSets: 12)},
+      onChanged: (m, s) {
+        muscle = m;
+        sets = s;
+      },
+    )));
+    await tester.pumpAndSettle();
+
+    // Chest is the only row not showing the "—" sentinel to start with.
+    await tester.tap(find.text('12'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(muscle, 'chest');
+    expect(sets, 0);
+    // All 8 muscles now render the "no goal" glyph, chest included.
+    expect(find.text('—'), findsNWidgets(8));
+  });
 }

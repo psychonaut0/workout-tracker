@@ -763,6 +763,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           format: (v) => '${v.round()}s',
                           onChanged: (v) =>
                               settings.setRestCompoundSeconds(v.round()),
+                          editable: true,
+                          allowDecimal: false,
+                          min: 0,
+                          formatForEdit: (v) => v.round().toString(),
                         ),
                       ),
                     ),
@@ -778,6 +782,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           format: (v) => '${v.round()}s',
                           onChanged: (v) =>
                               settings.setRestIsolationSeconds(v.round()),
+                          editable: true,
+                          allowDecimal: false,
+                          min: 0,
+                          formatForEdit: (v) => v.round().toString(),
                         ),
                       ),
                     ),
