@@ -22,6 +22,7 @@ import 'sync/db.dart';
 import 'theme/app_theme.dart';
 import 'ui/onboarding_screen.dart';
 import 'units/unit_service.dart';
+import 'util/error_surface.dart';
 
 final appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -35,6 +36,10 @@ bool shouldConnectSync({required bool syncEnabled, required bool loggedIn}) =>
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Turn an uncaught build exception into a readable, copyable card instead of
+  // Flutter's featureless gray box, whose text only ever reaches the device log.
+  installErrorSurface();
 
   // Load locale date symbols so DateFormat can render localized weekday and
   // month names for every supported locale (it/de/es), not just en.
