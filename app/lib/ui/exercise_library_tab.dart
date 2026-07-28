@@ -30,6 +30,7 @@ class LibraryTab extends StatefulWidget {
 
 class _LibraryTabState extends State<LibraryTab> {
   late final ExerciseRepository _repo;
+  late final Stream<List<Exercise>> _catalogStream = _repo.watchCatalog();
 
   /// One-shot PR map: exercise_id → best top-set weight (kg).
   /// Resolved once in initState via FutureBuilder.
@@ -52,7 +53,7 @@ class _LibraryTabState extends State<LibraryTab> {
     final tokens = context.tokens;
 
     return StreamBuilder<List<Exercise>>(
-      stream: _repo.watchCatalog(),
+      stream: _catalogStream,
       builder: (context, snap) {
         final exercises = snap.data ?? [];
         final prMap = _prMap ?? {};

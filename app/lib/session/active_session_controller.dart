@@ -317,6 +317,11 @@ class ActiveSessionController extends ChangeNotifier {
     return _draft!;
   }
 
+  /// Null-safe read for widgets that may render a frame while the draft is
+  /// being torn down. `draft`'s assert is stripped in release, leaving a bare
+  /// `!` that would crash instead.
+  SessionDraft? get draftOrNull => _draft;
+
   bool get hasSession => _draft != null;
 
   // ── Build ─────────────────────────────────────────────────────────────────

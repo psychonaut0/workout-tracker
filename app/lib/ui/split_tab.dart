@@ -14,7 +14,7 @@ import '../widgets/dashed_border.dart';
 /// The Split sub-tab: a list of training days in rotation.
 ///
 /// [onOpenEditor] is called with the day id to edit (null = new day).
-class SplitTab extends StatelessWidget {
+class SplitTab extends StatefulWidget {
   const SplitTab({
     super.key,
     required this.onOpenEditor,
@@ -24,13 +24,20 @@ class SplitTab extends StatelessWidget {
   final void Function(String? id) onOpenEditor;
 
   @override
+  State<SplitTab> createState() => _SplitTabState();
+}
+
+class _SplitTabState extends State<SplitTab> {
+  late final DayTemplateRepository _repo = DayTemplateRepository(db);
+  late final Stream<List<DayTemplate>> _daysStream = _repo.watchDays();
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final tokens = context.tokens;
-    final repo = DayTemplateRepository(db);
 
     return StreamBuilder<List<DayTemplate>>(
-      stream: repo.watchDays(),
+      stream: _daysStream,
       builder: (context, snap) {
         final days = snap.data ?? [];
 
@@ -50,7 +57,7 @@ class SplitTab extends StatelessWidget {
             ...days.map((day) => _DayCard(
                   day: day,
                   tokens: tokens,
-                  onTap: () => onOpenEditor(day.id),
+                  onTap: () => widget.onOpenEditor(day.id),
                 )),
 
             if (days.isNotEmpty) const SizedBox(height: 14),
@@ -58,7 +65,7 @@ class SplitTab extends StatelessWidget {
             // "New training day" dashed button
             _NewDayButton(
               tokens: tokens,
-              onTap: () => onOpenEditor(null),
+              onTap: () => widget.onOpenEditor(null),
             ),
           ],
         );

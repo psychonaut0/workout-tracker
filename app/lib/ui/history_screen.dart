@@ -38,6 +38,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // Catalog loaded once per screen mount (not re-queried on every stats
   // emission — it changes far less often than the session stream).
   late final Future<List<Exercise>> _catalog;
+  late final Stream<List<HistorySessionRow>> _statsStream =
+      _sessionRepo.watchSessionStats();
 
   @override
   void initState() {
@@ -54,7 +56,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final tokens = context.tokens;
 
     return StreamBuilder<List<HistorySessionRow>>(
-      stream: _sessionRepo.watchSessionStats(),
+      stream: _statsStream,
       builder: (context, sessionSnap) {
         final sessions = sessionSnap.data ?? [];
 

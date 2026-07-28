@@ -2,6 +2,7 @@ import 'package:powersync/powersync.dart';
 import 'package:sqlite_async/sqlite_async.dart';
 
 import 'models.dart';
+import 're_listenable.dart';
 import 'top_set_backfill.dart';
 
 // ── Mutation builders (pure) ──────────────────────────────────────────────────
@@ -137,25 +138,26 @@ class SessionRepository {
   ///
   /// Uses a LEFT JOIN so sessions with no sets still appear. `pr_count` counts
   /// distinct exercises where any set is a PR. `tonnage` excludes warm-up sets.
-  Stream<List<HistorySessionRow>> watchSessionStats() => db.watch(
-        '''SELECT se.id, se.date, se.split_label, se.duration_min,
+  Stream<List<HistorySessionRow>> watchSessionStats() =>
+      reListenable(() => db.watch(
+            '''SELECT se.id, se.date, se.split_label, se.duration_min,
                   COUNT(DISTINCT s.exercise_id) AS ex_count,
                   COUNT(DISTINCT CASE WHEN s.is_pr = 1 THEN s.exercise_id END) AS pr_count,
                   COALESCE(SUM(CASE WHEN s.is_warmup = 0 THEN CAST(s.weight_kg AS REAL) * s.reps ELSE 0 END), 0) AS tonnage
              FROM sessions se LEFT JOIN sets s ON s.session_id = se.id
             GROUP BY se.id, se.date, se.split_label, se.duration_min
             ORDER BY se.date DESC''',
-      ).map((rs) => rs.map(HistorySessionRow.fromRow).toList());
+          ).map((rs) => rs.map(HistorySessionRow.fromRow).toList()));
 
   /// A live stream of the most-recent [limit] sessions, newest first.
   Stream<List<SessionSummaryRow>> watchRecentSessions({int limit = 30}) {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT id, date, split_label, day_template_id, duration_min '
           'FROM sessions ORDER BY date DESC, created_at DESC LIMIT ?',
           parameters: [limit],
         )
-        .map((rs) => rs.map(SessionSummaryRow.fromRow).toList());
+        .map((rs) => rs.map(SessionSummaryRow.fromRow).toList()));
   }
 
   // ── Set reads ─────────────────────────────────────────────────────────────

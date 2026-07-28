@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
@@ -17,6 +18,11 @@ PowerSyncDatabase get db {
   }
   return d;
 }
+
+/// Test-only seam: install a database instance (or null to reset between
+/// tests). Production code always goes through [openDatabase].
+@visibleForTesting
+set dbForTests(PowerSyncDatabase? d) => _db = d;
 
 /// Opens (or returns) the local PowerSync database. As of PowerSync v2 the
 /// `powersync` package loads its SQLite extension via build hooks, so no

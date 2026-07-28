@@ -46,6 +46,20 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   late final ExerciseRepository _exerciseRepo;
   late final ProgressRepository _progressRepo;
+  late final Stream<List<Exercise>> _catalogStream;
+
+  String? _seriesKey;
+  Stream<List<ProgressPoint>>? _seriesStream;
+
+  /// One-entry memo: re-create the series stream only when the selected
+  /// exercise actually changes, instead of on every rebuild.
+  Stream<List<ProgressPoint>> _seriesFor(String exerciseId) {
+    if (_seriesKey != exerciseId || _seriesStream == null) {
+      _seriesKey = exerciseId;
+      _seriesStream = _progressRepo.watchSeriesFor(exerciseId);
+    }
+    return _seriesStream!;
+  }
 
   @override
   void initState() {
@@ -53,6 +67,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _target = widget.initialTarget;
     _exerciseRepo = ExerciseRepository(db);
     _progressRepo = ProgressRepository(db);
+    _catalogStream = _exerciseRepo.watchCatalog();
   }
 
   Future<void> _openPicker(List<Exercise> catalog) async {
@@ -70,9 +85,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
     context.watch<UnitService>();
 
     return StreamBuilder<List<Exercise>>(
-      stream: _exerciseRepo.watchCatalog(),
+      stream: _catalogStream,
       builder: (context, snap) {
-        final catalog = snap.data ?? [];
+        final catalog = snap.data ?? const <Exercise>[];
 
         // Determine the effective target.
         String? target = _target;
@@ -91,14 +106,33 @@ class _ProgressScreenState extends State<ProgressScreen> {
           return _EmptyState(onOpenPicker: () => _openPicker(catalog));
         }
 
+        // The catalog stream's first emission is asynchronous, so a screen
+        // mounted with a target already set (tapping a PR row on Home remounts
+        // this screen with a new key) renders one frame with an EMPTY catalog.
+        // Never index into it — that threw "Bad state: No element" on frame one.
+        if (catalog.isEmpty) {
+          // Distinguish "the catalog stream has not emitted yet" from "the
+          // catalog is genuinely empty": the first is a transient frame, the
+          // second must stay recoverable via the picker instead of a dead
+          // blank screen.
+          if (!snap.hasData) return const SizedBox.shrink();
+          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+        }
+
         final exId = target;
-        final ex = catalog.firstWhere(
-          (e) => e.id == exId,
-          orElse: () => catalog.first,
-        );
+        Exercise? found;
+        for (final e in catalog) {
+          if (e.id == exId) {
+            found = e;
+            break;
+          }
+        }
+        // Target no longer in the catalog (deleted): fall back to the first
+        // alphabetical entry, which is safe now that the list is non-empty.
+        final ex = found ?? catalog.first;
 
         return StreamBuilder<List<ProgressPoint>>(
-          stream: _progressRepo.watchSeriesFor(exId),
+          stream: _seriesFor(exId),
           builder: (context, seriesSnap) {
             final rawSeries = seriesSnap.data ?? [];
             final unit = context.read<UnitService>();

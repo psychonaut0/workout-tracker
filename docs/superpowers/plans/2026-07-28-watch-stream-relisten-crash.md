@@ -46,9 +46,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/re_listenable.dart';
 
 void main() {
+  // A single-subscription source, which is what PowerSync's db.watch() returns.
+  // Do NOT use Stream.fromIterable here: as of Dart 3.12 it is implemented via
+  // Stream.multi (dart-sdk/lib/async/stream.dart:354) and CAN be listened to
+  // more than once, so it would silently make these tests prove nothing.
+  Stream<int> singleSub(int value) {
+    final ctrl = StreamController<int>();
+    ctrl.add(value);
+    return ctrl.stream;
+  }
+
   test('a naked single-subscription stream throws on re-listen (control)',
       () async {
-    final naked = Stream<int>.fromIterable([1]);
+    final naked = singleSub(1);
     expect(await naked.first, 1);
     expect(() => naked.listen((_) {}), throwsStateError);
   });
@@ -57,7 +67,7 @@ void main() {
     var creations = 0;
     final s = reListenable<int>(() {
       creations++;
-      return Stream<int>.fromIterable([creations]);
+      return singleSub(creations);
     });
 
     expect(await s.first, 1);
@@ -337,11 +347,24 @@ Proves the shipped bug is actually gone at the widget level, which is where it m
 Create `app/test/widgets/sliver_recycle_relisten_test.dart`:
 
 ```dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/re_listenable.dart';
 
 void main() {
+  // A single-subscription source, matching what PowerSync's db.watch() returns.
+  // Stream.fromIterable is NOT usable here — as of Dart 3.12 it is built on
+  // Stream.multi and can be listened to repeatedly, which would make the
+  // control test below pass for the wrong reason.
+  Stream<int> singleSub(int value) {
+    final ctrl = StreamController<int>();
+    ctrl.add(value);
+    return ctrl.stream;
+  }
+
   // A lazy ListView child that scrolls far enough out of view is UNMOUNTED
   // (disposing its StreamBuilder subscription) and re-created on the way back,
   // which re-listens to the same stream instance. cacheExtent: 0 makes the
@@ -352,7 +375,10 @@ void main() {
             height: 200,
             child: ListView.builder(
               controller: ctrl,
-              cacheExtent: 0,
+              // `cacheExtent: 0` is deprecated on the pinned SDK
+              // (scroll_view.dart:118) and analyze treats deprecations as
+              // failures, so use the sanctioned replacement.
+              scrollCacheExtent: const ScrollCacheExtent.pixels(0),
               itemCount: 12,
               itemExtent: 200,
               itemBuilder: (_, i) => i == 0
@@ -369,7 +395,7 @@ void main() {
   testWidgets('a naked cached stream crashes when its child recycles (control)',
       (tester) async {
     final ctrl = ScrollController();
-    final naked = Stream<int>.fromIterable([1]);
+    final naked = singleSub(1);
 
     await tester.pumpWidget(host(naked, ctrl));
     await tester.pumpAndSettle();
@@ -385,7 +411,7 @@ void main() {
   testWidgets('a reListenable cached stream survives its child recycling',
       (tester) async {
     final ctrl = ScrollController();
-    final stream = reListenable<int>(() => Stream<int>.fromIterable([42]));
+    final stream = reListenable<int>(() => singleSub(42));
 
     await tester.pumpWidget(host(stream, ctrl));
     await tester.pumpAndSettle();
@@ -434,11 +460,15 @@ run. Widget tests for those screens need a way to install a temp database.
 
 - [ ] **Step 1: Add the seam**
 
-In `app/lib/sync/db.dart`, add the `meta` import and the setter directly below
-the existing `db` getter (leave the getter and `openDatabase()` unchanged):
+In `app/lib/sync/db.dart`, add the annotation import and the setter directly
+below the existing `db` getter (leave the getter and `openDatabase()` unchanged).
+
+Import it from Flutter, NOT from `package:meta` — `foundation.dart` re-exports
+`visibleForTesting` and `flutter` is already a direct dependency, so this needs
+no new pubspec entry and adds no supply-chain surface:
 
 ```dart
-import 'package:meta/meta.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 ```
 
 ```dart
@@ -448,13 +478,13 @@ import 'package:meta/meta.dart';
 set dbForTests(PowerSyncDatabase? d) => _db = d;
 ```
 
-- [ ] **Step 2: Confirm `meta` is available**
+- [ ] **Step 2: Confirm no new dependency is needed**
 
-Run: `grep -n "^  meta:\|package:meta" app/pubspec.yaml app/lib -r`
-`meta` ships transitively with Flutter and `@visibleForTesting` is widely used
-without a direct dependency. If `make -C app analyze` complains about an
-undeclared dependency, add `meta: any` under `dependencies:` in
-`app/pubspec.yaml` and run `make -C app get`.
+`app/pubspec.yaml` must NOT gain a `meta` entry. The `depend_on_referenced_packages`
+lint (active via `flutter_lints`) would fire on a bare `package:meta/meta.dart`
+import, which is exactly why the import above comes from
+`package:flutter/foundation.dart` instead. If you find yourself adding a
+dependency to satisfy analyze, you have used the wrong import.
 
 - [ ] **Step 3: Analyze**
 
@@ -584,7 +614,14 @@ Keep the existing `bwId` and `_EmptyState` branches exactly as they are:
         // mounted with a target already set (tapping a PR row on Home remounts
         // this screen with a new key) renders one frame with an EMPTY catalog.
         // Never index into it — that threw "Bad state: No element" on frame one.
-        if (catalog.isEmpty) return const SizedBox.shrink();
+        if (catalog.isEmpty) {
+          // Distinguish "the catalog stream has not emitted yet" from "the
+          // catalog is genuinely empty": the first is a transient frame, the
+          // second must stay recoverable via the picker instead of becoming a
+          // dead blank screen that nothing resets the target out of.
+          if (!snap.hasData) return const SizedBox.shrink();
+          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+        }
 
         final exId = target;
         Exercise? found;
@@ -742,7 +779,32 @@ git commit -m "fix(app): Home survives an unmappable session or day row"
 
 ---
 
-### Task 7: Real-PowerSync Home render and scroll
+### Task 7: Real-PowerSync Home render and scroll — NOT DONE (escape hatch invoked)
+
+**Outcome: cancelled during execution, for the reason this task's own escape
+clause anticipated.** Mounting `TodayScreen` over a real `PowerSyncDatabase` in
+a widget test does not work: against an empty database it fails the binding
+invariant `A Timer is still pending even after the widget tree was disposed`
+(PowerSync's watch throttle timers), and once the database is seeded the test
+hangs indefinitely. Bounded `pump(duration)` calls instead of `pumpAndSettle`,
+and this project's documented remedy of pumping a replacement widget so tickers
+dispose, both still hang. The root cause of the hang was not isolated.
+
+What was verified directly instead, at the stream boundary:
+`DayTemplateRepository.watchDays()` over a `day_template_items` row with a NULL
+`exercise_id` throws `type 'Null' is not a subtype of type 'String' in type
+cast` — so Task 6's premise is proven even though its widget test is not.
+
+Consequence, stated plainly: **no test renders the real Home screen.** The
+crash mechanism itself is covered by Task 3's sliver-recycle test, whose
+negative control is proven able to fail. Home-specific integration is verified
+on-device only, via the Task 13 checklist. Re-attempting this needs a way to
+mount a screen over a real PowerSync database without pending-timer deadlock —
+worth revisiting if that becomes possible, and out of scope for a bug fix.
+
+The original task text is kept below for whoever retries it.
+
+---
 
 The end-to-end proof. **If the seam from Task 4 plus the wrapper in Task 6's
 test is not enough to mount `TodayScreen` — for example a plugin channel that

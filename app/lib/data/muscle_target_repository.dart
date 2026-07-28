@@ -1,6 +1,7 @@
 import 'package:powersync/powersync.dart' show PowerSyncDatabase, uuid;
 
 import 'models.dart';
+import 're_listenable.dart';
 
 /// Default weekly set targets by muscle group.
 const _defaults = [
@@ -56,11 +57,11 @@ class MuscleTargetRepository {
 
   /// A live stream of all muscle targets ordered alphabetically by muscle.
   Stream<List<MuscleTarget>> watchTargets() {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT id, muscle, target_sets FROM muscle_targets ORDER BY muscle',
         )
-        .map((rs) => rs.map(MuscleTarget.fromRow).toList());
+        .map((rs) => rs.map(MuscleTarget.fromRow).toList()));
   }
 
   /// Inserts the 8 default muscle targets for [userId] if the table is empty.

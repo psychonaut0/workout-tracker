@@ -137,12 +137,19 @@ class _TodayScreenState extends State<TodayScreen> {
 
     // Subscribe to sessions + day templates; recompute the rotation pick when
     // EITHER changes (finishing a workout updates sessions, not days).
+    //
+    // Both need onError: a single unmappable row (a NULL exercise_id or
+    // day_template_id) otherwise becomes an uncaught async error that kills the
+    // subscription for good, leaving Home stuck on its placeholder forever.
+    // Keep the last good data and let the next emission recover.
     _sessionsSub = _sessions.watchRecentSessions(limit: 100).listen((rows) {
       if (!mounted) return;
       setState(() {
         _recentSessions = rows;
         _recomputeRotation();
       });
+    }, onError: (Object e, StackTrace st) {
+      debugPrint('today: recent-sessions stream error: $e');
     });
     _daysSub = _days.watchDays().listen((days) {
       if (!mounted) return;
@@ -151,6 +158,12 @@ class _TodayScreenState extends State<TodayScreen> {
         _rotationLoaded = true;
         _recomputeRotation();
       });
+    }, onError: (Object e, StackTrace st) {
+      // Mark the rotation as loaded so the UI shows its real empty state
+      // rather than an indefinite placeholder.
+      if (!mounted) return;
+      setState(() => _rotationLoaded = true);
+      debugPrint('today: days stream error: $e');
     });
   }
 
@@ -819,7 +832,8 @@ class _ResumeHeroState extends State<_ResumeHero> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final tokens = context.tokens;
-    final draft = widget.controller.draft;
+    final draft = widget.controller.draftOrNull;
+    if (draft == null) return const SizedBox.shrink();
     DayTemplate? day;
     if (draft.templateId != null) {
       for (final d in widget.dayList) {

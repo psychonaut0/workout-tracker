@@ -1,6 +1,7 @@
 import 'package:powersync/powersync.dart';
 
 import 'models.dart';
+import 're_listenable.dart';
 
 /// Pure + testable: builds the SQL upsert op for a bodyweight log entry.
 ///
@@ -33,12 +34,12 @@ class BodyweightRepository {
   /// `weight_kg` is stored as TEXT on the client; the CAST produces a real
   /// value aliased as `weight` so [BodyweightEntry.fromRow] can read it.
   Stream<List<BodyweightEntry>> watchSeriesAsc() {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT date, CAST(weight_kg AS REAL) AS weight '
           'FROM bodyweight_logs ORDER BY date ASC',
         )
-        .map((rs) => rs.map(BodyweightEntry.fromRow).toList());
+        .map((rs) => rs.map(BodyweightEntry.fromRow).toList()));
   }
 
   /// Logs (or updates) today's bodyweight with a client-side same-day upsert.

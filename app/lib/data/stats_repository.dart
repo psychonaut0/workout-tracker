@@ -1,6 +1,7 @@
 import 'package:powersync/powersync.dart';
 
 import '../util/dates.dart';
+import 're_listenable.dart';
 
 /// Repository for aggregate stats derived from sets + sessions.
 ///
@@ -17,7 +18,7 @@ class StatsRepository {
 
   /// Live count of working sets logged since [weekStart] (Monday of current week).
   Stream<int> watchSetsThisWeek({required DateTime weekStart}) {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT COUNT(*) AS n '
           'FROM sets s '
@@ -25,12 +26,12 @@ class StatsRepository {
           'WHERE s.is_warmup = 0 AND se.date >= ?',
           parameters: [isoDate(weekStart)],
         )
-        .map((rs) => rs.first['n'] as int? ?? 0);
+        .map((rs) => rs.first['n'] as int? ?? 0));
   }
 
   /// Live count of distinct muscle groups trained since [weekStart].
   Stream<int> watchDistinctMusclesThisWeek({required DateTime weekStart}) {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT COUNT(DISTINCT ex.muscle_group) AS n '
           'FROM sets s '
@@ -39,12 +40,12 @@ class StatsRepository {
           'WHERE s.is_warmup = 0 AND se.date >= ?',
           parameters: [isoDate(weekStart)],
         )
-        .map((rs) => rs.first['n'] as int? ?? 0);
+        .map((rs) => rs.first['n'] as int? ?? 0));
   }
 
   /// Live count of PR sets logged since [weekStart].
   Stream<int> watchPrsThisWeek({required DateTime weekStart}) {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT COUNT(*) AS n '
           'FROM sets s '
@@ -52,7 +53,7 @@ class StatsRepository {
           'WHERE s.is_pr = 1 AND se.date >= ?',
           parameters: [isoDate(weekStart)],
         )
-        .map((rs) => rs.first['n'] as int? ?? 0);
+        .map((rs) => rs.first['n'] as int? ?? 0));
   }
 
   // ── List streams ──────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ class StatsRepository {
   /// aliased as `weight`.
   Stream<List<({String exerciseId, double weight, int reps, String date})>>
       watchRecentPrs({int limit = 6}) {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT s.exercise_id, CAST(s.weight_kg AS REAL) AS weight, '
           's.reps, se.date '
@@ -85,14 +86,14 @@ class StatsRepository {
                 ),
               )
               .toList(),
-        );
+        ));
   }
 
   /// Live stream of working-set volume by muscle group since [weekStart].
   Stream<List<({String muscle, int sets})>> watchWeeklyVolumeByMuscle({
     required DateTime weekStart,
   }) {
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT ex.muscle_group AS muscle, COUNT(*) AS sets '
           'FROM sets s '
@@ -112,6 +113,6 @@ class StatsRepository {
                 ),
               )
               .toList(),
-        );
+        ));
   }
 }
