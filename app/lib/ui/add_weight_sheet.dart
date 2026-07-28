@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
@@ -10,6 +11,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
+import '../util/number_input.dart';
 
 /// Shows the "Log bodyweight" modal bottom sheet.
 ///
@@ -40,15 +42,29 @@ class _AddWeightSheet extends StatefulWidget {
   State<_AddWeightSheet> createState() => _AddWeightSheetState();
 }
 
-class _AddWeightSheetState extends State<_AddWeightSheet> {
+class _AddWeightSheetState extends State<_AddWeightSheet>
+    with WidgetsBindingObserver {
   late double _val;
   bool _seeded = false;
+
+  bool _editing = false;
+  TextEditingController? _editCtrl;
+  final FocusNode _focusNode = FocusNode();
+
+  /// Whether the soft keyboard has actually been up during this edit. The
+  /// inset-collapse check is only armed after we have seen insets, so it
+  /// stays inert on desktop and in widget tests where insets are always zero.
+  bool _sawKeyboard = false;
 
   @override
   void initState() {
     super.initState();
     // Start with a 70 kg default until we read the last entry.
-    _val = double.parse(UnitService.fromKg(70.0, Unit.kg).toStringAsFixed(1));
+    _val = double.tryParse(
+            UnitService.fromKg(70.0, Unit.kg).toStringAsFixed(1)) ??
+        70.0;
+    WidgetsBinding.instance.addObserver(this);
+    _focusNode.addListener(_onFocusChange);
   }
 
   @override
@@ -57,6 +73,49 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
     if (!_seeded) {
       _seeded = true;
       _seedFromLastEntry();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _focusNode
+      ..removeListener(_onFocusChange)
+      ..dispose();
+    _editCtrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    // Sheet closed or route popped while editing — keep the value rather
+    // than discarding it. This must NOT go through setState: deactivation
+    // can happen mid-build (e.g. a GlobalKey-bearing ancestor such as
+    // Navigator's Overlay reconciling), and marking this element dirty from
+    // outside the currently-building subtree is illegal. Mutate fields
+    // directly instead, mirroring WStepper's _applyCommit split.
+    if (_editing) _applyCommit(rebuild: false);
+    super.deactivate();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus && _editing) _commitEdit();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_editing || !mounted) return;
+    final insets = View.of(context).viewInsets.bottom;
+    if (insets > 0) {
+      _sawKeyboard = true;
+      return;
+    }
+    if (_sawKeyboard) {
+      // The keyboard was dismissed by the system. Focus is NOT dropped by
+      // that on Android, so nothing else would ever commit this edit.
+      _sawKeyboard = false;
+      _commitEdit();
+      _focusNode.unfocus();
     }
   }
 
@@ -74,7 +133,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
           rows.isNotEmpty ? (rows.first['weight'] as num).toDouble() : 70.0;
       final display = UnitService.fromKg(kg, unitService.unit);
       setState(() {
-        _val = double.parse(display.toStringAsFixed(1));
+        _val = double.tryParse(display.toStringAsFixed(1)) ?? display;
       });
     } catch (_) {
       // Keep the initState default on error.
@@ -85,9 +144,47 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
     final unitService = context.read<UnitService>();
     final step = unitService.unit == Unit.lb ? 0.2 : 0.1;
     setState(() {
-      final next = _val + dir * step;
-      _val = double.parse(next.clamp(0, double.infinity).toStringAsFixed(2));
+      final next = (_val + dir * step).clamp(0, double.infinity).toDouble();
+      _val = double.tryParse(next.toStringAsFixed(2)) ?? next;
     });
+  }
+
+  void _beginEdit() {
+    _editCtrl = TextEditingController(text: _val.toStringAsFixed(1));
+    _editCtrl!.selection =
+        TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
+    _sawKeyboard = false;
+    setState(() => _editing = true);
+  }
+
+  void _commitEdit() => _applyCommit(rebuild: true);
+
+  /// Parses the in-progress edit and, if valid, applies it. Shared by every
+  /// exit path (IME action, focus loss, keyboard-inset collapse,
+  /// deactivation) — mirrors WStepper's `_applyCommit`.
+  ///
+  /// [rebuild] selects whether the field mutations go through [setState].
+  /// Every path except [deactivate] wants the immediate visual update, which
+  /// is safe there because those calls happen outside of a build. From
+  /// [deactivate] it must be false — see the comment there.
+  void _applyCommit({required bool rebuild}) {
+    if (!_editing) return;
+    final committed = parseNumberInput(_editCtrl?.text ?? '', min: 0);
+    void apply() {
+      _editing = false;
+      if (committed != null) _val = committed;
+    }
+
+    if (rebuild) {
+      setState(apply);
+    } else {
+      apply();
+    }
+    final old = _editCtrl;
+    _editCtrl = null;
+    if (old != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
   }
 
   Future<void> _save() async {
@@ -184,14 +281,64 @@ class _AddWeightSheetState extends State<_AddWeightSheet> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(
-                        _val.toStringAsFixed(1),
-                        style: WorkoutType.display(
-                          size: 52,
-                          weight: FontWeight.w700,
-                          color: tokens.text,
-                          letterSpacing: 52 * -0.03,
-                        ),
+                      // Flexible (not a fixed width) so the number always
+                      // gets a bounded, finite main-axis constraint from the
+                      // Row regardless of how wide the unit label ends up —
+                      // a TextField's internal single-line Scrollable throws
+                      // if given an unbounded width, and an unwrapped Text
+                      // can overflow the 150px box.
+                      Flexible(
+                        child: _editing
+                            ? TextField(
+                                controller: _editCtrl,
+                                focusNode: _focusNode,
+                                autofocus: true,
+                                textAlign: TextAlign.center,
+                                textInputAction: TextInputAction.done,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                inputFormatters: [
+                                  // A whole-string predicate, NOT
+                                  // FilteringTextInputFormatter.allow with an
+                                  // anchored pattern: that treats
+                                  // non-matching text as entirely banned and
+                                  // WIPES the field instead of rejecting the
+                                  // edit.
+                                  TextInputFormatter.withFunction(
+                                      (oldValue, newValue) {
+                                    final ok = RegExp(r'^-?\d*[.,]?\d*$')
+                                        .hasMatch(newValue.text);
+                                    return ok ? newValue : oldValue;
+                                  }),
+                                ],
+                                onSubmitted: (_) => _commitEdit(),
+                                style: WorkoutType.display(
+                                  size: 52,
+                                  weight: FontWeight.w700,
+                                  color: tokens.text,
+                                  letterSpacing: 52 * -0.03,
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              )
+                            : GestureDetector(
+                                onTap: _beginEdit,
+                                child: Text(
+                                  _val.toStringAsFixed(1),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: WorkoutType.display(
+                                    size: 52,
+                                    weight: FontWeight.w700,
+                                    color: tokens.text,
+                                    letterSpacing: 52 * -0.03,
+                                  ),
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 4),
                       Text(
