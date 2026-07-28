@@ -46,9 +46,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/re_listenable.dart';
 
 void main() {
+  // A single-subscription source, which is what PowerSync's db.watch() returns.
+  // Do NOT use Stream.fromIterable here: as of Dart 3.12 it is implemented via
+  // Stream.multi (dart-sdk/lib/async/stream.dart:354) and CAN be listened to
+  // more than once, so it would silently make these tests prove nothing.
+  Stream<int> singleSub(int value) {
+    final ctrl = StreamController<int>();
+    ctrl.add(value);
+    return ctrl.stream;
+  }
+
   test('a naked single-subscription stream throws on re-listen (control)',
       () async {
-    final naked = Stream<int>.fromIterable([1]);
+    final naked = singleSub(1);
     expect(await naked.first, 1);
     expect(() => naked.listen((_) {}), throwsStateError);
   });
@@ -57,7 +67,7 @@ void main() {
     var creations = 0;
     final s = reListenable<int>(() {
       creations++;
-      return Stream<int>.fromIterable([creations]);
+      return singleSub(creations);
     });
 
     expect(await s.first, 1);
@@ -337,11 +347,23 @@ Proves the shipped bug is actually gone at the widget level, which is where it m
 Create `app/test/widgets/sliver_recycle_relisten_test.dart`:
 
 ```dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/re_listenable.dart';
 
 void main() {
+  // A single-subscription source, matching what PowerSync's db.watch() returns.
+  // Stream.fromIterable is NOT usable here — as of Dart 3.12 it is built on
+  // Stream.multi and can be listened to repeatedly, which would make the
+  // control test below pass for the wrong reason.
+  Stream<int> singleSub(int value) {
+    final ctrl = StreamController<int>();
+    ctrl.add(value);
+    return ctrl.stream;
+  }
+
   // A lazy ListView child that scrolls far enough out of view is UNMOUNTED
   // (disposing its StreamBuilder subscription) and re-created on the way back,
   // which re-listens to the same stream instance. cacheExtent: 0 makes the
@@ -369,7 +391,7 @@ void main() {
   testWidgets('a naked cached stream crashes when its child recycles (control)',
       (tester) async {
     final ctrl = ScrollController();
-    final naked = Stream<int>.fromIterable([1]);
+    final naked = singleSub(1);
 
     await tester.pumpWidget(host(naked, ctrl));
     await tester.pumpAndSettle();
@@ -385,7 +407,7 @@ void main() {
   testWidgets('a reListenable cached stream survives its child recycling',
       (tester) async {
     final ctrl = ScrollController();
-    final stream = reListenable<int>(() => Stream<int>.fromIterable([42]));
+    final stream = reListenable<int>(() => singleSub(42));
 
     await tester.pumpWidget(host(stream, ctrl));
     await tester.pumpAndSettle();
