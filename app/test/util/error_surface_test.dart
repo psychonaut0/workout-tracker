@@ -4,13 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/util/error_surface.dart';
 
 void main() {
-  // Install ONLY the widget builder, never the full surface: overriding
-  // FlutterError.onError here would steal the error capture the test binding
-  // owns, breaking takeException() and wedging the test.
+  // The suite shares a process across test files, so leaking a mutated
+  // ErrorWidget.builder into other files would be a real hazard — restore it.
   late ErrorWidgetBuilder original;
   setUp(() {
     original = ErrorWidget.builder;
-    ErrorWidget.builder = buildErrorCard;
+    installErrorSurface();
   });
   tearDown(() => ErrorWidget.builder = original);
 

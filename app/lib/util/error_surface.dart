@@ -1,35 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// The most recent build error's full details, kept so the on-screen card's
-/// copy action can hand over the stack trace.
-String _lastDetails = '';
-
 /// Replaces Flutter's default release ErrorWidget — a featureless gray box —
 /// with a card that says what actually went wrong and copies the full details
-/// on tap, and records each error's details for that copy action.
+/// on tap.
 void installErrorSurface() {
-  // Chain to whatever handler is already installed (Flutter's own
-  // FlutterError.presentError by default) instead of replacing it outright.
-  // Under flutter_test, TestWidgetsFlutterBinding installs its own per-test
-  // handler to back tester.takeException(); silently overwriting it would
-  // strand that bookkeeping and turn an expected error into a framework
-  // assertion failure.
-  final reportToPreviousHandler = FlutterError.onError ?? FlutterError.presentError;
-  FlutterError.onError = (details) {
-    _lastDetails = '${details.exceptionAsString()}\n\n${details.stack ?? ''}';
-    reportToPreviousHandler(details);
-  };
-
-  ErrorWidget.builder = buildErrorCard;
+  ErrorWidget.builder = _buildErrorCard;
 }
 
 /// Builds the replacement error card.
-///
-/// Exposed separately from [installErrorSurface] so a test can install ONLY the
-/// widget builder: overriding [FlutterError.onError] inside a test steals the
-/// error capture the test binding owns, which breaks `takeException()` and
-/// wedges the test. Production installs both.
 ///
 /// The card is deliberately dependency-free. An ErrorWidget can be inflated
 /// ABOVE MaterialApp, so there may be no Theme, Directionality, MediaQuery or
@@ -38,17 +17,10 @@ void installErrorSurface() {
 /// text wraps and scrolls so it cannot overflow inside a tightly constrained
 /// sliver child. If this widget threw, the user would see nothing at all —
 /// which is worse than the gray box it replaces.
-Widget buildErrorCard(FlutterErrorDetails details) {
+Widget _buildErrorCard(FlutterErrorDetails details) {
   final message = details.exceptionAsString();
-  final ownStack = details.stack?.toString() ?? '';
-  // Prefer THIS error's own details, and fall back to the recorded ones only
-  // when they belong to the same error. An earlier version always reused the
-  // last recorded details, so a card could hand over a previous, unrelated
-  // error's text — the opposite of useful when the point is diagnosing what
-  // just broke.
-  final copyText = ownStack.isNotEmpty
-      ? '$message\n\n$ownStack'
-      : (_lastDetails.startsWith(message) ? _lastDetails : message);
+  final stack = details.stack?.toString() ?? '';
+  final copyText = stack.isEmpty ? message : '$message\n\n$stack';
   return Directionality(
     textDirection: TextDirection.ltr,
     child: GestureDetector(
