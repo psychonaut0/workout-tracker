@@ -23,12 +23,21 @@ double clampRound2(double v, {double min = 0, double? max}) {
 ///
 /// Returns null to mean "leave the current value alone" — either the text was
 /// not a number, or it was empty and no [emptyValue] sentinel was supplied.
-/// Callers must NOT treat null as zero.
+/// Callers must NOT treat null as zero. [emptyValue], when supplied, is
+/// returned as-is and is NOT clamped to [min]/[max] — it is a caller-chosen
+/// sentinel, not typed text, so callers are responsible for passing one that
+/// already sits inside their own bounds.
 ///
 /// A comma is accepted as the decimal separator, since Italian, German and
 /// Spanish keyboards produce one. [parseDisplay] converts from display space to
 /// the caller's space (e.g. lb to kg) and is applied BEFORE clamping, so the
 /// bounds are always expressed in the caller's space.
+///
+/// Non-finite text (`NaN`, `Infinity`, `-Infinity`) and a non-finite
+/// [parseDisplay] result both return null, the same as unparseable text —
+/// this is an exported pure function and must not rely on a caller (e.g. an
+/// input formatter blocking letters at the keystroke level) to keep
+/// `clampRound2` from being handed a value it cannot round.
 double? parseNumberInput(
   String raw, {
   double min = 0,
@@ -39,7 +48,8 @@ double? parseNumberInput(
   final text = raw.trim().replaceAll(',', '.');
   if (text.isEmpty) return emptyValue;
   final typed = double.tryParse(text);
-  if (typed == null) return null;
+  if (typed == null || !typed.isFinite) return null;
   final mapped = parseDisplay?.call(typed) ?? typed;
+  if (!mapped.isFinite) return null;
   return clampRound2(mapped, min: min, max: max);
 }
