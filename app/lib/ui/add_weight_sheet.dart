@@ -147,6 +147,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
       final next = (_val + dir * step).clamp(0, double.infinity).toDouble();
       _val = double.tryParse(next.toStringAsFixed(2)) ?? next;
     });
+    HapticFeedback.lightImpact();
   }
 
   void _beginEdit() {
@@ -169,6 +170,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
   /// [deactivate] it must be false — see the comment there.
   void _applyCommit({required bool rebuild}) {
     if (!_editing) return;
+    final previous = _val;
     final committed = parseNumberInput(_editCtrl?.text ?? '', min: 0);
     void apply() {
       _editing = false;
@@ -179,6 +181,12 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
       setState(apply);
     } else {
       apply();
+    }
+    // Only on the live paths (rebuild == true) — never on the deactivate
+    // teardown path, where buzzing while the sheet closes would be noise
+    // rather than feedback. Mirrors WStepper's _applyCommit.
+    if (rebuild && committed != null && committed != previous) {
+      HapticFeedback.lightImpact();
     }
     final old = _editCtrl;
     _editCtrl = null;

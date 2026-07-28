@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
@@ -41,7 +42,10 @@ class RirPicker extends StatelessWidget {
           child: GestureDetector(
             key: Key('rir-$r'),
             behavior: HitTestBehavior.opaque,
-            onTap: () => onChanged(r),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onChanged(r);
+            },
             child: Container(
               height: 30,
               margin: EdgeInsets.only(right: r < 3 ? 3 : 0),

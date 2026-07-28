@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
@@ -192,7 +193,10 @@ class _RestTimerCardState extends State<RestTimerCard>
           // ── +30s button ────────────────────────────────────────────────
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: widget.onAdd30s,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onAdd30s();
+            },
             child: Container(
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 12),

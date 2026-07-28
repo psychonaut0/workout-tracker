@@ -202,7 +202,13 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
     // where every keystroke was rejected by the input formatter (below)
     // reverts to the pre-edit text, which still parses to a valid number and
     // must not be mistaken for a genuine commit.
-    if (committed != null && committed != previous) widget.onChanged(committed);
+    if (committed != null && committed != previous) {
+      // Only on the live paths (rebuild == true) — never on the deactivate
+      // teardown path, where buzzing while a sheet closes or a route pops
+      // would be noise rather than feedback.
+      if (rebuild) HapticFeedback.lightImpact();
+      widget.onChanged(committed);
+    }
     final old = _editCtrl;
     _editCtrl = null;
     if (old != null) {
@@ -232,7 +238,7 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
       _up = clamped > _internalValue;
       _internalValue = clamped;
     });
-    HapticFeedback.selectionClick();
+    HapticFeedback.lightImpact();
     // Skip onChanged when clamping produced no actual change — e.g. tapping
     // "+" while already at max — for the same reason _commitEdit does.
     if (clamped != previous) widget.onChanged(clamped);
