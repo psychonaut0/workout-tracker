@@ -47,6 +47,19 @@ class _ProgressScreenState extends State<ProgressScreen> {
   late final ExerciseRepository _exerciseRepo;
   late final ProgressRepository _progressRepo;
 
+  String? _seriesKey;
+  Stream<List<ProgressPoint>>? _seriesStream;
+
+  /// One-entry memo: re-create the series stream only when the selected
+  /// exercise actually changes, instead of on every rebuild.
+  Stream<List<ProgressPoint>> _seriesFor(String exerciseId) {
+    if (_seriesKey != exerciseId || _seriesStream == null) {
+      _seriesKey = exerciseId;
+      _seriesStream = _progressRepo.watchSeriesFor(exerciseId);
+    }
+    return _seriesStream!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -117,7 +130,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         final ex = found ?? catalog.first;
 
         return StreamBuilder<List<ProgressPoint>>(
-          stream: _progressRepo.watchSeriesFor(exId),
+          stream: _seriesFor(exId),
           builder: (context, seriesSnap) {
             final rawSeries = seriesSnap.data ?? [];
             final unit = context.read<UnitService>();
