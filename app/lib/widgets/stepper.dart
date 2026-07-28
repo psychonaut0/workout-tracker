@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import '../util/number_input.dart';
 
 /// A numeric stepper with − / + buttons flanking a formatted value label.
 ///
@@ -26,6 +27,11 @@ class WStepper extends StatefulWidget {
     required this.onChanged,
     this.editable = false,
     this.parseDisplay,
+    this.formatForEdit,
+    this.min = 0,
+    this.max,
+    this.emptyValue,
+    this.allowDecimal = true,
   });
 
   final double value;
@@ -43,6 +49,28 @@ class WStepper extends StatefulWidget {
   /// Converts a typed value (in display space, as produced by [format]) back to
   /// the internal value space. When null, the typed value is used as-is.
   final double Function(double display)? parseDisplay;
+
+  /// Formats the value for the inline edit field's initial text. Defaults to
+  /// [format]. Provide a bare-number formatter when [format] appends a unit or
+  /// a sentinel word ("80kg", "180s", "Default", "—") that would not round-trip
+  /// through the numeric parser on commit.
+  final String Function(double)? formatForEdit;
+
+  /// Lower bound, enforced inside the widget for BOTH stepping and typing, so
+  /// the label can never show a value the widget did not emit.
+  final double min;
+
+  /// Upper bound; null means unbounded.
+  final double? max;
+
+  /// Value committed when the field is submitted empty. Null means an empty
+  /// field leaves the value unchanged. Set this only where a sentinel exists
+  /// (rest "Default", target "—").
+  final double? emptyValue;
+
+  /// When false the field requests an integer keypad and refuses a decimal
+  /// separator.
+  final bool allowDecimal;
 
   @override
   State<WStepper> createState() => _WStepperState();
@@ -72,7 +100,8 @@ class _WStepperState extends State<WStepper> {
 
   void _beginEdit() {
     if (!widget.editable) return;
-    _editCtrl = TextEditingController(text: widget.format(_internalValue));
+    final initial = (widget.formatForEdit ?? widget.format)(_internalValue);
+    _editCtrl = TextEditingController(text: initial);
     _editCtrl!.selection =
         TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
     setState(() => _editing = true);
@@ -80,18 +109,26 @@ class _WStepperState extends State<WStepper> {
 
   void _commitEdit() {
     if (!_editing) return;
-    final raw = _editCtrl?.text.trim().replaceAll(',', '.') ?? '';
-    final typed = double.tryParse(raw);
+    final previous = _internalValue;
+    final committed = parseNumberInput(
+      _editCtrl?.text ?? '',
+      min: widget.min,
+      max: widget.max,
+      emptyValue: widget.emptyValue,
+      parseDisplay: widget.parseDisplay,
+    );
     setState(() {
       _editing = false;
-      if (typed != null) {
-        final mapped = widget.parseDisplay?.call(typed) ?? typed;
-        final clamped = mapped < 0 ? 0.0 : _round2(mapped);
-        _up = clamped > _internalValue;
-        _internalValue = clamped;
-        widget.onChanged(clamped);
+      if (committed != null) {
+        _up = committed > _internalValue;
+        _internalValue = committed;
       }
     });
+    // Skip onChanged when the edit produced no actual change — e.g. an edit
+    // where every keystroke was rejected by the input formatter (below)
+    // reverts to the pre-edit text, which still parses to a valid number and
+    // must not be mistaken for a genuine commit.
+    if (committed != null && committed != previous) widget.onChanged(committed);
     _editCtrl?.dispose();
     _editCtrl = null;
   }
@@ -107,12 +144,12 @@ class _WStepperState extends State<WStepper> {
     }
   }
 
-  /// Round to 2 decimal places to avoid floating-point drift.
-  static double _round2(double v) => (v * 100).round() / 100;
-
   void _step(int dir) {
-    final next = _round2(_internalValue + dir * widget.step);
-    final clamped = next < 0 ? 0.0 : next;
+    final clamped = clampRound2(
+      _internalValue + dir * widget.step,
+      min: widget.min,
+      max: widget.max,
+    );
     setState(() {
       _up = clamped > _internalValue;
       _internalValue = clamped;
@@ -166,8 +203,28 @@ class _WStepperState extends State<WStepper> {
                       controller: _editCtrl,
                       autofocus: true,
                       textAlign: TextAlign.center,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: TextInputType.numberWithOptions(
+                          decimal: widget.allowDecimal),
+                      inputFormatters: [
+                        // A whole-string predicate, NOT
+                        // FilteringTextInputFormatter.allow with an anchored
+                        // pattern: that treats non-matching text as entirely
+                        // banned and WIPES the field instead of rejecting the
+                        // edit. Empty stays allowed so a sentinel can be typed
+                        // back by clearing.
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          // A leading '-' is allowed through (no on-screen
+                          // numeric keypad exposes one, but callers/tests can
+                          // still supply it) so a negative value reaches
+                          // clampRound2/parseNumberInput and gets clamped to
+                          // [min], instead of being wiped by the formatter.
+                          final ok = widget.allowDecimal
+                              ? RegExp(r'^-?\d*[.,]?\d*$')
+                                  .hasMatch(newValue.text)
+                              : RegExp(r'^-?\d*$').hasMatch(newValue.text);
+                          return ok ? newValue : oldValue;
+                        }),
+                      ],
                       onSubmitted: (_) => _commitEdit(),
                       style: WorkoutType.mono(
                         size: 15,
