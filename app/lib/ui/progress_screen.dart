@@ -46,6 +46,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   late final ExerciseRepository _exerciseRepo;
   late final ProgressRepository _progressRepo;
+  late final Stream<List<Exercise>> _catalogStream;
 
   String? _seriesKey;
   Stream<List<ProgressPoint>>? _seriesStream;
@@ -66,6 +67,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _target = widget.initialTarget;
     _exerciseRepo = ExerciseRepository(db);
     _progressRepo = ProgressRepository(db);
+    _catalogStream = _exerciseRepo.watchCatalog();
   }
 
   Future<void> _openPicker(List<Exercise> catalog) async {
@@ -83,7 +85,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     context.watch<UnitService>();
 
     return StreamBuilder<List<Exercise>>(
-      stream: _exerciseRepo.watchCatalog(),
+      stream: _catalogStream,
       builder: (context, snap) {
         final catalog = snap.data ?? const <Exercise>[];
 

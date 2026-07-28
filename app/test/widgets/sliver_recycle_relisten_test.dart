@@ -55,7 +55,11 @@ void main() {
     ctrl.jumpTo(0); // item 0 re-created → second listen()
     await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isStateError);
+    expect(
+      tester.takeException(),
+      isA<StateError>().having(
+          (e) => e.message, 'message', contains('already been listened')),
+    );
   });
 
   testWidgets('a reListenable cached stream survives its child recycling',

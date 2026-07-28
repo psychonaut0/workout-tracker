@@ -17,10 +17,11 @@ import 'dart:async';
 /// state, and the upstream is cancelled when a listener leaves so a recycled
 /// child does not leak a SQL watch.
 ///
-/// The `T?` sentinel assumes a non-nullable element type — true for every
-/// current repository stream (Lists, ints, records). For a nullable element
-/// type, track a separate `hasLast` flag instead.
-Stream<T> reListenable<T>(Stream<T> Function() create) {
+/// The `T?` sentinel relies on a non-nullable element type, which the `extends
+/// Object` bound on [T] now enforces at compile time — true for every current
+/// repository stream (Lists, ints, records). For a nullable element type,
+/// track a separate `hasLast` flag instead.
+Stream<T> reListenable<T extends Object>(Stream<T> Function() create) {
   T? last;
   return Stream.multi((controller) {
     final cached = last;

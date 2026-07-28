@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -39,7 +40,9 @@ Future<void> main() async {
 
   // Turn an uncaught build exception into a readable, copyable card instead of
   // Flutter's featureless gray box, whose text only ever reaches the device log.
-  installErrorSurface();
+  // Skip this in debug builds so Flutter's red error screen — with its fuller
+  // on-screen diagnostics — stays available to developers.
+  if (!kDebugMode) installErrorSurface();
 
   // Load locale date symbols so DateFormat can render localized weekday and
   // month names for every supported locale (it/de/es), not just en.
