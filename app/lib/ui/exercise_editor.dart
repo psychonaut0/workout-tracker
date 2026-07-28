@@ -199,6 +199,13 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) return;
+    // This screen does not own any of its steppers, so nothing else unfocuses
+    // an open one on Android (tap-outside only unfocuses for touch on web,
+    // and this button's own tap handler never requests focus). Flush focus
+    // BEFORE _baseWeightDisplay (and the other stepper-backed fields below)
+    // are read — the stepper's focus-loss listener commits synchronously.
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
     setState(() => _saving = true);
 
     final unit = context.read<UnitService>().unit;
@@ -487,6 +494,9 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             onChanged: (v) {
               setState(() => _baseWeightDisplay = v < 0 ? 0 : v);
             },
+            editable: true,
+            formatForEdit: (v) => fmtPlain(v),
+            min: 0,
           ),
         ),
 
@@ -514,6 +524,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                       if (_repHigh < low) _repHigh = low;
                     });
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 1,
+                  max: 99,
                 ),
               ),
             ),
@@ -529,6 +543,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                     final high = v.round().clamp(_repLow, 99);
                     setState(() => _repHigh = high);
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: _repLow.toDouble(),
+                  max: 99,
                 ),
               ),
             ),
@@ -548,6 +566,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   onChanged: (v) {
                     setState(() => _workSets = v.round().clamp(1, 99));
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 1,
+                  max: 99,
                 ),
               ),
             ),
@@ -562,6 +584,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   onChanged: (v) {
                     setState(() => _warmupSets = v.round().clamp(0, 99));
                   },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 0,
+                  max: 99,
                 ),
               ),
             ),
@@ -580,6 +606,11 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                 : l.exerciseEditorRestSeconds(v.round()),
             onChanged: (v) =>
                 setState(() => _restSeconds = v.round() < 0 ? 0 : v.round()),
+            editable: true,
+            allowDecimal: false,
+            min: 0,
+            emptyValue: 0,
+            formatForEdit: (v) => v == 0 ? '' : v.round().toString(),
           ),
         ),
 

@@ -5,6 +5,7 @@ import 'package:workout_tracker/session/set_row.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+import 'package:workout_tracker/widgets/stepper.dart';
 
 import '../support/l10n_harness.dart';
 
@@ -98,6 +99,56 @@ void main() {
         ),
       );
 
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('SetRow no overflow while inline-editing', () {
+    testWidgets('working set does not overflow while typing',
+        (tester) async {
+      await _pump(
+        tester,
+        SetRow(
+          set: _workingSet(),
+          exercise: _kExercise,
+          workIndex: 1,
+          unit: unit,
+          isLiveTop: false,
+          isLivePr: false,
+          onChanged: (_) {},
+          onToggleDone: () {},
+        ),
+      );
+
+      // Open the inline editor on the weight column.
+      await tester.tap(find.byType(WStepper).first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('warm-up set does not overflow while typing',
+        (tester) async {
+      await _pump(
+        tester,
+        SetRow(
+          set: _warmupSet(),
+          exercise: _kExercise,
+          workIndex: -1,
+          unit: unit,
+          isLiveTop: false,
+          isLivePr: false,
+          onChanged: (_) {},
+          onToggleDone: () {},
+        ),
+      );
+
+      // Open the inline editor on the weight column.
+      await tester.tap(find.byType(WStepper).first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

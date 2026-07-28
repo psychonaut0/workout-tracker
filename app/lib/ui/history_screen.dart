@@ -917,6 +917,14 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   /// Appends a new working set, seeded from the last working set (or the
   /// heaviest existing set) so the user usually only needs minor tweaks.
   Future<void> _addSet() async {
+    // This sheet does not own any row's stepper, so nothing else unfocuses an
+    // open one on Android (tap-outside only unfocuses for touch on web, and
+    // this button's own tap handler never requests focus). Flush focus
+    // BEFORE `_sets`/`working` are read below — the stepper's focus-loss
+    // listener commits synchronously, so an in-flight edit on the last row
+    // lands before it gets read as the seed for the new row.
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
     final working = _sets.where((s) => !s.isWarmup).toList();
     final last = working.isNotEmpty
         ? working.last
@@ -1176,6 +1184,7 @@ class _EditRow extends StatelessWidget {
               format: (v) => units.fmtWt(v),
               editable: true,
               parseDisplay: (v) => UnitService.toKg(v, units.unit),
+              min: 0,
               onChanged: (v) {
                 set.weightKg = v;
                 onChanged();
@@ -1191,6 +1200,9 @@ class _EditRow extends StatelessWidget {
               value: set.reps.toDouble(),
               step: 1,
               format: (v) => v.toInt().toString(),
+              editable: true,
+              allowDecimal: false,
+              min: 0,
               onChanged: (v) {
                 set.reps = v.toInt();
                 onChanged();
