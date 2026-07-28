@@ -51,8 +51,6 @@ dependencies:
   # Android OTA: downloads the release APK with progress and launches the OS
   # installer (in-app updates). Android-only; no-op on Linux desktop.
   ota_update: ^7.1.0
-  # @visibleForTesting annotation for test-only seams.
-  meta: any
 
 dev_dependencies:
   flutter_test:
