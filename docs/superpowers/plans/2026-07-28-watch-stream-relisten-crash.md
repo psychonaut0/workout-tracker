@@ -350,6 +350,7 @@ Create `app/test/widgets/sliver_recycle_relisten_test.dart`:
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/re_listenable.dart';
 
@@ -374,7 +375,10 @@ void main() {
             height: 200,
             child: ListView.builder(
               controller: ctrl,
-              cacheExtent: 0,
+              // `cacheExtent: 0` is deprecated on the pinned SDK
+              // (scroll_view.dart:118) and analyze treats deprecations as
+              // failures, so use the sanctioned replacement.
+              scrollCacheExtent: const ScrollCacheExtent.pixels(0),
               itemCount: 12,
               itemExtent: 200,
               itemBuilder: (_, i) => i == 0
