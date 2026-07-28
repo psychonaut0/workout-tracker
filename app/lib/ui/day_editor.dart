@@ -213,6 +213,13 @@ class _DayEditorState extends State<DayEditor> {
 
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) return;
+    // This screen does not own any of its steppers, so nothing else unfocuses
+    // an open one on Android (tap-outside only unfocuses for touch on web,
+    // and this button's own tap handler never requests focus). Flush focus
+    // BEFORE slot.draft is read below — the stepper's focus-loss listener
+    // commits synchronously.
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
     setState(() => _saving = true);
 
     // Commit RIR text → rirLow/rirHigh for each slot using rirTryParse.
