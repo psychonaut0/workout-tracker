@@ -82,6 +82,55 @@ void main() {
     expect(find.text('81.4'), findsOneWidget);
   });
 
+  testWidgets(
+      'tapping Save while a field is open persists the typed value, not '
+      'the pre-edit one', (tester) async {
+    // THE critical regression: nothing on Android unfocuses a TextField from
+    // a tap outside it (tap-outside-to-unfocus only fires for touch on web),
+    // and Save's own tap handler never requests focus either — so without
+    // flushing the in-flight edit as the FIRST statement of _save, this
+    // writes the seeded 70.0 instead of what was typed.
+    await tester.pumpWidget(wrapped());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await pumpUntilFound(tester, find.text('70.0'));
+    await tester.tap(find.text('70.0'));
+    await tester.pumpAndSettle();
+
+    // Type but do NOT submit or blur — tap Save directly while the field is
+    // still focused and open.
+    await tester.enterText(find.byType(TextField), '81.4');
+    await tester.pump();
+
+    await tester.tap(find.text('Save entry'));
+    await tester.pump();
+
+    // The write goes through a real PowerSync writeTransaction; a plain
+    // pumpAndSettle only advances fake time and never waits for it. Mirror
+    // pumpUntilFound's discipline of alternating a short REAL delay with a
+    // pump — a single long-lived runAsync block does not reliably drain
+    // continuations chained onto a Future created before runAsync started.
+    List<Map<String, dynamic>> rows = const [];
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    while (DateTime.now().isBefore(deadline) && rows.isEmpty) {
+      await tester.runAsync(() async {
+        rows = await database.getAll(
+          'SELECT CAST(weight_kg AS REAL) AS weight FROM bodyweight_logs',
+        );
+      });
+      await tester.pump();
+      if (rows.isNotEmpty) break;
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 25)));
+      await tester.pump();
+    }
+
+    expect(rows, hasLength(1));
+    expect((rows.first['weight'] as num).toDouble(), closeTo(81.4, 0.005));
+  });
+
   testWidgets('typing a negative value clamps to 0', (tester) async {
     await tester.pumpWidget(wrapped());
     await tester.pumpAndSettle();

@@ -51,6 +51,11 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
   TextEditingController? _editCtrl;
   final FocusNode _focusNode = FocusNode();
 
+  /// The exact text the edit field was seeded with, captured in [_beginEdit].
+  /// Used by [_applyCommit] to recognise an untouched field — mirrors
+  /// [WStepper]'s `_seedText`.
+  String? _seedText;
+
   /// Whether the soft keyboard has actually been up during this edit. The
   /// inset-collapse check is only armed after we have seen insets, so it
   /// stays inert on desktop and in widget tests where insets are always zero.
@@ -151,10 +156,15 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
   }
 
   void _beginEdit() {
-    _editCtrl = TextEditingController(text: _val.toStringAsFixed(1));
+    final initial = _val.toStringAsFixed(1);
+    _editCtrl = TextEditingController(text: initial);
     _editCtrl!.selection =
         TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
-    _sawKeyboard = false;
+    _seedText = initial;
+    // Initialise from the CURRENT inset, not false: moving focus straight
+    // from another already-open field produces no didChangeMetrics event, so
+    // starting unarmed would leave this edit with no dismissal path at all.
+    _sawKeyboard = View.of(context).viewInsets.bottom > 0;
     setState(() => _editing = true);
   }
 
@@ -170,6 +180,22 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
   /// [deactivate] it must be false — see the comment there.
   void _applyCommit({required bool rebuild}) {
     if (!_editing) return;
+    if (_editCtrl?.text == _seedText) {
+      // Untouched field — mirrors WStepper's guard: skip the commit
+      // entirely, no _val change, just exit edit mode.
+      void exit() => _editing = false;
+      if (rebuild) {
+        setState(exit);
+      } else {
+        exit();
+      }
+      final unchanged = _editCtrl;
+      _editCtrl = null;
+      if (unchanged != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => unchanged.dispose());
+      }
+      return;
+    }
     final previous = _val;
     final committed = parseNumberInput(_editCtrl?.text ?? '', min: 0);
     void apply() {
@@ -196,6 +222,11 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
   }
 
   Future<void> _save() async {
+    // Flush any in-flight edit BEFORE _val is read below — nothing else
+    // unfocuses the field on Android (tap-outside only unfocuses for touch
+    // on web, and Save's own InkWell/TextButton never requests focus), so
+    // without this the pre-edit _val would be the one that gets logged.
+    if (_editing) _commitEdit();
     // Capture navigator BEFORE the await (BuildContext-across-async-gap lint).
     final nav = Navigator.of(context);
     final unitService = context.read<UnitService>();
@@ -335,15 +366,24 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
                               )
                             : GestureDetector(
                                 onTap: _beginEdit,
-                                child: Text(
-                                  _val.toStringAsFixed(1),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: WorkoutType.display(
-                                    size: 52,
-                                    weight: FontWeight.w700,
-                                    color: tokens.text,
-                                    letterSpacing: 52 * -0.03,
+                                // FittedBox (not just Flexible/ellipsis) so a
+                                // wide lb value ("388.8") stays fully visible
+                                // at larger text scales instead of
+                                // ellipsizing — the TextField branch above
+                                // must stay bare, it manages its own
+                                // scrolling.
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    _val.toStringAsFixed(1),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: WorkoutType.display(
+                                      size: 52,
+                                      weight: FontWeight.w700,
+                                      color: tokens.text,
+                                      letterSpacing: 52 * -0.03,
+                                    ),
                                   ),
                                 ),
                               ),
