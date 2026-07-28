@@ -72,7 +72,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     return StreamBuilder<List<Exercise>>(
       stream: _exerciseRepo.watchCatalog(),
       builder: (context, snap) {
-        final catalog = snap.data ?? [];
+        final catalog = snap.data ?? const <Exercise>[];
 
         // Determine the effective target.
         String? target = _target;
@@ -91,11 +91,23 @@ class _ProgressScreenState extends State<ProgressScreen> {
           return _EmptyState(onOpenPicker: () => _openPicker(catalog));
         }
 
+        // The catalog stream's first emission is asynchronous, so a screen
+        // mounted with a target already set (tapping a PR row on Home remounts
+        // this screen with a new key) renders one frame with an EMPTY catalog.
+        // Never index into it — that threw "Bad state: No element" on frame one.
+        if (catalog.isEmpty) return const SizedBox.shrink();
+
         final exId = target;
-        final ex = catalog.firstWhere(
-          (e) => e.id == exId,
-          orElse: () => catalog.first,
-        );
+        Exercise? found;
+        for (final e in catalog) {
+          if (e.id == exId) {
+            found = e;
+            break;
+          }
+        }
+        // Target no longer in the catalog (deleted): fall back to the first
+        // alphabetical entry, which is safe now that the list is non-empty.
+        final ex = found ?? catalog.first;
 
         return StreamBuilder<List<ProgressPoint>>(
           stream: _progressRepo.watchSeriesFor(exId),
