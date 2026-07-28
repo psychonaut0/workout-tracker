@@ -10,6 +10,7 @@ import 'package:workout_tracker/ui/progress_screen.dart';
 import 'package:workout_tracker/units/unit_service.dart';
 
 import '../support/l10n_harness.dart';
+import '../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -54,22 +55,19 @@ void main() {
       'recoverable empty state, not a dead blank screen', (tester) async {
     // No exercises are ever inserted, so the catalog stream settles on an
     // empty (but non-null-data) list — distinct from "hasn't emitted yet".
-    await tester.runAsync(() async {
-      await tester.pumpWidget(wrapL10n(
-        ChangeNotifierProvider<UnitService>(
-          create: (_) => UnitService(),
-          child: const ProgressScreen(initialTarget: 'some-exercise-id'),
-        ),
-      ));
-      expect(tester.takeException(), isNull);
+    await tester.pumpWidget(wrapL10n(
+      ChangeNotifierProvider<UnitService>(
+        create: (_) => UnitService(),
+        child: const ProgressScreen(initialTarget: 'some-exercise-id'),
+      ),
+    ));
+    expect(tester.takeException(), isNull);
 
-      // The catalog stream's first (real, isolate-backed) emission needs a
-      // real event-loop tick to land — pumpAndSettle alone can settle before
-      // it arrives, so wait for it explicitly under runAsync.
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+    // The catalog stream's first (real, isolate-backed) emission needs real
+    // async progress to land — pumpAndSettle only advances fake time, so
+    // poll with real ticks until the empty state's content actually appears.
+    await pumpUntilFound(tester, find.text('No exercises found'));
+    expect(tester.takeException(), isNull);
 
     // _EmptyState's content (progress_screen.dart) — the picker entry point
     // that lets the user escape the empty state, rather than a blank screen.
