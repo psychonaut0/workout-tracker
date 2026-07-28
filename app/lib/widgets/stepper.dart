@@ -87,6 +87,12 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
   TextEditingController? _editCtrl;
   final FocusNode _focusNode = FocusNode();
 
+  /// The exact text the edit field was seeded with, captured in [_beginEdit].
+  /// Used by [_applyCommit] to recognise an untouched field — even when
+  /// [widget.formatForEdit] is lossy (e.g. rounds to whole lb) and would
+  /// otherwise parse back to a value different from [_internalValue].
+  String? _seedText;
+
   /// Whether the soft keyboard has actually been up during this edit. The
   /// inset-collapse check is only armed after we have seen insets, so it stays
   /// inert on desktop and in widget tests where insets are always zero.
@@ -151,7 +157,11 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
     _editCtrl = TextEditingController(text: initial);
     _editCtrl!.selection =
         TextSelection(baseOffset: 0, extentOffset: _editCtrl!.text.length);
-    _sawKeyboard = false;
+    _seedText = initial;
+    // Initialise from the CURRENT inset, not false: moving focus straight
+    // from another already-open field produces no didChangeMetrics event, so
+    // starting unarmed would leave this edit with no dismissal path at all.
+    _sawKeyboard = View.of(context).viewInsets.bottom > 0;
     setState(() => _editing = true);
   }
 
@@ -177,6 +187,26 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
     // second parse to a no-op — so do not delete this guard on the evidence
     // of a passing test suite alone.
     if (!_editing) return;
+    if (_editCtrl?.text == _seedText) {
+      // Untouched field. Guards against a lossy formatForEdit round-trip
+      // (e.g. 100 kg seeds "220" in lb mode; parsing "220" back gives 99.79,
+      // not 100) being mistaken for a genuine edit — comparing the committed
+      // VALUE to the previous one does not catch this, since both are valid,
+      // merely unequal, numbers. Skip the commit entirely: no onChanged, no
+      // _internalValue change, just exit edit mode.
+      void exit() => _editing = false;
+      if (rebuild) {
+        setState(exit);
+      } else {
+        exit();
+      }
+      final unchanged = _editCtrl;
+      _editCtrl = null;
+      if (unchanged != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => unchanged.dispose());
+      }
+      return;
+    }
     final previous = _internalValue;
     final committed = parseNumberInput(
       _editCtrl?.text ?? '',
@@ -228,6 +258,11 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
   }
 
   void _step(int dir) {
+    // An open field must not be silently overridden: commit whatever was
+    // typed FIRST, so the step builds on it and the label visibly updates,
+    // rather than stepping the stale pre-edit value and having the untouched
+    // edit text later clobber both steps on commit.
+    if (_editing) _commitEdit();
     final previous = _internalValue;
     final clamped = clampRound2(
       _internalValue + dir * widget.step,

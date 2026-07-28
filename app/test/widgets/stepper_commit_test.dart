@@ -59,6 +59,52 @@ void main() {
     expect(find.text('92.5'), findsOneWidget);
   });
 
+  testWidgets(
+      'a second edit begun while insets are already > 0 still commits on '
+      'dismiss', (tester) async {
+    // THE user-reported defect surviving for the SECOND (and every
+    // subsequent) field of an editing run: _beginEdit used to always start
+    // `_sawKeyboard` at false, so an edit begun while the keyboard was
+    // already up (the common case once you're past the first field) got NO
+    // didChangeMetrics rising edge to arm it, and the later collapse then
+    // found `_sawKeyboard` false and did nothing.
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1.0;
+
+    final emitted = <double>[];
+    await tester.pumpWidget(host(stepper(emitted.add)));
+    await tester.pumpAndSettle();
+
+    // First edit: open, bring the keyboard up, commit via the IME done
+    // action — the keyboard itself never goes back down, mirroring moving
+    // straight on to another field in one keyboard session.
+    await tester.tap(find.text('80.0'));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '85');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(emitted, [85.0]);
+
+    // Second edit begins WHILE insets are already > 0 (the keyboard never
+    // went down between the two edits) — no didChangeMetrics event fires
+    // for this transition, the exact case this fix targets.
+    await tester.tap(find.text('85.0'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '92.5');
+    await tester.pump();
+    expect(emitted, [85.0],
+        reason: 'not committed until an exit path fires');
+
+    // System dismisses the keyboard.
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(emitted, [85.0, 92.5]);
+  });
+
   testWidgets('losing focus commits the typed value', (tester) async {
     // NOTE: tester.tap on another widget does NOT unfocus in a widget test
     // (tap-outside only unfocuses for touch on web, and tests force Android),

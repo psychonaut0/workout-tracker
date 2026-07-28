@@ -292,11 +292,14 @@ void main() {
     expect(inputType['name'], 'TextInputType.number');
     expect(inputType['decimal'], isFalse);
 
-    // The formatter rejects a separator outright.
+    // The formatter rejects a separator outright — it must reject to the
+    // PRIOR text ("8"), not merely drop the dot (which would also pass an
+    // `isNot(contains('.'))` check even if the formatter had wiped the field
+    // to "15" or "").
     await tester.enterText(find.byType(TextField), '1.5');
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        isNot(contains('.')));
+        '8');
   });
 
   testWidgets('allowDecimal true requests a decimal keypad', (tester) async {
@@ -370,5 +373,73 @@ void main() {
     await tester.pump();
     expect(find.text('11'), findsOneWidget,
         reason: 'an unrelated rebuild must not revert the stepped value');
+  });
+
+  testWidgets(
+      'tapping + while a field is open commits the typed value first, then '
+      'steps from it', (tester) async {
+    // Probe (pre-fix) emitted [82.5, 85.0, 80.0]: _step ignored _editing and
+    // stepped the stale pre-edit value, then the untouched seed text later
+    // reverted both taps on commit. Fixed: the open edit commits first, so
+    // the step builds on what was typed and the field closes.
+    final emitted = <double>[];
+    await tester.pumpWidget(host(WStepper(
+      value: 80,
+      step: 2.5,
+      format: (v) => v.toStringAsFixed(1),
+      onChanged: emitted.add,
+      editable: true,
+    )));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('80.0'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '82.5');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('stepper-inc')));
+    await tester.pump();
+
+    expect(emitted, [82.5, 85.0]);
+    expect(find.byType(TextField), findsNothing,
+        reason: 'stepping also closes the open edit');
+    expect(find.text('85.0'), findsOneWidget);
+  });
+
+  testWidgets(
+      'an untouched lossy lb-mode weight field does not fire onChanged',
+      (tester) async {
+    // 100 kg seeds "220" (a whole-lb formatForEdit is lossy); parsing "220"
+    // back gives ~99.79, not 100. Comparing the parsed VALUE to the previous
+    // one cannot catch this — both are valid, merely unequal, numbers — so
+    // the guard must compare the TEXT instead.
+    double? changed;
+    await tester.pumpWidget(host(WStepper(
+      value: 100, // kg (caller space)
+      step: 2.5,
+      format: (v) => (v * 2.2046226).round().toString(),
+      formatForEdit: (v) => (v * 2.2046226).round().toString(),
+      parseDisplay: (d) => d / 2.2046226,
+      onChanged: (v) => changed = v,
+      editable: true,
+    )));
+    await tester.pumpAndSettle();
+
+    expect(find.text('220'), findsOneWidget);
+    await tester.tap(find.text('220'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '220');
+
+    // Leave without typing anything.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(changed, isNull,
+        reason: 'an untouched field must not rewrite the stored value even '
+            'though "220" parses back to ~99.79, not 100');
+    expect(find.text('220'), findsOneWidget);
   });
 }
