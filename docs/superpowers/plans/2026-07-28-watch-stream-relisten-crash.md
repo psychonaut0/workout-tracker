@@ -460,11 +460,15 @@ run. Widget tests for those screens need a way to install a temp database.
 
 - [ ] **Step 1: Add the seam**
 
-In `app/lib/sync/db.dart`, add the `meta` import and the setter directly below
-the existing `db` getter (leave the getter and `openDatabase()` unchanged):
+In `app/lib/sync/db.dart`, add the annotation import and the setter directly
+below the existing `db` getter (leave the getter and `openDatabase()` unchanged).
+
+Import it from Flutter, NOT from `package:meta` — `foundation.dart` re-exports
+`visibleForTesting` and `flutter` is already a direct dependency, so this needs
+no new pubspec entry and adds no supply-chain surface:
 
 ```dart
-import 'package:meta/meta.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 ```
 
 ```dart
@@ -474,13 +478,13 @@ import 'package:meta/meta.dart';
 set dbForTests(PowerSyncDatabase? d) => _db = d;
 ```
 
-- [ ] **Step 2: Confirm `meta` is available**
+- [ ] **Step 2: Confirm no new dependency is needed**
 
-Run: `grep -n "^  meta:\|package:meta" app/pubspec.yaml app/lib -r`
-`meta` ships transitively with Flutter and `@visibleForTesting` is widely used
-without a direct dependency. If `make -C app analyze` complains about an
-undeclared dependency, add `meta: any` under `dependencies:` in
-`app/pubspec.yaml` and run `make -C app get`.
+`app/pubspec.yaml` must NOT gain a `meta` entry. The `depend_on_referenced_packages`
+lint (active via `flutter_lints`) would fire on a bare `package:meta/meta.dart`
+import, which is exactly why the import above comes from
+`package:flutter/foundation.dart` instead. If you find yourself adding a
+dependency to satisfy analyze, you have used the wrong import.
 
 - [ ] **Step 3: Analyze**
 
