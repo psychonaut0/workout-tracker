@@ -832,7 +832,8 @@ class _ResumeHeroState extends State<_ResumeHero> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final tokens = context.tokens;
-    final draft = widget.controller.draft;
+    final draft = widget.controller.draftOrNull;
+    if (draft == null) return const SizedBox.shrink();
     DayTemplate? day;
     if (draft.templateId != null) {
       for (final d in widget.dayList) {
