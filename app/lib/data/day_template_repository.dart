@@ -2,6 +2,7 @@ import 'package:powersync/powersync.dart';
 
 import '../util/dates.dart';
 import 'models.dart';
+import 're_listenable.dart';
 import 'session_repository.dart';
 
 // ── dayTemplateUpsertOp ───────────────────────────────────────────────────────
@@ -269,7 +270,7 @@ class DayTemplateRepository {
     // Re-emit on changes to EITHER table. The SQL only names day_templates, so
     // without an explicit triggerOnTables an items-only change (e.g. absorb
     // re-pointing a slot) would leave Split/Today stale.
-    return db
+    return reListenable(() => db
         .watch(
           'SELECT dt.id, dt.slug, dt.name, dt.focus, dt.scheduled_weekday, dt.position, dt.is_template '
           'FROM day_templates dt WHERE dt.is_template IS NOT 1 ORDER BY dt.position',
@@ -301,7 +302,7 @@ class DayTemplateRepository {
               isTemplate: ((row['is_template'] as num?) ?? 0) != 0,
             );
           }).toList();
-        });
+        }));
   }
 
   // ── Rotation helpers ──────────────────────────────────────────────────────

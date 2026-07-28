@@ -1,6 +1,7 @@
 import 'package:powersync/powersync.dart';
 
 import 'models.dart';
+import 're_listenable.dart';
 
 // ── slugify ───────────────────────────────────────────────────────────────────
 
@@ -129,9 +130,9 @@ class ExerciseRepository {
   ///
   /// Emits a new list on every local DB change (sync down, user edits).
   Stream<List<Exercise>> watchCatalog() {
-    return db
+    return reListenable(() => db
         .watch('SELECT * FROM exercises WHERE is_template IS NOT 1 ORDER BY name')
-        .map((rs) => rs.map(Exercise.fromRow).toList());
+        .map((rs) => rs.map(Exercise.fromRow).toList()));
   }
 
   /// Fetches a single exercise by id, or null if not found.
