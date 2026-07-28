@@ -112,9 +112,18 @@ void main() {
     expect(find.text('80.0'), findsOneWidget);
   });
 
-  testWidgets('committing only fires onChanged once', (tester) async {
-    // Four exit paths can each call _commitEdit; the re-entrancy guard must
-    // keep that to a single emission.
+  testWidgets(
+      'several exit paths firing in sequence still yield a single emission',
+      (tester) async {
+    // What this actually proves: once the done action has committed and
+    // flipped _editing to false, the OTHER exit paths' own external checks
+    // (_onFocusChange and deactivate both test `_editing` themselves before
+    // ever calling into the commit path) keep firing them a no-op — not the
+    // internal guard inside _applyCommit. This is a real property (three
+    // independent listeners firing in a row still yield one emission) but it
+    // does not pin that guard; see "a duplicate done action does not
+    // double-emit" below for the one path that guard alone protects, and why
+    // even that test can't prove the guard is load-bearing either.
     final emitted = <double>[];
     await tester.pumpWidget(host(stepper(emitted.add)));
     await tester.pumpAndSettle();
@@ -129,6 +138,33 @@ void main() {
     await tester.pump();
     await tester.pumpWidget(host(const Text('gone')));
     await tester.pump();
+
+    expect(emitted, [99.0]);
+  });
+
+  testWidgets('a duplicate done action does not double-emit', (tester) async {
+    // onSubmitted is the one exit path with no external `_editing` check of
+    // its own — it calls _commitEdit() unconditionally and relies solely on
+    // the internal guard in _applyCommit. This test does NOT prove that
+    // guard is load-bearing, though: by the second action, the first commit
+    // has already nulled _editCtrl, so the second re-parses an empty string,
+    // which (with no emptyValue configured here) parses to null — a no-op
+    // independent of the guard. This is kept as a behavior-locking
+    // regression test — a duplicate IME done action (a real platform
+    // occurrence) must not crash and must not re-emit — not as evidence the
+    // guard matters. See the comment on the guard itself for where it does.
+    final emitted = <double>[];
+    await tester.pumpWidget(host(stepper(emitted.add)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('80.0'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '99');
+    await tester.pump();
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
 
     expect(emitted, [99.0]);
   });

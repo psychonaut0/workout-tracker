@@ -166,6 +166,16 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
   /// which is safe there because those calls happen outside of a build. From
   /// [deactivate] it must be false — see the comment there.
   void _applyCommit({required bool rebuild}) {
+    // Defence-in-depth, not dead code: onSubmitted calls _commitEdit()
+    // unconditionally, with no external `_editing` check of its own (unlike
+    // _onFocusChange/didChangeMetrics/deactivate, which all test `_editing`
+    // themselves before calling in), so this is the only thing standing
+    // between a platform IME that double-fires TextInputAction.done and a
+    // double commit. No widget test can isolate that specific hazard — by
+    // the time a second done action reaches here in a test, the first
+    // commit has already nulled _editCtrl, which independently collapses the
+    // second parse to a no-op — so do not delete this guard on the evidence
+    // of a passing test suite alone.
     if (!_editing) return;
     final previous = _internalValue;
     final committed = parseNumberInput(
