@@ -131,6 +131,34 @@ void main() {
     expect((rows.first['weight'] as num).toDouble(), closeTo(81.4, 0.005));
   });
 
+  testWidgets(
+      'tapping + while a differing edit is open builds on the typed value',
+      (tester) async {
+    // The ± buttons are always visible (unlike WStepper's, which hide behind
+    // the field), so without committing the in-flight edit first, tapping +
+    // silently discards it: the bump lands on the stale pre-edit _val, then
+    // the field's later (untouched-looking) commit overwrites the bump with
+    // the typed text, and the button feels dead.
+    await tester.pumpWidget(wrapped());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await pumpUntilFound(tester, find.text('70.0'));
+    await tester.tap(find.text('70.0'));
+    await tester.pumpAndSettle();
+
+    // Type but do NOT submit — tap + directly while the field is still open.
+    await tester.enterText(find.byType(TextField), '81.4');
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    // kg mode steps by 0.1: one step above the TYPED 81.4, not the seeded 70.0.
+    expect(find.text('81.5'), findsOneWidget);
+  });
+
   testWidgets('typing a negative value clamps to 0', (tester) async {
     await tester.pumpWidget(wrapped());
     await tester.pumpAndSettle();

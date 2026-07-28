@@ -146,6 +146,12 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
   }
 
   void _bump(int dir) {
+    // An open field must not be silently overridden: commit whatever was
+    // typed FIRST, so the bump builds on it — mirrors WStepper._step. The
+    // ± buttons stay visible while editing, so without this the bump would
+    // apply to the stale pre-edit _val and then be discarded when the
+    // untouched-looking edit later commits over it.
+    if (_editing) _commitEdit();
     final unitService = context.read<UnitService>();
     final step = unitService.unit == Unit.lb ? 0.2 : 0.1;
     setState(() {
