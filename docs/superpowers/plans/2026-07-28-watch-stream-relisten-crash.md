@@ -779,7 +779,32 @@ git commit -m "fix(app): Home survives an unmappable session or day row"
 
 ---
 
-### Task 7: Real-PowerSync Home render and scroll
+### Task 7: Real-PowerSync Home render and scroll — NOT DONE (escape hatch invoked)
+
+**Outcome: cancelled during execution, for the reason this task's own escape
+clause anticipated.** Mounting `TodayScreen` over a real `PowerSyncDatabase` in
+a widget test does not work: against an empty database it fails the binding
+invariant `A Timer is still pending even after the widget tree was disposed`
+(PowerSync's watch throttle timers), and once the database is seeded the test
+hangs indefinitely. Bounded `pump(duration)` calls instead of `pumpAndSettle`,
+and this project's documented remedy of pumping a replacement widget so tickers
+dispose, both still hang. The root cause of the hang was not isolated.
+
+What was verified directly instead, at the stream boundary:
+`DayTemplateRepository.watchDays()` over a `day_template_items` row with a NULL
+`exercise_id` throws `type 'Null' is not a subtype of type 'String' in type
+cast` — so Task 6's premise is proven even though its widget test is not.
+
+Consequence, stated plainly: **no test renders the real Home screen.** The
+crash mechanism itself is covered by Task 3's sliver-recycle test, whose
+negative control is proven able to fail. Home-specific integration is verified
+on-device only, via the Task 13 checklist. Re-attempting this needs a way to
+mount a screen over a real PowerSync database without pending-timer deadlock —
+worth revisiting if that becomes possible, and out of scope for a bug fix.
+
+The original task text is kept below for whoever retries it.
+
+---
 
 The end-to-end proof. **If the seam from Task 4 plus the wrapper in Task 6's
 test is not enough to mount `TodayScreen` — for example a plugin channel that
