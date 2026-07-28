@@ -48,4 +48,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+      'a non-null initialTarget against a genuinely empty catalog shows the '
+      'recoverable empty state, not a dead blank screen', (tester) async {
+    // No exercises are ever inserted, so the catalog stream settles on an
+    // empty (but non-null-data) list — distinct from "hasn't emitted yet".
+    await tester.runAsync(() async {
+      await tester.pumpWidget(wrapL10n(
+        ChangeNotifierProvider<UnitService>(
+          create: (_) => UnitService(),
+          child: const ProgressScreen(initialTarget: 'some-exercise-id'),
+        ),
+      ));
+      expect(tester.takeException(), isNull);
+
+      // The catalog stream's first (real, isolate-backed) emission needs a
+      // real event-loop tick to land — pumpAndSettle alone can settle before
+      // it arrives, so wait for it explicitly under runAsync.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    // _EmptyState's content (progress_screen.dart) — the picker entry point
+    // that lets the user escape the empty state, rather than a blank screen.
+    expect(find.text('No exercises found'), findsOneWidget);
+    expect(find.text('Choose exercise'), findsOneWidget);
+  });
 }

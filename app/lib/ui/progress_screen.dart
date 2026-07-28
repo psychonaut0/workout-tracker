@@ -95,7 +95,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
         // mounted with a target already set (tapping a PR row on Home remounts
         // this screen with a new key) renders one frame with an EMPTY catalog.
         // Never index into it — that threw "Bad state: No element" on frame one.
-        if (catalog.isEmpty) return const SizedBox.shrink();
+        if (catalog.isEmpty) {
+          // Distinguish "the catalog stream has not emitted yet" from "the
+          // catalog is genuinely empty": the first is a transient frame, the
+          // second must stay recoverable via the picker instead of a dead
+          // blank screen.
+          if (!snap.hasData) return const SizedBox.shrink();
+          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+        }
 
         final exId = target;
         Exercise? found;
