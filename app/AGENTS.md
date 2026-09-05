@@ -1,0 +1,62 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Flutter client for Reps. Android is the product target; Linux desktop is the dev loop.
+
+## Commands
+
+Flutter is pinned via **fvm** (`.fvmrc`) — NEVER run `flutter` directly; every target goes through the Makefile from the repo root (`make -C app <target>`, which sets cwd so fvm resolves the pin):
+
+- `make -C app analyze` — must stay at "No issues found" (deprecation warnings count as failures)
+- `make -C app test` — full suite (~25s); single file: `make -C app test TEST=test/session/set_row_overflow_test.dart`
+- `make -C app build` — Linux desktop bundle (compiles PowerSync native libs; good smoke test)
+- `make -C app build-apk` / `build-apk-release` — debug / signed release APK (release needs gitignored `android/key.properties`; falls back to debug signing without it)
+- `make -C app run` / `run-android`, `fmt`, `get`, `doctor`
+
+Toolchain gotchas: Android needs JDK 21 (`flutter config --jdk-dir` already set — system JDK is too new for AGP) and `ANDROID_HOME=$HOME/Android/Sdk`. This host's Clang 22 breaks `flutter_secure_storage_linux` under `-Werror`; the fix lives in `linux/CMakeLists.txt` (`-Wno-error=deprecated-literal-operator`) — expect the same remedy for future vendored-header errors. `flutter_local_notifications` requires core-library desugaring (already configured in `android/app/build.gradle.kts`).
+
+## Architecture
+
+State management is `provider`; app-wide ChangeNotifiers are created in `main.dart` and provided ABOVE MaterialApp (so any route context can read them): `SettingsService`, `UnitService`, `IdentityService`, `SessionManager`.
+
+- `lib/sync/` — PowerSync: `db.dart` exposes the single global `db` (`PowerSyncDatabase`); `schema.dart` mirrors the server tables; `connector.dart` builds `/sync/upload` batches. Boot order in `main()` matters: settings → openDatabase → identity → `backfillTopSets` → `absorbTemplates` → SessionManager/notification → resume draft → optional connectSync.
+- `lib/data/` — repositories (plain classes over `db`) + pure op-builders (`(sql, args)` records) that the repos execute in `db.writeTransaction`. Boot migrations: `top_set_backfill.dart`, `template_absorb.dart`.
+- `lib/session/` — active workout: `ActiveSessionController` (draft + rest timer + debounced autosave to `DraftStore`), owned app-wide by `SessionManager` (minimize/resume, drives the ongoing notification via `workout_notification.dart`). The session screen is a pushed route that renders `manager.active`; popping it = minimize, not discard.
+- `lib/shell/` — `AppShell` (IndexedStack tabs + WTabBar + FAB + mini-bar), back-nav (`back_dispatch.dart`), `session_launcher.dart` (`startSession`/`openActiveSession`).
+- `lib/ui/` — screens; `lib/widgets/` — design-system widgets; `lib/theme/` — tokens (`context.tokens`), typography (`WorkoutType`), icons (`WIcons`), motion.
+- `lib/export/` — JSON export (pure builders + IO service). `lib/identity/`, `lib/settings/`, `lib/units/` — small services.
+
+Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.jsx` prototypes). Match its exact control sizes; make rows flex for narrow phones.
+
+## Hard-won rules (violating these reintroduces shipped bugs)
+
+**Data:**
+- `weight_kg` columns are TEXT (NUMERIC arrives as string — parse at the edges **with `double.tryParse`, NEVER `double.parse`**: a locally-created row stores `''` for "no value" until the server NULLIFs it on sync, `double.parse('')` throws, and because list streams map the whole result set one bad row blanks the entire catalog/history — this shipped as the worst data-visibility bug to date); booleans are INTEGER 0/1; `sessions.date`/`bodyweight_logs.date` are date-only `YYYY-MM-DD` (`isoDate()` in `util/dates.dart` — inclusive string-compare ranges are exact); `created_at` is full ISO.
+- The client NEVER writes `user_id`/`created_by`/`is_top_set`/`is_pr` upstream — server stamps/computes. Locally, `is_top_set` is ALSO computed client-side (`session_writer.topSetIndex`, `_recomputeTopSet` after History edits) because offline users have no server recompute.
+- Server PATCH handlers apply explicit column allowlists; a local `UPDATE` on a column outside that list silently diverges (e.g. `sets.exercise_id`). Re-point such columns via DELETE+INSERT with the same id (PowerSync emits DELETE+PUT, no coalescing; PUT recomputes server flags).
+- `is_template=1` rows are filtered out of every list query (`watchDays`, `watchCatalog`, `all()`); `byId` stays unfiltered for stray references. Don't reintroduce clone-on-edit.
+- `uuid` singleton comes from `package:powersync/powersync.dart`; deterministic ids use `package:uuid` v5 (see `template_absorb.dart`). Importing `package:powersync/powersync.dart` into widget files needs `show` (it re-exports `Column`).
+- Custom-exercise slugs: `uniqueSlug(name, id)` = slugify + `-id8` suffix (local dedup can't see other users' slugs).
+
+**UI/motion:**
+- Confirm dialogs: ALWAYS `showWConfirm`/`showWDialog` (`widgets/w_dialog.dart`) — never `AlertDialog`.
+- NEVER create a single-subscription stream (`db.watch()` / `repo.watchX()`) inside `build()` or a helper it calls — cache it in a `late final` field created once (see `_QuickStats` in profile_screen and the `_*Stream` fields in today_screen). A recycled `ListView` child re-subscribing throws `Bad state: Stream has already been listened to` (in release that renders as a gray ErrorWidget over the screen), and even the non-crashing case re-issues every watch query per rebuild. Safe only when the StreamBuilder is the screen's OUTER wrapper — caching in a `late final` field is only HALF the rule: if that field lives on a lazy `ListView` child's own State, the sliver still disposes and re-creates the whole State (field included) on scroll-out/scroll-back, re-listening the same stream instance. Every repository `watchX()` now returns a re-listenable stream via `data/re_listenable.dart`; wrap new ones the same way.
+- Motion: `theme/motion.dart` is the single source (fast/base/slow, easeOutCubic, zero bounce); every duration goes through `Motion.of(context, d)` (reduced-motion → zero); repeating controllers are skipped entirely under reduced motion. One-shot entrance widgets (`Reveal`, `StaggeredEntrance`, `MountProgress`) must keep stable keys so stream rebuilds don't replay them.
+- `late final AnimationController` fields must be constructed/started in `initState`, NOT via `..forward()` in the initializer — a reduced-motion build path that never touches the field makes `dispose()` lazily create a ticker on a deactivated element and crash. This bug shipped three times.
+- Flex widgets (`Expanded`) must be DIRECT children of their Row/Column — wrappers like `UnitSwap`/`AnimatedSwitcher` go inside the `Expanded`, never around it (ParentDataWidget crash that passes CI because no test renders the row).
+- Raw image pixels for `ui.ImageDescriptor.raw`/`decodeImageFromPixels` are PREMULTIPLIED alpha — color channels must be ≤ alpha. (No current call sites — the helper this was learned from left with the ambient layer; the rule applies if raw-pixel images return.)
+- Scaffolds use the opaque `tokens.bg` background (the ambient layer was removed in v0.12.4).
+- Steppers (`WStepper`) hold values in the CALLER's space (kg); `format` converts to display units; typed input converts back via `parseDisplay`. The widget also clamps locally via `min`/`max` for both stepping and typing, so a parent-side clamp is belt-and-braces, not the only bound. `formatForEdit` is REQUIRED at any site whose `format` emits a suffix, unit or sentinel — without it the edit field is seeded with unparseable text and typed input silently no-ops. `emptyValue` is what lets a sentinel ("Default", "—") be typed back by clearing the field, and must ONLY be set where a sentinel genuinely exists: both global rest steppers deliberately have none, because `0` there renders as an ordinary `"0s"` and an emptied field must mean "no change", not silently zero the user's rest default. The exercise-editor start weight is the one weight stepper held in DISPLAY units rather than kg, so it must NOT get `parseDisplay`; the session and history weight steppers hold kg and must keep theirs — do not "harmonise" them. Do NOT change `didUpdateWidget` to compare `_internalValue` — that shipped once and makes any unrelated rebuild clobber an in-flight value. A typed value commits on four paths (IME action, focus loss, keyboard-inset collapse, `deactivate`); the `deactivate` path must NOT go through `setState`, or it causes `setState() called during build` cascades during teardown. For the input formatter, `FilteringTextInputFormatter.allow` with an anchored pattern WIPES the field on non-matching input — use `TextInputFormatter.withFunction` with a whole-string predicate instead.
+
+**Tests:**
+- Widget-test theme harness: `MaterialApp(theme: buildTheme(Brightness.dark, accents[0]))`; `context.tokens` has a theme-less fallback.
+- Perpetual-ticker widgets (ambient, mini-bar): use `pump(duration)` not `pumpAndSettle`, and end the test by pumping a replacement widget so tickers dispose. Reduced motion in tests: `tester.platformDispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures.allOn`.
+- `.github/workflows/app-ci.yml` runs analyze + tests on `push`/`pull_request` but renders no pixels — visual output (painters, layouts no test pumps) is only verified on-device.
+- Mounting a screen that owns PowerSync watch-streams in a widget test leaves pending watch-throttle timers and can hang the test binding — screen-level integration over a real database is not currently achievable; pin such contracts at the repository/stream boundary instead (see the `*_integration_test.dart` files in `test/data/`).
+- A screen whose `initState` fires an unawaited one-shot database read (not a watch stream) deadlocks `pumpWidget` permanently too — distinct from the watch-stream timer hang above, and what blocked a widget test for the day/exercise editors this increment.
+- The op-builder tests assert SQL *strings* only — nothing executes against a PowerSync DB with realistic synced state (templates + owned copies + tombstones). A boot migration that changes which rows a query returns can detonate latent crashes in the row mappers for the newly-included rows; validate such changes against a realistic device DB (or a user's export) before shipping.
+
+**Debugging (device bugs):**
+- A featureless GRAY box on a release Android build is Flutter's release-mode `ErrorWidget` = an uncaught exception during build (debug shows the red screen). Get the stack trace or a local debug repro FIRST — don't theorize about renderers/compositors.
+- The in-app full export (Profile → Data) is the diagnostic of record for device-data bugs: it dumps every table verbatim (including `is_template`; only user-id columns stripped). Ask for it early; rows can be replayed through the real `fromRow` mappers in a throwaway test.
