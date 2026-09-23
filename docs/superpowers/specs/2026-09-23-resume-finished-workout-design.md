@@ -239,6 +239,7 @@ Contracts are pinned below the screen level — mounting `HistoryScreen` over a 
 - **Synced edits during a resumed workout** (from another device) are overwritten by the re-finish — the DB is re-read only at resume. The History UI blocks local edits to the in-progress card.
 - **A failed or interrupted snapshot write** can leave the previous finish's snapshot for the same session (a crash between the commit and the rename). The id-keyed merge and the `durationMin` floor make that snapshot safe to resume: every logged set is recognised from the DB.
 - **Commit failure of a finish:** the previous snapshot is kept (adoption happens only after the commit); the in-progress draft is already gone, as it is today.
+- **Local data cleared while a resumed workout is live** (sign-out, or re-login choosing the account's data): the live draft keeps its old `sessionId`, and its finish re-creates that id through the guarded INSERT, so on the next upload removed sets can survive server-side (same account) or the workout can be rejected (another account). Accepted for now. Follow-up: whenever local data is cleared, detach the live draft (null `sessionId`/`sessionDate`) and forget the snapshot.
 
 ## 14. Out of scope
 
