@@ -95,24 +95,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
       sessionId: sessionId,
       now: DateTime.now(),
     );
-    switch (state) {
-      case SessionResumeState.inProgress:
+    switch (resumeTapAction(state, hasActive: manager.hasActive)) {
+      case ResumeTapAction.openRunning:
         await openActiveSession(context, manager);
-      case SessionResumeState.none:
+      case ResumeTapAction.forgetExpired:
         // Expired since the card was built: forgetting it notifies, and this
         // screen rebuilds without the button.
         manager.forgetFinished(sessionId);
-      case SessionResumeState.available:
-        if (manager.hasActive) {
-          final l = AppLocalizations.of(context);
-          await showWDialog<void>(
-            context,
-            title: l.historyResumeBlockedTitle,
-            message: l.historyResumeBlockedMessage,
-            actions: [WDialogAction(label: l.commonOk, value: null)],
-          );
-          return;
-        }
+      case ResumeTapAction.blockedByActive:
+        final l = AppLocalizations.of(context);
+        await showWDialog<void>(
+          context,
+          title: l.historyResumeBlockedTitle,
+          message: l.historyResumeBlockedMessage,
+          actions: [WDialogAction(label: l.commonOk, value: null)],
+        );
+      case ResumeTapAction.resume:
         await resumeFinishedSession(context, sessionId);
     }
   }

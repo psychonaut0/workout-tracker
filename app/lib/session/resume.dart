@@ -70,6 +70,22 @@ SessionResumeState resumeStateFor({
   return SessionResumeState.none;
 }
 
+/// What a tap on a History card's Resume action does, in this order.
+enum ResumeTapAction { openRunning, forgetExpired, blockedByActive, resume }
+
+/// The [ResumeTapAction] for a card in [state]; [hasActive] is whether any
+/// workout is running.
+///
+/// `inProgress` reopens the running workout whatever [hasActive] says: that
+/// running workout is the resumed one.
+ResumeTapAction resumeTapAction(SessionResumeState state, {required bool hasActive}) =>
+    switch (state) {
+      SessionResumeState.inProgress => ResumeTapAction.openRunning,
+      SessionResumeState.none => ResumeTapAction.forgetExpired,
+      SessionResumeState.available =>
+        hasActive ? ResumeTapAction.blockedByActive : ResumeTapAction.resume,
+    };
+
 /// Logged rows no snapshot block could take (their exercise has no block).
 typedef UnmatchedRows = ({String exerciseId, List<LoggedSet> rows});
 

@@ -133,6 +133,27 @@ void main() {
     });
   });
 
+  group('resumeTapAction', () {
+    test('the resumed workout itself is running → reopen it', () {
+      expect(resumeTapAction(SessionResumeState.inProgress, hasActive: true),
+          ResumeTapAction.openRunning);
+    });
+    test('the window closed since the card was built → forget the snapshot', () {
+      expect(resumeTapAction(SessionResumeState.none, hasActive: false),
+          ResumeTapAction.forgetExpired);
+      expect(resumeTapAction(SessionResumeState.none, hasActive: true),
+          ResumeTapAction.forgetExpired);
+    });
+    test('another workout is running → blocked', () {
+      expect(resumeTapAction(SessionResumeState.available, hasActive: true),
+          ResumeTapAction.blockedByActive);
+    });
+    test('otherwise → resume', () {
+      expect(resumeTapAction(SessionResumeState.available, hasActive: false),
+          ResumeTapAction.resume);
+    });
+  });
+
   group('mergeLoggedSets', () {
     test('unchanged rows keep every set, the block order and planned sets', () {
       final m = mergeLoggedSets(snapshot(), unchangedRows());
