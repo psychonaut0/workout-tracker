@@ -10,7 +10,12 @@ import 'package:workout_tracker/data/session_repository.dart';
 import 'package:workout_tracker/data/session_writer.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/resume.dart';
+import 'package:workout_tracker/session/session_manager.dart';
+import 'package:workout_tracker/shell/session_launcher.dart';
 import 'package:workout_tracker/sync/schema.dart';
+import 'package:workout_tracker/util/dates.dart';
+
+import '../support/fake_stores.dart';
 
 /// Resume-a-finished-workout contracts against a REAL PowerSync database:
 /// the replace-in-place write, the CRUD ops it uploads, and the baseline
@@ -334,6 +339,215 @@ void main() {
         now: now,
       );
       expect(d.startedAt, now.subtract(const Duration(minutes: 55)));
+    });
+  });
+
+  group('resume end to end (real DB)', () {
+    final today = isoDate(DateTime.now());
+    final yesterday = isoDate(DateTime.now().subtract(const Duration(days: 1)));
+
+    Exercise exercise(String id, String name) => Exercise(
+          id: id, name: name, slug: '$name-$id', muscleGroup: 'chest',
+          compound: true, baseWeightKg: 60, plateStepKg: 2.5, isTemplate: false,
+        );
+
+    BlockState block(Exercise e, List<SetState> warm, List<SetState> work, double best) => BlockState(
+          exercise: e,
+          resolved: ResolvedSlot(
+            exercise: e, workSets: work.length, warmupSets: warm.length,
+            repLow: 5, repHigh: 8, rirLow: 1, rirHigh: 2,
+          ),
+          warmupSets: warm,
+          workingSets: work,
+          expanded: true,
+          bestKg: best,
+          lastTop: (weight: best, reps: 5, date: yesterday),
+        );
+
+    SetState mkSet(String id, double w, {bool done = true, bool warmup = false}) => SetState(
+        id: id, weightKg: w, reps: warmup ? 8 : 5, rir: warmup ? null : 1, isWarmup: warmup, done: done);
+
+    /// Row block FIRST — 'row' sorts after 'bench', so a restore that took its
+    /// order from the DB (exercise_id order) would put bench first.
+    SessionDraft freshDraft() => SessionDraft(
+          templateId: 'd1', name: 'Upper A', focus: 'Push',
+          startedAt: DateTime.now().subtract(const Duration(minutes: 40)),
+          blocks: [
+            block(exercise('row', 'Row'), [], [mkSet('t1', 52.5), mkSet('t2', 52.5, done: false)], 50),
+            block(exercise('bench', 'Bench'), [mkSet('w1', 40, warmup: true)],
+                [mkSet('s1', 100), mkSet('s2', 95), mkSet('s3', 95, done: false)], 90),
+          ],
+        );
+
+    late SessionManager m;
+    late FakeDraftStore drafts;
+
+    setUp(() async {
+      await seedDay('d1');
+      await seedExercise('bench', 'Bench');
+      await seedExercise('row', 'Row');
+      await seedSession('Y', yesterday, day: 'd1');
+      await seedSet('y1', 'Y', 'bench', 1, '90.00', top: true);
+      await seedSet('y2', 'Y', 'row', 1, '50.00', top: true);
+      m = SessionManager(finishedStore: FakeFinishedSessionStore());
+      drafts = FakeDraftStore();
+    });
+
+    tearDown(() => m.dispose());
+
+    Future<FinishedSession> finish(ActiveSessionController c) async {
+      await db.writeTransaction((tx) => c.finish(PowerSyncTxExecutor(tx)));
+      final f = c.lastFinished!;
+      await m.recordFinished(f, now: f.finishedAt);
+      return f;
+    }
+
+    Future<FinishedSession> finishFresh() {
+      final c = ActiveSessionController()..seedForTest(freshDraft());
+      m.register(c);
+      return finish(c);
+    }
+
+    Future<ActiveSessionController?> resume(FinishedSession f, {DateTime? now}) => prepareResume(
+          m, f.sessionId,
+          sessionRepo: SessionRepository(db),
+          exerciseRepo: ExerciseRepository(db),
+          draftStore: drafts,
+          now: now ?? f.finishedAt.add(const Duration(minutes: 5)),
+        );
+
+    test('finish → resume → finish again leaves one session with the original id and date', () async {
+      final f = await finishFresh();
+      final c = (await resume(f))!;
+
+      expect(m.active, same(c));
+      final d = c.draft;
+      expect(d.sessionId, f.sessionId);
+      expect(d.blocks.map((b) => b.exercise.id), ['row', 'bench']);
+      expect(drafts.saved?.sessionId, f.sessionId); // persisted before register
+      // The clock continues from the finish: resumed 5 minutes later, the
+      // workout time is still the elapsed time at finish.
+      expect(d.startedAt,
+          f.finishedAt.add(const Duration(minutes: 5)).subtract(Duration(seconds: f.elapsedSeconds)));
+      final s3 = d.blocks[1].workingSets.last;
+      expect(s3.id, 's3');
+      expect(s3.done, isFalse);
+
+      c.toggleDone(d.blocks[1], s3);
+      await finish(c);
+
+      final sessions = await db.getAll('SELECT id, date FROM sessions WHERE id != ?', ['Y']);
+      expect(sessions.single['id'], f.sessionId);
+      expect(sessions.single['date'], today);
+      final sets = await db.getAll(
+          'SELECT id, is_top_set, is_pr FROM sets WHERE session_id = ? ORDER BY id', [f.sessionId]);
+      expect(sets.map((r) => r['id']), ['s1', 's2', 's3', 't1', 'w1']);
+      final s1 = sets.firstWhere((r) => r['id'] == 's1');
+      expect(s1['is_top_set'], 1);
+      expect(s1['is_pr'], 1); // 100 > the pre-workout 90
+      expect(m.hasActive, isFalse);
+      expect(m.lastFinished!.sessionId, f.sessionId);
+    });
+
+    test('the re-finish uploads a session PATCH, set DELETEs, set PUTs — never a session DELETE', () async {
+      final f = await finishFresh();
+      final c = (await resume(f))!;
+      await drainCrud();
+      await finish(c);
+
+      final ops = await nextCrud();
+      expect(ops.map((e) => '${e.op.name}:${e.table}').toList(), [
+        'patch:sessions',
+        ...List.filled(4, 'delete:sets'), // w1 s1 s2 t1
+        ...List.filled(4, 'put:sets'),
+      ]);
+      expect(ops.first.opData!.containsKey('day_template_id'), isFalse);
+    });
+
+    test('a training day deleted before the re-finish does not cost the session', () async {
+      final f = await finishFresh();
+      await db.execute('DELETE FROM day_templates WHERE id = ?', ['d1']);
+      final c = (await resume(f))!;
+      await drainCrud();
+      await finish(c);
+
+      final ops = await nextCrud();
+      expect(ops.where((e) => e.table == 'sessions').map((e) => e.op), [UpdateType.patch]);
+      expect((await db.getAll('SELECT id FROM sessions WHERE id = ?', [f.sessionId])).length, 1);
+    });
+
+    test('a session row that vanished during the resumed workout is re-created', () async {
+      final f = await finishFresh();
+      final c = (await resume(f))!;
+      await db.writeTransaction((tx) async {
+        await tx.execute('DELETE FROM sets WHERE session_id = ?', [f.sessionId]);
+        await tx.execute('DELETE FROM sessions WHERE id = ?', [f.sessionId]);
+      });
+      await finish(c);
+
+      final row = await db.get('SELECT date FROM sessions WHERE id = ?', [f.sessionId]);
+      expect(row['date'], today);
+      expect((await db.getAll('SELECT id FROM sets WHERE session_id = ?', [f.sessionId])).length, 4);
+    });
+
+    test('History edits between finish and resume survive', () async {
+      final f = await finishFresh();
+      final repo = SessionRepository(db);
+      await repo.updateSet('s2', weightKg: '97.50', reps: 6, rir: 2);
+      await repo.deleteSet('t1');
+      final added = await repo.addSet(f.sessionId, 'bench',
+          weightKg: '80.00', reps: 10, rir: null, isWarmup: false);
+
+      final d = (await resume(f))!.draft;
+      final bench = d.blocks.firstWhere((b) => b.exercise.id == 'bench');
+      expect(bench.workingSets.map((s) => s.id), ['s1', 's2', 's3', added]);
+      expect(bench.workingSets[1].weightKg, 97.5);
+      expect(bench.workingSets[1].reps, 6);
+      expect(bench.workingSets.last.done, isTrue);
+      final row = d.blocks.firstWhere((b) => b.exercise.id == 'row');
+      expect(row.workingSets.map((s) => s.id), ['t2']); // t1 deleted, t2 planned
+    });
+
+    test('discarding a resumed workout leaves the finished rows untouched and resumable', () async {
+      final f = await finishFresh();
+      Future<List<Map<String, Object?>>> rows() async => [
+            for (final r in await db.getAll('SELECT * FROM sessions ORDER BY id')) Map.of(r),
+            for (final r in await db.getAll('SELECT * FROM sets ORDER BY id')) Map.of(r),
+          ];
+      final before = await rows();
+
+      final c = (await resume(f))!;
+      final bench = c.draft.blocks[1];
+      c.toggleDone(bench, bench.workingSets.last);
+      c.discard();
+
+      expect(await rows(), before);
+      expect(m.hasActive, isFalse);
+      expect(m.lastFinished, same(f));
+      expect(await resume(f), isNotNull);
+    });
+
+    test('two overlapping resume calls register exactly one controller', () async {
+      final f = await finishFresh();
+      final results = await Future.wait([resume(f), resume(f)]);
+      final controllers = results.whereType<ActiveSessionController>().toList();
+      expect(controllers.length, 1);
+      expect(m.active, same(controllers.single));
+      expect(m.launching, isFalse);
+    });
+
+    test('an expired snapshot, a running workout or a vanished session is not resumed', () async {
+      final f = await finishFresh();
+      expect(await resume(f, now: f.finishedAt.add(const Duration(days: 2))), isNull);
+
+      final other = ActiveSessionController()..seedEmpty(name: 'Custom', focus: '');
+      m.register(other);
+      expect(await resume(f), isNull);
+      other.discard();
+
+      await SessionRepository(db).deleteSession(f.sessionId);
+      expect(await resume(f), isNull);
+      expect(m.lastFinished, isNull); // forgotten once its session is gone
     });
   });
 }
