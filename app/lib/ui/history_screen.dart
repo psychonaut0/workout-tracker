@@ -14,6 +14,10 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../widgets/pressable.dart';
+import '../data/finished_session_store.dart';
+import '../session/resume.dart';
+import '../session/session_manager.dart';
+import '../shell/session_launcher.dart';
 import 'exercise_sheet.dart';
 import '../util/dates.dart';
 import '../util/group_by_week.dart';
@@ -55,6 +59,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final units = context.watch<UnitService>();
     final tokens = context.tokens;
 
+    // Only what the cards need: the manager also notifies on every set tick
+    // and rest change of a running workout.
+    final (activeSessionId, lastFinished) =
+        context.select<SessionManager, (String?, FinishedSession?)>(
+            (m) => (m.active?.draftOrNull?.sessionId, m.lastFinished));
+
     return StreamBuilder<List<HistorySessionRow>>(
       stream: _statsStream,
       builder: (context, sessionSnap) {
@@ -67,11 +77,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final catalog = catalogSnap.data ?? [];
             final catalogMap = {for (final e in catalog) e.id: e};
 
-            return _buildBody(context, tokens, units, sessions, catalogMap);
+            return _buildBody(context, tokens, units, sessions, catalogMap,
+                activeSessionId, lastFinished);
           },
         );
       },
     );
+  }
+
+  /// The card's Resume action. The state is re-derived at tap time: the card
+  /// may have been built before the resume window closed.
+  Future<void> _onResume(String sessionId) async {
+    final manager = context.read<SessionManager>();
+    final state = resumeStateFor(
+      activeSessionId: manager.active?.draftOrNull?.sessionId,
+      lastFinished: manager.lastFinished,
+      sessionId: sessionId,
+      now: DateTime.now(),
+    );
+    switch (state) {
+      case SessionResumeState.inProgress:
+        await openActiveSession(context, manager);
+      case SessionResumeState.none:
+        // Expired since the card was built: forgetting it notifies, and this
+        // screen rebuilds without the button.
+        manager.forgetFinished(sessionId);
+      case SessionResumeState.available:
+        if (manager.hasActive) {
+          final l = AppLocalizations.of(context);
+          await showWDialog<void>(
+            context,
+            title: l.historyResumeBlockedTitle,
+            message: l.historyResumeBlockedMessage,
+            actions: [WDialogAction(label: l.commonOk, value: null)],
+          );
+          return;
+        }
+        await resumeFinishedSession(context, sessionId);
+    }
   }
 
   Widget _buildBody(
@@ -80,6 +123,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     UnitService units,
     List<HistorySessionRow> sessions,
     Map<String, Exercise> catalogMap,
+    String? activeSessionId,
+    FinishedSession? lastFinished,
   ) {
     // ── Header data ─────────────────────────────────────────────────────────
     final now = DateTime.now();
@@ -143,12 +188,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(height: 10),
           for (final session in groups[wk]!)
             Padding(
+              key: ValueKey(session.id),
               padding: const EdgeInsets.only(bottom: 9),
               child: SessionCard(
                 session: session,
                 catalogMap: catalogMap,
                 sessionRepo: _sessionRepo,
                 units: units,
+                resumeState: resumeStateFor(
+                  activeSessionId: activeSessionId,
+                  lastFinished: lastFinished,
+                  sessionId: session.id,
+                  now: now,
+                ),
+                onResume: () => _onResume(session.id),
+                onDeleted: () =>
+                    context.read<SessionManager>().forgetFinished(session.id),
               ),
             ),
           const SizedBox(height: 8),
@@ -353,12 +408,22 @@ class SessionCard extends StatefulWidget {
     required this.catalogMap,
     required this.sessionRepo,
     required this.units,
+    this.resumeState = SessionResumeState.none,
+    this.onResume,
+    this.onDeleted,
   });
 
   final HistorySessionRow session;
   final Map<String, Exercise> catalogMap;
   final SessionRepository sessionRepo;
   final UnitService units;
+
+  /// What the expanded footer offers (see [SessionResumeState]).
+  final SessionResumeState resumeState;
+  final VoidCallback? onResume;
+
+  /// Called after the session was deleted from this card.
+  final VoidCallback? onDeleted;
 
   @override
   State<SessionCard> createState() => _SessionCardState();
@@ -542,7 +607,15 @@ class _SessionCardState extends State<SessionCard> {
               curve: Motion.curve,
               alignment: Alignment.topCenter,
               child: _expanded
-                  ? _ExerciseBlocks(session: widget.session, catalogMap: widget.catalogMap, sessionRepo: widget.sessionRepo, units: widget.units)
+                  ? _ExerciseBlocks(
+                      session: widget.session,
+                      catalogMap: widget.catalogMap,
+                      sessionRepo: widget.sessionRepo,
+                      units: widget.units,
+                      resumeState: widget.resumeState,
+                      onResume: widget.onResume,
+                      onDeleted: widget.onDeleted,
+                    )
                   : const SizedBox(width: double.infinity),
             ),
           ],
@@ -561,21 +634,24 @@ class _ExerciseBlocks extends StatefulWidget {
     required this.catalogMap,
     required this.sessionRepo,
     required this.units,
+    required this.resumeState,
+    this.onResume,
+    this.onDeleted,
   });
 
   final HistorySessionRow session;
   final Map<String, Exercise> catalogMap;
   final SessionRepository sessionRepo;
   final UnitService units;
+  final SessionResumeState resumeState;
+  final VoidCallback? onResume;
+  final VoidCallback? onDeleted;
 
   @override
   State<_ExerciseBlocks> createState() => _ExerciseBlocksState();
 }
 
 class _ExerciseBlocksState extends State<_ExerciseBlocks> {
-  // Bumped after any edit/delete to force the set future to re-run.
-  int _refresh = 0;
-
   late Future<List<ExerciseBlockData>> _future;
 
   @override
@@ -584,17 +660,26 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
     _future = _load();
   }
 
+  @override
+  void didUpdateWidget(covariant _ExerciseBlocks oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Every watchSessionStats emission follows a commit on sessions/sets and
+    // builds NEW row objects (reListenable does not dedupe), so a new object
+    // means this session's sets may have changed — including RIR or warm-up
+    // changes no aggregate reflects, like a resumed workout finished again.
+    if (!identical(oldWidget.session, widget.session)) _future = _load();
+  }
+
   Future<List<ExerciseBlockData>> _load() => widget.sessionRepo
       .setsForSession(widget.session.id)
-      .then(widget.sessionRepo.groupIntoBlocks);
+      .then(groupSetsIntoBlocks);
 
-  void _reload() => setState(() {
-        _refresh++;
-        _future = _load();
-      });
+  /// Quiet reload: the FutureBuilder keeps showing the previous blocks until
+  /// the new ones arrive, so the card never blanks to a spinner or replays
+  /// its Reveal rows.
+  void _reload() => setState(() => _future = _load());
 
-  /// Opens the per-exercise set editor. On any change/delete, re-runs the
-  /// future so the expanded view reflects the new data.
+  /// Opens the per-exercise set editor, then reloads.
   Future<void> _editExercise(ExerciseBlockData block) async {
     final exercise = widget.catalogMap[block.exerciseId];
     if (exercise == null) return;
@@ -647,17 +732,18 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
     if (confirmed != true) return;
     // The watchSessionStats stream updates the list automatically afterwards.
     await widget.sessionRepo.deleteSession(widget.session.id);
+    widget.onDeleted?.call();
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final l = AppLocalizations.of(context);
     return FutureBuilder<List<ExerciseBlockData>>(
-      key: ValueKey(_refresh),
       future: _future,
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+        final blocks = snap.data;
+        // Spinner only for the very first load; a reload keeps the old data.
+        if (blocks == null && snap.connectionState == ConnectionState.waiting) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Center(
@@ -672,77 +758,143 @@ class _ExerciseBlocksState extends State<_ExerciseBlocks> {
             ),
           );
         }
-
-        final blocks = snap.data ?? [];
-        if (blocks.isEmpty) return const SizedBox.shrink();
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-          child: Column(
-            children: [
-              Divider(color: tokens.line, height: 1, thickness: 1),
-              const SizedBox(height: 8),
-              for (final block in blocks)
-                Reveal(
-                  key: ValueKey(block.exerciseId),
-                  child: _BlockRow(
-                    block: block,
-                    catalogMap: widget.catalogMap,
-                    units: widget.units,
-                    onTap: () => _editExercise(block),
-                  ),
-                ),
-              const SizedBox(height: 6),
-              // Add-exercise affordance.
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _addExercise,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(WIcons.plus, size: 14, color: tokens.accent),
-                      const SizedBox(width: 6),
-                      Text(
-                        l.sessionAddExercise,
-                        style: WorkoutType.mono(
-                          size: 11,
-                          weight: FontWeight.w600,
-                          color: tokens.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Divider(color: tokens.line, height: 1, thickness: 1),
-              const SizedBox(height: 8),
-              // Delete-session affordance.
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _deleteSession,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(WIcons.trash, size: 14, color: tokens.danger),
-                    const SizedBox(width: 6),
-                    Text(
-                      l.historyDeleteSession,
-                      style: WorkoutType.mono(
-                        size: 11,
-                        weight: FontWeight.w600,
-                        color: tokens.danger,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        final inProgress = widget.resumeState == SessionResumeState.inProgress;
+        return SessionCardBody(
+          blocks: blocks ?? const [],
+          catalogMap: widget.catalogMap,
+          units: widget.units,
+          resumeState: widget.resumeState,
+          onResume: widget.onResume,
+          // The running workout is where an in-progress session is edited; a
+          // History edit here would be overwritten by its next finish.
+          onEditExercise: inProgress ? null : _editExercise,
+          onAddExercise: _addExercise,
+          onDeleteSession: _deleteSession,
         );
       },
+    );
+  }
+}
+
+/// The expanded body of a [SessionCard]: the per-exercise rows plus the
+/// footer actions. Stateless and database-free. The footer renders even for a
+/// session with no sets, so it can still be resumed or deleted.
+class SessionCardBody extends StatelessWidget {
+  const SessionCardBody({
+    super.key,
+    required this.blocks,
+    required this.catalogMap,
+    required this.units,
+    this.resumeState = SessionResumeState.none,
+    this.onResume,
+    this.onEditExercise,
+    this.onAddExercise,
+    this.onDeleteSession,
+  });
+
+  final List<ExerciseBlockData> blocks;
+  final Map<String, Exercise> catalogMap;
+  final UnitService units;
+  final SessionResumeState resumeState;
+  final VoidCallback? onResume;
+
+  /// Null makes the exercise rows read-only.
+  final ValueChanged<ExerciseBlockData>? onEditExercise;
+  final VoidCallback? onAddExercise;
+  final VoidCallback? onDeleteSession;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
+    final edit = onEditExercise;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      child: Column(
+        children: [
+          Divider(color: tokens.line, height: 1, thickness: 1),
+          const SizedBox(height: 8),
+          for (final block in blocks)
+            Reveal(
+              key: ValueKey(block.exerciseId),
+              child: _BlockRow(
+                block: block,
+                catalogMap: catalogMap,
+                units: units,
+                onTap: edit == null ? null : () => edit(block),
+              ),
+            ),
+          const SizedBox(height: 6),
+          if (resumeState != SessionResumeState.none)
+            _InlineAction(
+              key: const ValueKey('history-resume'),
+              icon: WIcons.resume,
+              label: l.historyResumeWorkout,
+              color: tokens.accent,
+              onTap: onResume,
+            ),
+          if (resumeState != SessionResumeState.inProgress) ...[
+            _InlineAction(
+              key: const ValueKey('history-add-exercise'),
+              icon: WIcons.plus,
+              label: l.sessionAddExercise,
+              color: tokens.accent,
+              onTap: onAddExercise,
+            ),
+            const SizedBox(height: 8),
+            Divider(color: tokens.line, height: 1, thickness: 1),
+            const SizedBox(height: 8),
+            _InlineAction(
+              key: const ValueKey('history-delete-session'),
+              icon: WIcons.trash,
+              label: l.historyDeleteSession,
+              color: tokens.danger,
+              onTap: onDeleteSession,
+              verticalPadding: 0,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A centred inline text action (icon + mono label) in the card footer.
+class _InlineAction extends StatelessWidget {
+  const _InlineAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.onTap,
+    this.verticalPadding = 6,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+  final double verticalPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: verticalPadding),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -853,7 +1005,7 @@ class _BlockRow extends StatelessWidget {
 /// per-set delete. Edits persist immediately via [SessionRepository.updateSet];
 /// the weight (stored as a 2dp TEXT string) is written on change.
 ///
-/// Never writes is_top_set / is_pr — the server recomputes those on sync.
+/// Re-derives is_top_set locally on every write (see SessionRepository.updateSet); is_pr is left to the server.
 class _SetEditorSheet extends StatefulWidget {
   const _SetEditorSheet({
     required this.block,
