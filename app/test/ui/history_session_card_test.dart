@@ -10,17 +10,24 @@ import 'package:workout_tracker/units/unit_service.dart';
 
 import '../support/l10n_harness.dart';
 
-/// Only `setsForSession` is real, and it completes at once: the card's body
-/// has no database to deadlock `pumpWidget` on.
+/// Only `setsForSession` and `deleteSession` are real, and both complete at
+/// once: the card's body has no database to deadlock `pumpWidget` on.
 class FakeSessionRepository implements SessionRepository {
   FakeSessionRepository(this.sets);
   List<LoggedSet> sets;
   int loads = 0;
+  final deleted = <String>[];
 
   @override
   Future<List<LoggedSet>> setsForSession(String sessionId) {
     loads++;
     return Future.value(sets);
+  }
+
+  @override
+  Future<void> deleteSession(String id) {
+    deleted.add(id);
+    return Future.value();
   }
 
   @override
@@ -51,7 +58,8 @@ final deleteAction = find.byKey(const ValueKey('history-delete-session'));
 Widget card(FakeSessionRepository repo,
         {HistorySessionRow? session,
         SessionResumeState state = SessionResumeState.none,
-        VoidCallback? onResume}) =>
+        VoidCallback? onResume,
+        VoidCallback? onDeleted}) =>
     wrapL10n(SessionCard(
       session: session ?? sessionRow(),
       catalogMap: catalog,
@@ -59,6 +67,7 @@ Widget card(FakeSessionRepository repo,
       units: UnitService(),
       resumeState: state,
       onResume: onResume,
+      onDeleted: onDeleted,
     ));
 
 Future<void> expand(WidgetTester tester) async {
@@ -86,8 +95,9 @@ void main() {
   });
 
   testWidgets('an in-progress session offers only Resume, and its rows are not editable', (tester) async {
+    var resumed = 0;
     await tester.pumpWidget(card(FakeSessionRepository([logged(100)]),
-        state: SessionResumeState.inProgress, onResume: () {}));
+        state: SessionResumeState.inProgress, onResume: () => resumed++));
     await expand(tester);
 
     expect(resumeAction, findsOneWidget);
@@ -96,6 +106,9 @@ void main() {
     expect(find.text('Bench'), findsOneWidget);
     // Only the header chevron: tappable exercise rows carry their own.
     expect(find.byIcon(WIcons.chevron), findsOneWidget);
+
+    await tester.tap(resumeAction);
+    expect(resumed, 1);
   });
 
   testWidgets('without a resume state the card keeps its usual actions', (tester) async {
@@ -106,6 +119,37 @@ void main() {
     expect(addAction, findsOneWidget);
     expect(deleteAction, findsOneWidget);
     expect(find.byIcon(WIcons.chevron), findsNWidgets(2));
+  });
+
+  testWidgets('a confirmed Delete removes the session and reports it', (tester) async {
+    final repo = FakeSessionRepository([logged(100)]);
+    var deletedCalls = 0;
+    await tester.pumpWidget(card(repo, onDeleted: () => deletedCalls++));
+    await expand(tester);
+
+    await tester.tap(deleteAction);
+    await tester.pumpAndSettle();
+    expect(repo.deleted, isEmpty); // nothing before the confirm
+    await tester.tap(find.text('Delete')); // the showWConfirm confirm button
+    await tester.pumpAndSettle();
+
+    expect(repo.deleted, ['S']);
+    expect(deletedCalls, 1);
+  });
+
+  testWidgets('a cancelled Delete keeps the session', (tester) async {
+    final repo = FakeSessionRepository([logged(100)]);
+    var deletedCalls = 0;
+    await tester.pumpWidget(card(repo, onDeleted: () => deletedCalls++));
+    await expand(tester);
+
+    await tester.tap(deleteAction);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(repo.deleted, isEmpty);
+    expect(deletedCalls, 0);
   });
 
   testWidgets('a session with no sets still shows its actions', (tester) async {
