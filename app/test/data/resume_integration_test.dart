@@ -4,9 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workout_tracker/data/exercise_repository.dart';
+import 'package:workout_tracker/data/finished_session_store.dart';
+import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/data/session_repository.dart';
 import 'package:workout_tracker/data/session_writer.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
+import 'package:workout_tracker/session/resume.dart';
 import 'package:workout_tracker/sync/schema.dart';
 
 /// Resume-a-finished-workout contracts against a REAL PowerSync database:
@@ -216,6 +219,121 @@ void main() {
       final c = await controllerWithBench();
       expect(c.draft.blocks.single.bestKg, 100);
       expect(c.draft.blocks.single.lastTop!.date, '2026-09-23');
+    });
+  });
+
+  group('restoreFinishedDraft (real DB)', () {
+    Exercise bench() => const Exercise(
+          id: 'bench', name: 'Bench', slug: 'bench', muscleGroup: 'chest',
+          compound: true, plateStepKg: 2.5, isTemplate: false,
+        );
+
+    BlockState benchBlock() => BlockState(
+          exercise: bench(),
+          resolved: ResolvedSlot(
+            exercise: bench(), workSets: 3, warmupSets: 0,
+            repLow: 5, repHigh: 8, rirLow: 1, rirHigh: 2,
+          ),
+          warmupSets: [],
+          workingSets: [
+            SetState(id: 's1', weightKg: 100, reps: 5, rir: 1, isWarmup: false, done: true),
+            SetState(id: 's3', weightKg: 95, reps: 5, rir: 1, isWarmup: false, done: false),
+          ],
+          expanded: true,
+          bestKg: 90,
+        );
+
+    FinishedSession finished(List<BlockState> blocks) => FinishedSession(
+          sessionId: 'S',
+          sessionDate: '2026-09-23',
+          finishedAt: DateTime(2026, 9, 23, 10, 0),
+          elapsedSeconds: 2400,
+          draft: SessionDraft(
+            templateId: null, name: 'Upper A', focus: '',
+            startedAt: DateTime(2026, 9, 23, 9, 20), blocks: blocks,
+          ),
+        );
+
+    test('restores the snapshot, baselines a History-added exercise without this session, continues the clock', () async {
+      await seedExercise('bench', 'Bench');
+      await seedExercise('curl', 'Curl');
+      await seedSession('Y', '2026-09-22');
+      await seedSet('y2', 'Y', 'curl', 1, '20.00', top: true);
+      await seedSession('S', '2026-09-23');
+      await seedSet('s1', 'S', 'bench', 1, '100.00', top: true);
+      await seedSet('x1', 'S', 'curl', 1, '22.50', top: true); // added in History
+      final repo = SessionRepository(db);
+      final now = DateTime(2026, 9, 23, 10, 10);
+
+      final d = await restoreFinishedDraft(
+        finished([benchBlock()]),
+        await repo.setsForSession('S'),
+        durationMin: 40,
+        exerciseRepo: ExerciseRepository(db),
+        sessionRepo: repo,
+        now: now,
+      );
+
+      expect(d.sessionId, 'S');
+      expect(d.sessionDate, '2026-09-23');
+      expect(d.startedAt, now.subtract(const Duration(seconds: 2400)));
+      expect(d.blocks.map((b) => b.exercise.id), ['bench', 'curl']);
+      expect(d.blocks[0].workingSets.map((s) => s.id), ['s1', 's3']);
+      expect(d.blocks[0].bestKg, 90); // the snapshot's pre-workout baseline
+      final curl = d.blocks[1];
+      expect(curl.exercise.name, 'Curl');
+      expect(curl.workingSets.single.id, 'x1');
+      expect(curl.workingSets.single.done, isTrue);
+      expect(curl.bestKg, 20); // not this session's own 22.5
+      expect(curl.lastTop!.date, '2026-09-22');
+    });
+
+    test('drops a planned-only block whose exercise was deleted; keeps logged sets of a deleted exercise', () async {
+      await seedExercise('bench', 'Bench');
+      await seedSession('S', '2026-09-23');
+      await seedSet('s1', 'S', 'bench', 1, '100.00', top: true);
+      await seedSet('z1', 'S', 'gone2', 1, '30.00', top: true);
+      final ghost = Exercise(
+        id: 'gone1', name: 'Ghost', slug: 'ghost', muscleGroup: 'chest',
+        compound: false, plateStepKg: 2.5, isTemplate: false,
+      );
+      final planned = BlockState(
+        exercise: ghost,
+        resolved: ResolvedSlot(exercise: ghost, workSets: 1, warmupSets: 0,
+            repLow: 8, repHigh: 12, rirLow: 1, rirHigh: 2),
+        warmupSets: [],
+        workingSets: [SetState(id: 'g1', weightKg: 10, reps: 10, rir: 1, isWarmup: false, done: false)],
+        expanded: true,
+      );
+      final repo = SessionRepository(db);
+      final d = await restoreFinishedDraft(
+        finished([benchBlock(), planned]),
+        await repo.setsForSession('S'),
+        durationMin: 40,
+        exerciseRepo: ExerciseRepository(db),
+        sessionRepo: repo,
+        now: DateTime(2026, 9, 23, 10, 10),
+      );
+      expect(d.blocks.map((b) => b.exercise.id), ['bench', 'gone2']);
+      expect(d.blocks[1].exercise.name, 'gone2'); // placeholder, rows kept
+      expect(d.blocks[1].workingSets.single.id, 'z1');
+    });
+
+    test('a stale snapshot cannot roll the clock back', () async {
+      await seedExercise('bench', 'Bench');
+      await seedSession('S', '2026-09-23');
+      await seedSet('s1', 'S', 'bench', 1, '100.00', top: true);
+      final repo = SessionRepository(db);
+      final now = DateTime(2026, 9, 23, 10, 10);
+      final d = await restoreFinishedDraft(
+        finished([benchBlock()]),
+        await repo.setsForSession('S'),
+        durationMin: 55,
+        exerciseRepo: ExerciseRepository(db),
+        sessionRepo: repo,
+        now: now,
+      );
+      expect(d.startedAt, now.subtract(const Duration(minutes: 55)));
     });
   });
 }
