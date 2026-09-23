@@ -1320,7 +1320,7 @@ BlockState block(String exId, List<SetState> warm, List<SetState> work) => Block
       bestKg: 90,
     );
 
-SetState set(String id, {double w = 100, int reps = 5, bool done = true, bool warmup = false}) =>
+SetState mkSet(String id, {double w = 100, int reps = 5, bool done = true, bool warmup = false}) =>
     SetState(id: id, weightKg: w, reps: reps, rir: warmup ? null : 1, isWarmup: warmup, done: done);
 
 LoggedSet row(String id, String exId, int n, {double w = 100, int reps = 5, int? rir = 1, bool warmup = false}) =>
@@ -1335,10 +1335,10 @@ SessionDraft snapshot() => SessionDraft(
       templateId: 'd1', name: 'Upper A', focus: 'Push',
       startedAt: DateTime(2026, 9, 23, 9), sessionId: null,
       blocks: [
-        block('row', [], [set('t1', w: 50), set('t2', w: 50, done: false)]),
-        block('bench', [set('w1', w: 40, warmup: true)],
-            [set('s1'), set('s2', w: 95), set('s3', w: 95, done: false)]),
-        block('dips', [], [set('d1', w: 0, reps: 12)]),
+        block('row', [], [mkSet('t1', w: 50), mkSet('t2', w: 50, done: false)]),
+        block('bench', [mkSet('w1', w: 40, warmup: true)],
+            [mkSet('s1'), mkSet('s2', w: 95), mkSet('s3', w: 95, done: false)]),
+        block('dips', [], [mkSet('d1', w: 0, reps: 12)]),
       ],
     );
 
@@ -1399,12 +1399,7 @@ void main() {
       expect(resumeStateFor(activeSessionId: null, lastFinished: null, sessionId: 'S', now: now),
           SessionResumeState.none);
     });
-    test('available while the snapshot is resumable', () {
-      expect(resumeStateFor(activeSessionId: null, lastFinished: fin(), sessionId: 'S', now: now),
-          SessionResumeState.available);
-    });
-    test('available even while a fresh workout runs (the tap explains why not)', () {
-      // A fresh live workout has no sessionId.
+    test('available while the snapshot is resumable (a fresh live workout has no sessionId, so it does not count)', () {
       expect(resumeStateFor(activeSessionId: null, lastFinished: fin(), sessionId: 'S', now: now),
           SessionResumeState.available);
     });
@@ -2326,7 +2321,7 @@ and this group at the end of `main()`:
           lastTop: (weight: best, reps: 5, date: yesterday),
         );
 
-    SetState set(String id, double w, {bool done = true, bool warmup = false}) => SetState(
+    SetState mkSet(String id, double w, {bool done = true, bool warmup = false}) => SetState(
         id: id, weightKg: w, reps: warmup ? 8 : 5, rir: warmup ? null : 1, isWarmup: warmup, done: done);
 
     /// Row block FIRST — 'row' sorts after 'bench', so a restore that took its
@@ -2335,9 +2330,9 @@ and this group at the end of `main()`:
           templateId: 'd1', name: 'Upper A', focus: 'Push',
           startedAt: DateTime.now().subtract(const Duration(minutes: 40)),
           blocks: [
-            block(exercise('row', 'Row'), [], [set('t1', 52.5), set('t2', 52.5, done: false)], 50),
-            block(exercise('bench', 'Bench'), [set('w1', 40, warmup: true)],
-                [set('s1', 100), set('s2', 95), set('s3', 95, done: false)], 90),
+            block(exercise('row', 'Row'), [], [mkSet('t1', 52.5), mkSet('t2', 52.5, done: false)], 50),
+            block(exercise('bench', 'Bench'), [mkSet('w1', 40, warmup: true)],
+                [mkSet('s1', 100), mkSet('s2', 95), mkSet('s3', 95, done: false)], 90),
           ],
         );
 
