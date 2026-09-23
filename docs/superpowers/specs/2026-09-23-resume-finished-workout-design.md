@@ -46,12 +46,12 @@ class FinishedSession {
 - **Where:** `app/lib/data/finished_session_store.dart` — `FinishedSession` (with `toJson`/`fromJson`) and `FinishedSessionStore`, a sibling of `DraftStore`: one JSON file `<appSupport>/workout-last-finished.json`, atomic save (tmp + rename), `clear()`. **One slot**: a later finish overwrites it.
 - **Tolerant load:** `load()` catches **everything** (`catch (_)`, not `on Exception`) — a malformed file (a `TypeError` from a cast) is cleared and treated as absent. It is read at boot before `runApp`; an escaping error would stop the app starting (see §9.2).
 - **Who records it:** `finish()` stores the snapshot in a new controller field `FinishedSession? lastFinished`, set just before `_draft = null`. `discard()` never sets it.
-- **Who adopts it — only after the commit.** `finish()` runs inside the `db.writeTransaction` callback and notifies **before** COMMIT (`active_session_controller.dart:583-588`), so the manager must not adopt the snapshot from `_onControllerChange`: a failed commit would overwrite the one slot with a snapshot of writes that never happened (after a failed re-finish, the rolled-back session would then resume without the sets ticked since the first resume). Instead `_handleFinish`, after `await db.writeTransaction(...)` resolves, calls `manager.recordFinished(controller.lastFinished!)`. `_onControllerChange` stays teardown-only.
+- **Who adopts it — only after the commit.** `finish()` runs inside the `db.writeTransaction` callback and notifies **before** COMMIT (`active_session_controller.dart:583-588`), so the manager must not adopt the snapshot from `_onControllerChange`: a failed commit would overwrite the one slot with a snapshot of writes that never happened (after a failed re-finish, the rolled-back session would then resume without the sets ticked since the first resume). Instead adoption goes through `finishWorkout(controller, manager, {transact, draftStore})` (`shell/session_launcher.dart`), which runs `controller.finish` inside the `transact` callback and, only once that callback's transaction has resolved, hands `controller.lastFinished` to `manager.recordFinished`. `_handleFinish` (`session/active_session_screen.dart`) calls it with a `db.writeTransaction` runner as `transact`. `_onControllerChange` stays teardown-only.
 - **Who owns it:** `SessionManager` gains `FinishedSession? lastFinished` and a `FinishedSessionStore` (constructor-injectable for tests: `SessionManager({FinishedSessionStore? finishedStore})`).
   - `recordFinished(f)`: adopt in memory, notify, persist. A failed save **clears** the file (errors swallowed) so an older snapshot of the same session cannot survive and be resumed later.
   - `loadLastFinished({DateTime? now})` (boot): drop an unreadable or no-longer-resumable snapshot (§8).
   - `forgetFinished(String sessionId)`: drop it if it matches — used when History deletes that session, and on a tap that finds it expired (§3).
-  - **Expiry timer:** whenever a snapshot is adopted or loaded, arm a one-shot `Timer` for the moment it stops being resumable (§3); on fire, `forgetFinished`. Cancelled on forget/replace/dispose. This is what makes the button disappear on its own while History is on screen.
+  - **Expiry timer:** whenever a snapshot is adopted or loaded, arm a one-shot `Timer` for the moment it stops being resumable (§3); on fire, `forgetFinished`. Cancelled on forget/replace/dispose. This is what makes the button disappear on its own while History is on screen. The timer runs on the monotonic clock, which does not advance while the device sleeps: on `AppLifecycleState.resumed`, `SessionManager.didChangeAppLifecycleState` calls `_recheckFinished(DateTime.now())`, which re-evaluates `isResumable` against the wall clock — `forgetFinished` if it no longer holds, otherwise re-`_adopt`s the same snapshot to re-arm the timer from the fresh `now`.
 
 ## 3. Eligibility
 
@@ -163,11 +163,11 @@ The discard dialog copy switches when `draft.sessionId != null`: title **"Discar
   - `available`: **Resume workout** first — accent, mono 11 w600, 14px `WIcons.resume` (new: `Icons.play_arrow_rounded`), the same centred inline style as Add exercise — then Add exercise, divider, Delete session as today.
   - `inProgress`: only **Resume workout**, which reopens the running workout. Add exercise and Delete session are hidden and block rows are not tappable: the running workout is where it is edited, and a History edit or delete would be overwritten by its next finish.
   - `none`: unchanged.
-- Tap on Resume, in this order:
+- Tap on Resume, in this order — decided by the pure `resumeTapAction(state, hasActive:)` / `ResumeTapAction` (`session/resume.dart`), re-derived from `resumeStateFor` at tap time (the card may have been built before the window closed):
   1. `inProgress` → `openActiveSession(context, manager)`.
   2. Not resumable any more → `manager.forgetFinished(id)` (the button disappears).
   3. Another workout is running (`manager.hasActive`) → `showWDialog` titled **"Workout in progress"**, message **"Finish or discard your current workout before resuming another."**, one `commonOk` action.
-  4. Otherwise → `resumeFinishedSession(context, session.id)`.
+  4. Otherwise → `resumeFinishedSession(context, session.id)`; a failure (DB or draft-file error) shows a danger-styled SnackBar with `historyResumeFailed` (`{error}` placeholder) instead of failing silently.
 - Delete session also calls `manager.forgetFinished(id)`.
 - **Card refresh:** `_ExerciseBlocks.didUpdateWidget` reloads whenever `!identical(oldWidget.session, widget.session)`. Every `watchSessionStats` emission follows a commit on `sessions`/`sets` and builds new row objects (`reListenable` does not dedupe), so this catches a re-finish that changed only RIR or warm-ups, which no aggregate reflects. Reloads are **quiet**: `_future` is replaced without the `ValueKey(_refresh)` bump, and the body renders `snap.data` whenever it has data (FutureBuilder keeps the previous data while a new future is pending), showing the spinner only on the very first load — so a stream-driven reload never blanks the card or replays its `Reveal` rows. `_reload()` after the sheet closes uses the same quiet path.
 - `groupIntoBlocks` becomes a top-level pure function in `session_repository.dart` (the method stays and delegates), so `_ExerciseBlocks` needs only `setsForSession` from the repository — which makes `SessionCard` mountable in a widget test with a fake repository.
@@ -176,6 +176,7 @@ The discard dialog copy switches when `draft.sessionId != null`: title **"Discar
 
 - `main.dart`: after `resumeFromDraft()`, `await sessionManager.loadLastFinished()`; it deletes the file when the snapshot is unreadable or no longer resumable against its own id, and otherwise arms the expiry timer.
 - A resumed workout's in-progress draft carries `sessionId`/`sessionDate`, so process death mid-resume restores it at boot and its finish still replaces in place.
+- **The expiry timer runs on the monotonic clock**, which does not advance while the device sleeps, so it cannot be trusted to fire while backgrounded. `SessionManager.init()` registers it as a `WidgetsBindingObserver`; on `AppLifecycleState.resumed` it re-checks the snapshot against the wall clock (`_recheckFinished`), via `isResumable` — `forgetFinished` if it is no longer resumable, otherwise re-arms the timer from the current time. This is what actually retires a snapshot whose window closed while the app was backgrounded, not the timer itself.
 - A snapshot pointing at a session that no longer exists (deleted, or local data discarded on re-login) is inert: no card carries its id, and it expires with its window.
 
 ## 9. Existing bugs fixed in passing
@@ -199,13 +200,14 @@ The discard dialog copy switches when `draft.sessionId != null`: title **"Discar
 
 ## 11. Localization
 
-Five new keys, in all four ARB files (`arb_parity_test` enforces it); `@` metadata in `app_en.arb` only, as for every key. Italian is verified by the user; German and Spanish are best-effort.
+Six new keys, in all four ARB files (`arb_parity_test` enforces it); `@` metadata in `app_en.arb` only, as for every key. Italian is verified by the user; German and Spanish are best-effort.
 
 | Key | en | it | de | es |
 |---|---|---|---|---|
 | `historyResumeWorkout` | Resume workout | Riprendi allenamento | Training fortsetzen | Reanudar entrenamiento |
 | `historyResumeBlockedTitle` | Workout in progress | Allenamento in corso | Training läuft | Entrenamiento en curso |
 | `historyResumeBlockedMessage` | Finish or discard your current workout before resuming another. | Termina o scarta l'allenamento in corso prima di riprenderne un altro. | Beende oder verwirf dein laufendes Training, bevor du ein anderes fortsetzt. | Termina o descarta tu entrenamiento actual antes de reanudar otro. |
+| `historyResumeFailed` | Failed to resume workout: {error} | Ripresa allenamento non riuscita: {error} | Training konnte nicht fortgesetzt werden: {error} | No se pudo reanudar el entrenamiento: {error} |
 | `sessionDiscardChangesTitle` | Discard changes? | Scartare le modifiche? | Änderungen verwerfen? | ¿Descartar los cambios? |
 | `sessionDiscardChangesMessage` | The workout stays in History as it was when you finished it. | L'allenamento resta nella cronologia com'era quando l'hai terminato. | Das Training bleibt im Verlauf so, wie es beim Beenden war. | El entrenamiento queda en el historial tal como estaba al terminarlo. |
 
@@ -217,11 +219,11 @@ Contracts are pinned below the screen level — mounting `HistoryScreen` over a 
 
 - **Pure:**
   - `isResumable`: same day; 00:20 after a 23:50 finish; 61 minutes after a previous-day finish; re-finished 00:30 on D+1 for a D-dated session, checked at 12:00 on D+1 → false; wrong id; null; clock moved back. `resumableUntil` for both branches.
-  - `resumeStateFor`: `none`, `available`, `inProgress`, and both conditions true → `inProgress`.
+  - `resumeStateFor`: `none`, `available`, `inProgress`, and both conditions true → `inProgress`. `resumeTapAction`: each `SessionResumeState` maps to its `ResumeTapAction`, including `available` split by `hasActive` (`blockedByActive` vs `resume`).
   - `mergeLoggedSets`: History value edit wins; History delete drops; History add joins its block in `set_number` order; add for an unknown exercise lands in the unmatched groups; unticked sets and block order preserved; emptied block dropped; an unticked snapshot set whose id is in the rows becomes done with the row's values and no duplicate id.
   - JSON: `SessionDraft` with and without `sessionId`/`sessionDate` (legacy JSON → null); `BlockState` round-trips `defaultRestSeconds`; `FinishedSession` round trip and tolerant decode of malformed input. Discard-dialog copy helper.
 - **Controller (`FakeExec`):** a fresh finish records `lastFinished` (id equals the returned id, today's date, elapsed, the draft) and its session INSERT binds the day via the subquery; a resumed finish emits the UPDATE, the guarded INSERT, `DELETE FROM sets WHERE session_id = ?`, then the set INSERTs — never `DELETE FROM sessions` — all with the **original** id and date; `discard()` records nothing; `addBlock` on a resumed draft passes `excludeSessionId`.
-- **Manager:** `recordFinished` adopts, notifies and persists (fake store); a failed save clears the store; controller teardown alone leaves `lastFinished` unchanged; `loadLastFinished` drops an expired snapshot; `forgetFinished` only drops a matching id; the expiry timer forgets on fire (`fakeAsync`); `tryBeginLaunch` refuses a second launch until `endLaunch`.
+- **Manager:** `recordFinished` adopts, notifies and persists (fake store); a failed save clears the store; controller teardown alone leaves `lastFinished` unchanged; `loadLastFinished` drops an expired snapshot; `forgetFinished` only drops a matching id; the expiry timer forgets on fire (`fakeAsync`); `tryBeginLaunch` refuses a second launch until `endLaunch`. `finishWorkout` (`test/session/finish_workout_test.dart`): a committed finish hands its snapshot to the manager; a commit that throws after `finish()` ran keeps the previous snapshot (`finish()` itself still completes); without a manager it still returns the session id.
 - **Integration, real PowerSync DB** (`test/data/resume_integration_test.dart`, the `*_integration_test.dart` harness):
   - finish → `prepareResume` → change → re-finish leaves exactly one session row with the original id and date and exactly the expected set rows, one top set per exercise, `is_pr` against the pre-workout baseline;
   - the replace transaction's CRUD ops (`getNextCrudTransaction`): a session PATCH without `day_template_id`, then set DELETEs, then set PUTs with the same ids, and no session DELETE;
@@ -230,7 +232,7 @@ Contracts are pinned below the screen level — mounting `HistoryScreen` over a 
   - discard after resume leaves every row identical;
   - two overlapping `prepareResume` calls → exactly one registered controller;
   - `lastTopSet` (both branches) and `bestTopSet` honour `excludeSessionId`.
-- **Widget:** `SessionCard` pumped with a fake `SessionRepository` (only `setsForSession` implemented, returning a completed future — no DB, so no deadlock): the footer for each of the three states and which callback each action fires; an empty session still shows its footer; a new `session` object triggers a quiet reload (no spinner once data is shown).
+- **Widget:** `SessionCard` pumped with a fake `SessionRepository` (`setsForSession` and `deleteSession` implemented, both returning a completed future — no DB, so no deadlock): the footer for each of the three states and which callback each action fires; an empty session still shows its footer; a new `session` object triggers a quiet reload (no spinner once data is shown).
 
 ## 13. Risks
 

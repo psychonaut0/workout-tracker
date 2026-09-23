@@ -552,7 +552,8 @@ class ActiveSessionController extends ChangeNotifier {
   // ── Finish ────────────────────────────────────────────────────────────────
 
   /// Snapshot of the last successful [finish]; null before one, and never set
-  /// by [discard]. The caller hands it to `SessionManager.recordFinished` once
+  /// by [discard]. `shell/session_launcher.dart`'s `finishWorkout` is the
+  /// production path: it hands this to `SessionManager.recordFinished` once
   /// the write transaction has COMMITTED — [finish] runs, and notifies,
   /// inside the transaction, before the commit.
   FinishedSession? get lastFinished => _lastFinished;
@@ -563,10 +564,14 @@ class ActiveSessionController extends ChangeNotifier {
   ///
   /// A fresh draft gets a new session id; a resumed draft (non-null
   /// `sessionId`) replaces its own session in place, on its original date.
-  /// Returns the session id. The caller must wrap this in
-  /// `db.writeTransaction((tx) => controller.finish(PowerSyncTxExecutor(tx)))`
-  /// to ensure atomicity. Pass [draftStore] to also clear the on-disk draft
-  /// (call with the same [DraftStore] used to save the session while it was active).
+  /// Returns the session id. The caller must wrap this in a write transaction
+  /// (`db.writeTransaction((tx) => controller.finish(PowerSyncTxExecutor(tx)))`)
+  /// to ensure atomicity — `shell/session_launcher.dart`'s `finishWorkout` is
+  /// the production path that does both: it runs this inside the caller's
+  /// transaction and, only after that transaction commits, hands the
+  /// resulting [lastFinished] to `SessionManager.recordFinished`. Pass
+  /// [draftStore] to also clear the on-disk draft (call with the same
+  /// [DraftStore] used to save the session while it was active).
   Future<String> finish(SqlExecutor executor, {DraftStore? draftStore}) async {
     final d = draft;
     final now = DateTime.now();
