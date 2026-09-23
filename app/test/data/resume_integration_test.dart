@@ -395,10 +395,14 @@ void main() {
 
     tearDown(() => m.dispose());
 
+    /// The production finish path: one real write transaction, then the
+    /// snapshot handed to the manager once it has committed.
     Future<FinishedSession> finish(ActiveSessionController c) async {
-      await db.writeTransaction((tx) => c.finish(PowerSyncTxExecutor(tx)));
-      final f = c.lastFinished!;
-      await m.recordFinished(f, now: f.finishedAt);
+      final id = await finishWorkout(c, m,
+          transact: (body) => db.writeTransaction((tx) => body(PowerSyncTxExecutor(tx))));
+      final f = m.lastFinished!;
+      expect(f.sessionId, id);
+      expect(f, same(c.lastFinished));
       return f;
     }
 

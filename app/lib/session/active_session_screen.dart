@@ -10,6 +10,7 @@ import '../data/session_repository.dart';
 import '../data/session_writer.dart';
 import '../l10n/app_localizations.dart';
 import '../settings/settings_service.dart';
+import '../shell/session_launcher.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -155,19 +156,14 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       BuildContext context, ActiveSessionController controller) async {
     final draftStore = DraftStore();
     try {
-      final sessionId = await db.writeTransaction(
-        (tx) => controller.finish(
-          PowerSyncTxExecutor(tx),
-          draftStore: draftStore,
-        ),
+      // Adopts the finish snapshot only after the transaction commits.
+      final sessionId = await finishWorkout(
+        controller,
+        _manager,
+        transact: (body) =>
+            db.writeTransaction((tx) => body(PowerSyncTxExecutor(tx))),
+        draftStore: draftStore,
       );
-      // Only now, after the COMMIT, may this finish become resumable:
-      // finish() notified inside the transaction, before it committed.
-      final finished = controller.lastFinished;
-      final manager = _manager;
-      if (finished != null && manager != null) {
-        unawaited(manager.recordFinished(finished));
-      }
       if (context.mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(

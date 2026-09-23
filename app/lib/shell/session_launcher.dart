@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +8,7 @@ import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../data/session_writer.dart';
 import '../l10n/app_localizations.dart';
 import '../session/active_session_controller.dart';
 import '../session/active_session_screen.dart';
@@ -141,6 +144,24 @@ Future<ActiveSessionController?> prepareResume(
   } finally {
     manager.endLaunch();
   }
+}
+
+/// Finishes [controller]'s workout inside the single write transaction that
+/// [transact] runs, and only once that transaction has COMMITTED hands the
+/// finish snapshot to [manager], so the workout can be resumed from History.
+/// (`finish()` notifies inside the transaction, before the commit; adopting
+/// there would let a failed commit replace a good snapshot.)
+Future<String> finishWorkout(
+  ActiveSessionController controller,
+  SessionManager? manager, {
+  required Future<String> Function(Future<String> Function(SqlExecutor executor) body) transact,
+  DraftStore? draftStore,
+}) async {
+  final sessionId =
+      await transact((executor) => controller.finish(executor, draftStore: draftStore));
+  final finished = controller.lastFinished;
+  if (finished != null && manager != null) unawaited(manager.recordFinished(finished));
+  return sessionId;
 }
 
 /// History's Resume action: restores the finished workout [sessionId] and
