@@ -1,8 +1,10 @@
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/finished_session_store.dart';
 import 'package:workout_tracker/data/session_writer.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/session_manager.dart';
+import 'package:workout_tracker/util/dates.dart';
 
 import '../support/fake_stores.dart';
 
@@ -119,6 +121,34 @@ void main() {
     expect(m.lastFinished, isNull);
     expect(store.stored, isNull);
     m.dispose();
+  });
+
+  test('back in the foreground, a snapshot whose window closed while asleep is forgotten', () async {
+    final store = FakeFinishedSessionStore();
+    final m = SessionManager(finishedStore: store);
+    addTearDown(m.dispose);
+    // Adopted "then": its expiry timer is armed for hours, and a suspended
+    // device's monotonic clock would not have advanced it.
+    final at = DateTime.now().subtract(const Duration(days: 3));
+    final f = fin(date: isoDate(at), at: at);
+    await m.recordFinished(f, now: f.finishedAt);
+    expect(m.lastFinished, same(f));
+
+    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    expect(m.lastFinished, isNull);
+    await Future<void>.delayed(Duration.zero);
+    expect(store.stored, isNull);
+  });
+
+  test('back in the foreground, a snapshot still in its window is kept', () async {
+    final m = SessionManager(finishedStore: FakeFinishedSessionStore());
+    addTearDown(m.dispose);
+    final at = DateTime.now();
+    final f = fin(date: isoDate(at), at: at);
+    await m.recordFinished(f, now: f.finishedAt);
+
+    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    expect(m.lastFinished, same(f));
   });
 
   test('tryBeginLaunch refuses a second launch until endLaunch', () {

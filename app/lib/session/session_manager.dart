@@ -34,7 +34,8 @@ class SessionManager extends ChangeNotifier with WidgetsBindingObserver {
   WorkoutNotification? notifier;
 
   /// Registers the app-lifecycle observer (so a background +30s tap is
-  /// reconciled into the live controller on resume). Call once at startup.
+  /// reconciled into the live controller, and the finished-workout snapshot
+  /// re-checked against the wall clock, on resume). Call once at startup.
   void init() {
     WidgetsBinding.instance.addObserver(this);
   }
@@ -49,6 +50,7 @@ class SessionManager extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _reconcileRestFromBlob();
+      _recheckFinished(DateTime.now());
     }
   }
 
@@ -205,6 +207,19 @@ class SessionManager extends ChangeNotifier with WidgetsBindingObserver {
     _lastFinished = null;
     notifyListeners();
     unawaited(_clearFinishedStore());
+  }
+
+  /// The expiry timer runs on the monotonic clock, which does not advance
+  /// while the device sleeps: back in the foreground, re-check the snapshot
+  /// against the wall clock, and re-arm the timer from it.
+  void _recheckFinished(DateTime now) {
+    final f = _lastFinished;
+    if (f == null) return;
+    if (!isResumable(f, f.sessionId, now)) {
+      forgetFinished(f.sessionId);
+    } else {
+      _adopt(f, now); // same snapshot: nothing to notify
+    }
   }
 
   /// Holds [f] and arms a one-shot timer for when it stops being resumable,
