@@ -86,17 +86,7 @@ class SessionWrite {
   });
 }
 
-// ── persistSession ────────────────────────────────────────────────────────────
-
-/// Writes [write] to the database via [executor]: one `sessions` INSERT +
-/// one `sets` INSERT per set.
-///
-/// The server stamps `user_id`; `is_top_set`/`is_pr` are stamped client-side
-/// (see [topSetIndex]) so offline-logged data is correct before sync.
-///
-/// **Atomicity:** always call this inside `db.writeTransaction` via
-/// [PowerSyncTxExecutor]; that ensures the session row and all set rows commit
-/// as one local transaction and are uploaded as one CRUD batch.
+// ── Top set ───────────────────────────────────────────────────────────────────
 
 /// Index into [sets] of the top set for ONE exercise: heaviest non-warmup set,
 /// tie-break weight DESC, reps DESC, set_number ASC, id ASC (mirrors the server).
@@ -120,21 +110,21 @@ int topSetIndex(List<SetWrite> sets) {
   return best;
 }
 
-Future<void> persistSession(SqlExecutor executor, SessionWrite write) async {
-  // 1. Insert the session row.
-  await executor.execute(
-    'INSERT INTO sessions (id, date, day_template_id, split_label, duration_min) '
-    'VALUES (?, ?, ?, ?, ?)',
-    [
-      write.id,
-      write.dateIso,
-      write.dayTemplateId,
-      write.splitLabel,
-      write.durationMin,
-    ],
-  );
+// ── persistSession / replaceSession ───────────────────────────────────────────
 
-  // 2. Insert each set.
+/// The session INSERT. The training day is bound through a subquery so a day
+/// deleted locally (mid-workout, or while a finished workout was resumed)
+/// becomes NULL instead of an id the server's day_templates foreign key would
+/// reject — a rejected session PUT makes the server skip every set PUT of the
+/// batch as an orphan, and the whole workout then vanishes on sync-down.
+const _insertSessionSql =
+    'INSERT INTO sessions (id, date, day_template_id, split_label, duration_min) '
+    'SELECT ?, ?, (SELECT id FROM day_templates WHERE id = ?), ?, ?';
+
+List<Object?> _sessionArgs(SessionWrite w) =>
+    [w.id, w.dateIso, w.dayTemplateId, w.splitLabel, w.durationMin];
+
+Future<void> _insertSets(SqlExecutor executor, SessionWrite write) async {
   for (final s in write.sets) {
     await executor.execute(
       'INSERT INTO sets (id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, is_top_set, is_pr) '
@@ -153,4 +143,45 @@ Future<void> persistSession(SqlExecutor executor, SessionWrite write) async {
       ],
     );
   }
+}
+
+/// Writes [write] to the database via [executor]: one `sessions` INSERT + one
+/// `sets` INSERT per set.
+///
+/// The server stamps `user_id`; `is_top_set`/`is_pr` are stamped client-side
+/// (see [topSetIndex]) so offline-logged data is correct before sync.
+///
+/// **Atomicity:** always call this inside `db.writeTransaction` via
+/// [PowerSyncTxExecutor]; that ensures the session row and all set rows commit
+/// as one local transaction and are uploaded as one CRUD batch.
+Future<void> persistSession(SqlExecutor executor, SessionWrite write) async {
+  await executor.execute(_insertSessionSql, _sessionArgs(write));
+  await _insertSets(executor, write);
+}
+
+/// Replaces an already-finished session in place — finishing a resumed
+/// workout: same session id and date, a new set of sets.
+///
+/// The session row is UPDATEd, never deleted. Uploaded as a PATCH of
+/// `split_label`/`duration_min` only, it cannot be rejected by the server;
+/// a DELETE + re-INSERT would instead lose the whole, already-synced workout
+/// whenever the re-insert PUT is rejected (for example, its training day was
+/// deleted since). The guarded INSERT re-creates the row only if it vanished
+/// (deleted by a sync during the resumed workout) and otherwise inserts
+/// nothing and uploads nothing. The sets are DELETE + INSERT with the same
+/// ids, which PowerSync uploads as DELETE then PUT; the server recomputes the
+/// top-set and PR flags for both.
+///
+/// Same atomicity rule as [persistSession].
+Future<void> replaceSession(SqlExecutor executor, SessionWrite write) async {
+  await executor.execute(
+    'UPDATE sessions SET split_label = ?, duration_min = ? WHERE id = ?',
+    [write.splitLabel, write.durationMin, write.id],
+  );
+  await executor.execute(
+    '$_insertSessionSql WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE id = ?)',
+    [..._sessionArgs(write), write.id],
+  );
+  await executor.execute('DELETE FROM sets WHERE session_id = ?', [write.id]);
+  await _insertSets(executor, write);
 }
