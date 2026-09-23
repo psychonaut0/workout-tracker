@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/data/active_session_draft.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/data/session_writer.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
@@ -10,6 +11,12 @@ class FakeExec implements SqlExecutor {
   Future<void> execute(String sql, [List<Object?> params = const []]) async {
     calls.add((sql, params));
   }
+}
+
+/// A draft file that cannot be deleted.
+class _FailingClearDraftStore extends DraftStore {
+  @override
+  Future<void> clear() async => throw StateError('draft file locked');
 }
 
 SessionDraft draftWith({String? sessionId, String? sessionDate}) {
@@ -97,6 +104,15 @@ void main() {
     final top = exec.calls.firstWhere(
         (call) => call.$1.startsWith('INSERT INTO sets') && call.$2[0] == 's1');
     expect(top.$2.sublist(8, 10), [1, 1]); // is_top_set, is_pr: 100 > 90
+  });
+
+  test('a finish that fails after its writes records no snapshot', () async {
+    final c = ActiveSessionController()..seedForTest(draftWith());
+    await expectLater(
+      c.finish(FakeExec(), draftStore: _FailingClearDraftStore()),
+      throwsStateError,
+    );
+    expect(c.lastFinished, isNull);
   });
 
   test('discard records no snapshot', () {

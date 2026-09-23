@@ -624,6 +624,10 @@ class ActiveSessionController extends ChangeNotifier {
       await persistSession(executor, write);
     }
 
+    // Clear the on-disk draft (if a store is provided) then the in-memory state.
+    _saveDebounce?.cancel();
+    await draftStore?.clear();
+    // Recorded only once nothing above can fail any more.
     _lastFinished = FinishedSession(
       sessionId: sessionId,
       sessionDate: dateIso,
@@ -631,10 +635,6 @@ class ActiveSessionController extends ChangeNotifier {
       elapsedSeconds: elapsedAtFinish.inSeconds,
       draft: d.deepCopy(),
     );
-
-    // Clear the on-disk draft (if a store is provided) then the in-memory state.
-    _saveDebounce?.cancel();
-    await draftStore?.clear();
     _draft = null;
     restStart = null;
     restTotal = 0;
