@@ -36,20 +36,31 @@ class DraftStore {
     await tmp.rename(file.path);
   }
 
+  /// Decodes a draft file's contents, or returns null if it is not a valid
+  /// draft. Catches everything: a missing or mistyped field is a `TypeError`
+  /// (an Error, not an Exception), which would otherwise escape to `main()`
+  /// before `runApp` and stop the app starting.
+  static SessionDraft? tryDecode(String raw) {
+    try {
+      return SessionDraft.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Reads and deserialises the draft, or returns null if no draft exists or
-  /// the file is corrupt.
+  /// the file is corrupt (a corrupt file is cleared).
   Future<SessionDraft?> load() async {
     final file = await _file();
     if (!await file.exists()) return null;
+    SessionDraft? draft;
     try {
-      final raw = await file.readAsString();
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return SessionDraft.fromJson(json);
-    } on Exception {
-      // Corrupt draft — clear it and start fresh.
-      await clear();
-      return null;
+      draft = tryDecode(await file.readAsString());
+    } catch (_) {
+      draft = null;
     }
+    if (draft == null) await clear();
+    return draft;
   }
 
   /// Deletes the persisted draft file.

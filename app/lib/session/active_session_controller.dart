@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' show max;
 
 import 'package:flutter/foundation.dart';
@@ -163,6 +164,7 @@ class BlockState {
         'exerciseDefaultWorkingSets': exercise.defaultWorkingSets,
         'exerciseDefaultRirLow': exercise.defaultRirLow,
         'exerciseDefaultRirHigh': exercise.defaultRirHigh,
+        'exerciseDefaultRestSeconds': exercise.defaultRestSeconds,
         'resolvedWorkSets': resolved.workSets,
         'resolvedWarmupSets': resolved.warmupSets,
         'resolvedRepLow': resolved.repLow,
@@ -194,6 +196,7 @@ class BlockState {
       defaultWorkingSets: json['exerciseDefaultWorkingSets'] as int?,
       defaultRirLow: json['exerciseDefaultRirLow'] as int?,
       defaultRirHigh: json['exerciseDefaultRirHigh'] as int?,
+      defaultRestSeconds: json['exerciseDefaultRestSeconds'] as int?,
       isTemplate: false,
     );
     final resolved = ResolvedSlot(
@@ -236,12 +239,23 @@ class SessionDraft {
   final DateTime startedAt;
   final List<BlockState> blocks;
 
+  /// The `sessions.id` this draft was resumed from, or null for a fresh
+  /// workout. When set, finishing replaces that session in place.
+  final String? sessionId;
+
+  /// The `sessions.date` of the resumed session, kept when it is finished
+  /// again so the workout stays on the day it was done. Null for a fresh
+  /// workout.
+  final String? sessionDate;
+
   const SessionDraft({
     required this.templateId,
     required this.name,
     required this.focus,
     required this.startedAt,
     required this.blocks,
+    this.sessionId,
+    this.sessionDate,
   });
 
   Map<String, dynamic> toJson() => {
@@ -250,6 +264,8 @@ class SessionDraft {
         'focus': focus,
         'startedAt': startedAt.toIso8601String(),
         'blocks': blocks.map((b) => b.toJson()).toList(),
+        'sessionId': sessionId,
+        'sessionDate': sessionDate,
       };
 
   factory SessionDraft.fromJson(Map<String, dynamic> json) => SessionDraft(
@@ -260,7 +276,15 @@ class SessionDraft {
         blocks: (json['blocks'] as List)
             .map((e) => BlockState.fromJson(e as Map<String, dynamic>))
             .toList(),
+        // Absent in drafts written by older builds → a fresh workout.
+        sessionId: json['sessionId'] as String?,
+        sessionDate: json['sessionDate'] as String?,
       );
+
+  /// An independent copy made through the same JSON path the draft files use,
+  /// so no [BlockState]/[SetState] is shared with this draft.
+  SessionDraft deepCopy() => SessionDraft.fromJson(
+      jsonDecode(jsonEncode(toJson())) as Map<String, dynamic>);
 }
 
 // ── ActiveSessionController ──────────────────────────────────────────────────
