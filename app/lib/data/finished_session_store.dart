@@ -1,10 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../session/active_session_controller.dart';
+import 'json_file_store.dart';
 
 /// Snapshot of the last workout finished on this device, kept so an
 /// accidental Finish can be undone from History.
@@ -63,38 +60,18 @@ class FinishedSession {
 /// `<applicationSupportDirectory>/workout-last-finished.json`. Never synced.
 /// A later finish overwrites it.
 class FinishedSessionStore {
-  static const _filename = 'workout-last-finished.json';
-
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File(p.join(dir.path, _filename));
-  }
+  final JsonFileStore<FinishedSession> _store = JsonFileStore<FinishedSession>(
+    filename: 'workout-last-finished.json',
+    encode: (f) => f.toJson(),
+    tryDecode: FinishedSession.tryDecode,
+  );
 
   /// Writes [f] atomically via a temp file.
-  Future<void> save(FinishedSession f) async {
-    final file = await _file();
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(jsonEncode(f.toJson()), flush: true);
-    await tmp.rename(file.path);
-  }
+  Future<void> save(FinishedSession f) => _store.save(f);
 
   /// The stored snapshot, or null if there is none or it is unreadable (an
   /// unreadable file is cleared).
-  Future<FinishedSession?> load() async {
-    final file = await _file();
-    if (!await file.exists()) return null;
-    FinishedSession? f;
-    try {
-      f = FinishedSession.tryDecode(await file.readAsString());
-    } catch (_) {
-      f = null;
-    }
-    if (f == null) await clear();
-    return f;
-  }
+  Future<FinishedSession?> load() => _store.load();
 
-  Future<void> clear() async {
-    final file = await _file();
-    if (await file.exists()) await file.delete();
-  }
+  Future<void> clear() => _store.clear();
 }
