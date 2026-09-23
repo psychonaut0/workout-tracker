@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,9 +8,11 @@ import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../data/session_writer.dart';
 import '../l10n/app_localizations.dart';
 import '../session/active_session_controller.dart';
 import '../session/active_session_screen.dart';
+import '../session/resume.dart';
 import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/motion.dart';
@@ -34,19 +38,30 @@ Future<void> startSession(
     return;
   }
 
-  final controller = ActiveSessionController(draftStore: DraftStore());
+  // A second tap while this one is still building must not register a second
+  // workout.
+  if (!manager.tryBeginLaunch()) return;
+  try {
+    final controller = ActiveSessionController(draftStore: DraftStore());
 
-  if (template != null) {
-    await controller.buildFromTemplate(
-      template,
-      exerciseRepo: ExerciseRepository(db),
-      sessionRepo: SessionRepository(db),
-    );
-  } else {
-    controller.seedEmpty(name: customName, focus: '');
+    if (template != null) {
+      await controller.buildFromTemplate(
+        template,
+        exerciseRepo: ExerciseRepository(db),
+        sessionRepo: SessionRepository(db),
+      );
+    } else {
+      controller.seedEmpty(name: customName, focus: '');
+    }
+
+    if (manager.hasActive) {
+      controller.dispose(); // cancels its pending autosave
+      return;
+    }
+    manager.register(controller);
+  } finally {
+    manager.endLaunch();
   }
-
-  manager.register(controller);
 
   if (!context.mounted) return;
   await openActiveSession(context, manager);
@@ -81,6 +96,88 @@ Future<void> openActiveSession(
       },
     ),
   );
+}
+
+/// Restores the finished workout [sessionId] as the live workout, without
+/// navigating, and returns its controller — or null when it cannot be resumed
+/// right now: another workout is active, a launch is already running (a
+/// double tap), its snapshot is no longer resumable, or the session is gone.
+///
+/// Writes nothing to the database: the finished rows are replaced only when
+/// the resumed workout is finished again (see `replaceSession`).
+Future<ActiveSessionController?> prepareResume(
+  SessionManager manager,
+  String sessionId, {
+  required SessionRepository sessionRepo,
+  required ExerciseRepository exerciseRepo,
+  required DraftStore draftStore,
+  DateTime? now,
+}) async {
+  final t = now ?? DateTime.now();
+  final f = manager.lastFinished;
+  // Every guard runs synchronously, before the first await: two taps must not
+  // both get through and register two copies of the same session.
+  if (manager.hasActive || f == null || !isResumable(f, sessionId, t)) return null;
+  if (!manager.tryBeginLaunch()) return null;
+  try {
+    final session = await sessionRepo.sessionById(sessionId);
+    if (session == null) {
+      manager.forgetFinished(sessionId); // deleted (or synced away) since
+      return null;
+    }
+    final rows = await sessionRepo.setsForSession(sessionId);
+    final draft = await restoreFinishedDraft(
+      f,
+      rows,
+      durationMin: session.durationMin,
+      exerciseRepo: exerciseRepo,
+      sessionRepo: sessionRepo,
+      now: t,
+    );
+    if (manager.hasActive) return null;
+    // Persist before registering, so process death right after Resume boots
+    // straight back into the resumed workout.
+    await draftStore.save(draft);
+    final controller = ActiveSessionController.fromDraft(draft, draftStore: draftStore);
+    manager.register(controller);
+    return controller;
+  } finally {
+    manager.endLaunch();
+  }
+}
+
+/// Finishes [controller]'s workout inside the single write transaction that
+/// [transact] runs, and only once that transaction has COMMITTED hands the
+/// finish snapshot to [manager], so the workout can be resumed from History.
+/// (`finish()` notifies inside the transaction, before the commit; adopting
+/// there would let a failed commit replace a good snapshot.)
+Future<String> finishWorkout(
+  ActiveSessionController controller,
+  SessionManager? manager, {
+  required Future<String> Function(Future<String> Function(SqlExecutor executor) body) transact,
+  DraftStore? draftStore,
+}) async {
+  final sessionId =
+      await transact((executor) => controller.finish(executor, draftStore: draftStore));
+  final finished = controller.lastFinished;
+  if (finished != null && manager != null) unawaited(manager.recordFinished(finished));
+  return sessionId;
+}
+
+/// History's Resume action: restores the finished workout [sessionId] and
+/// opens it. Callers handle "another workout is running" themselves (it needs
+/// a dialog); here that case, like every other refusal, is a silent no-op.
+Future<void> resumeFinishedSession(BuildContext context, String sessionId) async {
+  final manager = context.read<SessionManager>();
+  final controller = await prepareResume(
+    manager,
+    sessionId,
+    sessionRepo: SessionRepository(db),
+    exerciseRepo: ExerciseRepository(db),
+    draftStore: DraftStore(),
+  );
+  if (controller == null || !context.mounted) return;
+  await openActiveSession(context, manager);
 }
 
 /// Returns the next [DayTemplate] in position-based rotation, or null if there

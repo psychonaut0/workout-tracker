@@ -31,4 +31,5 @@ abstract final class WIcons {
   static const IconData export = Icons.ios_share;
   static const IconData update = Icons.system_update_outlined;
   static const IconData refresh = Icons.refresh;
+  static const IconData resume = Icons.play_arrow_rounded;
 }

@@ -10,6 +10,7 @@ import '../data/session_repository.dart';
 import '../data/session_writer.dart';
 import '../l10n/app_localizations.dart';
 import '../settings/settings_service.dart';
+import '../shell/session_launcher.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -21,6 +22,7 @@ import '../widgets/w_dialog.dart';
 import 'active_session_controller.dart';
 import 'exercise_block.dart';
 import 'exercise_picker_sheet.dart';
+import 'resume.dart';
 import 'rest_timer.dart';
 import 'session_manager.dart';
 import 'session_summary_screen.dart';
@@ -132,10 +134,11 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     }
 
     final l = AppLocalizations.of(context);
+    final copy = discardDialogCopy(l, controller.draft);
     final confirmed = await showWConfirm(
       context,
-      title: l.sessionDiscardTitle,
-      message: l.sessionDiscardMessage,
+      title: copy.title,
+      message: copy.message,
       cancelLabel: l.sessionKeepGoing,
       confirmLabel: l.commonDiscard,
       destructive: true,
@@ -153,11 +156,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       BuildContext context, ActiveSessionController controller) async {
     final draftStore = DraftStore();
     try {
-      final sessionId = await db.writeTransaction(
-        (tx) => controller.finish(
-          PowerSyncTxExecutor(tx),
-          draftStore: draftStore,
-        ),
+      // Adopts the finish snapshot only after the transaction commits.
+      final sessionId = await finishWorkout(
+        controller,
+        _manager,
+        transact: (body) =>
+            db.writeTransaction((tx) => body(PowerSyncTxExecutor(tx))),
+        draftStore: draftStore,
       );
       if (context.mounted) {
         Navigator.of(context).pushReplacement(

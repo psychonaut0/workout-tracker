@@ -100,6 +100,8 @@
   "sessionDiscardTitle": "Discard workout?",
   "sessionDiscardMessage": "Your logged sets will be lost.",
   "sessionKeepGoing": "Keep going",
+  "sessionDiscardChangesTitle": "Discard changes?",
+  "sessionDiscardChangesMessage": "The workout stays in History as it was when you finished it.",
   "sessionRemoveExerciseTitle": "Remove exercise?",
   "sessionRemoveExerciseMessage": "Logged sets will be lost.",
   "sessionAddExercise": "Add exercise",
@@ -342,6 +344,17 @@
   "historyDeleteSession": "Delete session",
   "historyDeleteSetTitle": "Delete set?",
   "historyDeleteSetMessage": "This permanently removes this set.",
+  "historyResumeWorkout": "Resume workout",
+  "historyResumeBlockedTitle": "Workout in progress",
+  "historyResumeBlockedMessage": "Finish or discard your current workout before resuming another.",
+  "historyResumeFailed": "Failed to resume workout: {error}",
+  "@historyResumeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "progressProgression": "PROGRESSION",
   "progressMetricTopSet": "Top set",
   "progressMetricEst1rm": "Est. 1RM",

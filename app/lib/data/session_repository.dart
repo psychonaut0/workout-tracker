@@ -48,6 +48,44 @@ import 'top_set_backfill.dart';
 ({String sql, List<Object?> args}) deleteSessionOp(String id) =>
     (sql: 'DELETE FROM sessions WHERE id = ?', args: [id]);
 
+/// Groups a flat list of [LoggedSet]s into [ExerciseBlockData] records, one
+/// per unique exercise, in the order they first appear. Pure — usable without
+/// a repository (History's card body).
+List<ExerciseBlockData> groupSetsIntoBlocks(List<LoggedSet> sets) {
+  final order = <String>[];
+  final byExercise = <String, List<LoggedSet>>{};
+
+  for (final s in sets) {
+    if (!byExercise.containsKey(s.exerciseId)) {
+      order.add(s.exerciseId);
+      byExercise[s.exerciseId] = [];
+    }
+    byExercise[s.exerciseId]!.add(s);
+  }
+
+  return order.map((exId) {
+    final exSets = byExercise[exId]!;
+    final workingSets = exSets.where((s) => !s.isWarmup).toList();
+
+    // Top set: the one flagged is_top_set=true by the server; fall back to
+    // the set with the highest weight if none is flagged.
+    final topSet = workingSets.firstWhere(
+      (s) => s.isTopSet,
+      orElse: () => workingSets.isEmpty ? exSets.first : workingSets.reduce(
+        (a, b) => a.weightKg >= b.weightKg ? a : b,
+      ),
+    );
+
+    return ExerciseBlockData(
+      exerciseId: exId,
+      sets: exSets,
+      topWeight: topSet.weightKg,
+      topReps: topSet.reps,
+      isPr: topSet.isPr,
+    );
+  }).toList();
+}
+
 /// Repository for sessions and sets — history reads, last/best top-set lookups.
 ///
 /// Local SQLite CAN JOIN freely; only the PowerSync sync-rules cannot. All
@@ -60,44 +98,36 @@ class SessionRepository {
   // ── Top-set lookups ───────────────────────────────────────────────────────
 
   /// Returns the most-recent top set for [exerciseId], optionally restricted
-  /// to sessions strictly before [beforeDate] (ISO-8601 date string).
+  /// to sessions strictly before [beforeDate] (ISO-8601 date string), and
+  /// optionally ignoring one session's rows ([excludeSessionId] — a resumed
+  /// workout's own finished rows, which must not become its own baseline).
   ///
   /// The `created_at` DESC tie-break makes same-date results deterministic.
   Future<({double weight, int reps, String date})?> lastTopSet(
     String exerciseId, {
     String? beforeDate,
+    String? excludeSessionId,
   }) async {
-    final String sql;
-    final List<Object?> args;
-
+    final args = <Object?>[exerciseId];
+    var filters = '';
     if (beforeDate != null) {
-      sql = '''
-        SELECT s.weight_kg, s.reps, se.date
-          FROM sets s
-          JOIN sessions se ON se.id = s.session_id
-         WHERE s.exercise_id = ?
-           AND s.is_top_set = 1
-           AND s.is_warmup = 0
-           AND se.date < ?
-         ORDER BY se.date DESC, se.created_at DESC
-         LIMIT 1
-      ''';
-      args = [exerciseId, beforeDate];
-    } else {
-      sql = '''
-        SELECT s.weight_kg, s.reps, se.date
-          FROM sets s
-          JOIN sessions se ON se.id = s.session_id
-         WHERE s.exercise_id = ?
-           AND s.is_top_set = 1
-           AND s.is_warmup = 0
-         ORDER BY se.date DESC, se.created_at DESC
-         LIMIT 1
-      ''';
-      args = [exerciseId];
+      filters += ' AND se.date < ?';
+      args.add(beforeDate);
     }
-
-    final row = await db.getOptional(sql, args);
+    if (excludeSessionId != null) {
+      filters += ' AND s.session_id != ?';
+      args.add(excludeSessionId);
+    }
+    final row = await db.getOptional('''
+        SELECT s.weight_kg, s.reps, se.date
+          FROM sets s
+          JOIN sessions se ON se.id = s.session_id
+         WHERE s.exercise_id = ?
+           AND s.is_top_set = 1
+           AND s.is_warmup = 0$filters
+         ORDER BY se.date DESC, se.created_at DESC
+         LIMIT 1
+      ''', args);
     if (row == null) return null;
 
     final wt = row['weight_kg'];
@@ -109,12 +139,14 @@ class SessionRepository {
   }
 
   /// Returns the all-time best top-set weight (kg) for [exerciseId], or null
-  /// if the exercise has never been logged.
-  Future<double?> bestTopSet(String exerciseId) async {
+  /// if the exercise has never been logged. [excludeSessionId] ignores one
+  /// session's rows (a resumed workout's own finished rows).
+  Future<double?> bestTopSet(String exerciseId, {String? excludeSessionId}) async {
     final row = await db.getOptional(
       'SELECT MAX(CAST(weight_kg AS REAL)) AS best '
-      'FROM sets WHERE exercise_id = ? AND is_top_set = 1 AND is_warmup = 0',
-      [exerciseId],
+      'FROM sets WHERE exercise_id = ? AND is_top_set = 1 AND is_warmup = 0'
+      '${excludeSessionId != null ? ' AND session_id != ?' : ''}',
+      [exerciseId, if (excludeSessionId != null) excludeSessionId],
     );
     if (row == null) return null;
     final best = row['best'];
@@ -160,6 +192,16 @@ class SessionRepository {
         .map((rs) => rs.map(SessionSummaryRow.fromRow).toList()));
   }
 
+  /// One session row, or null if it no longer exists.
+  Future<SessionSummaryRow?> sessionById(String id) async {
+    final row = await db.getOptional(
+      'SELECT id, date, split_label, day_template_id, duration_min '
+      'FROM sessions WHERE id = ?',
+      [id],
+    );
+    return row == null ? null : SessionSummaryRow.fromRow(row);
+  }
+
   // ── Set reads ─────────────────────────────────────────────────────────────
 
   /// Returns all sets for a session, in set_number order.
@@ -171,42 +213,9 @@ class SessionRepository {
     return rows.map(LoggedSet.fromRow).toList();
   }
 
-  /// Groups a flat list of [LoggedSet]s into [ExerciseBlockData] records,
-  /// one per unique exercise, in the order they first appear.
-  List<ExerciseBlockData> groupIntoBlocks(List<LoggedSet> sets) {
-    final order = <String>[];
-    final byExercise = <String, List<LoggedSet>>{};
-
-    for (final s in sets) {
-      if (!byExercise.containsKey(s.exerciseId)) {
-        order.add(s.exerciseId);
-        byExercise[s.exerciseId] = [];
-      }
-      byExercise[s.exerciseId]!.add(s);
-    }
-
-    return order.map((exId) {
-      final exSets = byExercise[exId]!;
-      final workingSets = exSets.where((s) => !s.isWarmup).toList();
-
-      // Top set: the one flagged is_top_set=true by the server; fall back to
-      // the set with the highest weight if none is flagged.
-      final topSet = workingSets.firstWhere(
-        (s) => s.isTopSet,
-        orElse: () => workingSets.isEmpty ? exSets.first : workingSets.reduce(
-          (a, b) => a.weightKg >= b.weightKg ? a : b,
-        ),
-      );
-
-      return ExerciseBlockData(
-        exerciseId: exId,
-        sets: exSets,
-        topWeight: topSet.weightKg,
-        topReps: topSet.reps,
-        isPr: topSet.isPr,
-      );
-    }).toList();
-  }
+  /// See [groupSetsIntoBlocks].
+  List<ExerciseBlockData> groupIntoBlocks(List<LoggedSet> sets) =>
+      groupSetsIntoBlocks(sets);
 
   // ── Edit / delete (history) ───────────────────────────────────────────────
 
