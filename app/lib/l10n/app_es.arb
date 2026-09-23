@@ -169,6 +169,7 @@
   "historyResumeWorkout": "Reanudar entrenamiento",
   "historyResumeBlockedTitle": "Entrenamiento en curso",
   "historyResumeBlockedMessage": "Termina o descarta tu entrenamiento actual antes de reanudar otro.",
+  "historyResumeFailed": "No se pudo reanudar el entrenamiento: {error}",
   "progressProgression": "PROGRESIÓN",
   "progressMetricTopSet": "Serie principal",
   "progressMetricEst1rm": "1RM est.",

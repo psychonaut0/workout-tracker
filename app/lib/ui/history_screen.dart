@@ -111,7 +111,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
           actions: [WDialogAction(label: l.commonOk, value: null)],
         );
       case ResumeTapAction.resume:
-        await resumeFinishedSession(context, sessionId);
+        final l = AppLocalizations.of(context);
+        try {
+          await resumeFinishedSession(context, sessionId);
+        } catch (e) {
+          // A DB or draft-file error must not leave the tap doing nothing.
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(l.historyResumeFailed('$e')),
+            backgroundColor: context.tokens.danger,
+          ));
+        }
     }
   }
 

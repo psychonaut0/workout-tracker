@@ -169,6 +169,7 @@
   "historyResumeWorkout": "Riprendi allenamento",
   "historyResumeBlockedTitle": "Allenamento in corso",
   "historyResumeBlockedMessage": "Termina o scarta l'allenamento in corso prima di riprenderne un altro.",
+  "historyResumeFailed": "Ripresa allenamento non riuscita: {error}",
   "progressProgression": "PROGRESSIONE",
   "progressMetricTopSet": "Serie migliore",
   "progressMetricEst1rm": "1RM stim.",

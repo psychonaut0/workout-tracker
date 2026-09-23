@@ -249,4 +249,11 @@ void main() {
       expect(copy.title, 'Scartare le modifiche?');
     });
   });
+
+  test('a failed resume names its error', () {
+    expect(lookupAppLocalizations(const Locale('en')).historyResumeFailed('disk full'),
+        'Failed to resume workout: disk full');
+    expect(lookupAppLocalizations(const Locale('it')).historyResumeFailed('disk full'),
+        'Ripresa allenamento non riuscita: disk full');
+  });
 }

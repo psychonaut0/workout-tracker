@@ -347,6 +347,14 @@
   "historyResumeWorkout": "Resume workout",
   "historyResumeBlockedTitle": "Workout in progress",
   "historyResumeBlockedMessage": "Finish or discard your current workout before resuming another.",
+  "historyResumeFailed": "Failed to resume workout: {error}",
+  "@historyResumeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "progressProgression": "PROGRESSION",
   "progressMetricTopSet": "Top set",
   "progressMetricEst1rm": "Est. 1RM",
