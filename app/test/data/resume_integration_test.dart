@@ -273,7 +273,7 @@ void main() {
       final d = await restoreFinishedDraft(
         finished([benchBlock()]),
         await repo.setsForSession('S'),
-        durationMin: 40,
+        durationMin: 39,
         exerciseRepo: ExerciseRepository(db),
         sessionRepo: repo,
         now: now,
@@ -343,8 +343,9 @@ void main() {
   });
 
   group('resume end to end (real DB)', () {
-    final today = isoDate(DateTime.now());
-    final yesterday = isoDate(DateTime.now().subtract(const Duration(days: 1)));
+    // Computed per test in setUp, not when the group is defined, so a run
+    // that crosses midnight stays consistent.
+    late String yesterday;
 
     Exercise exercise(String id, String name) => Exercise(
           id: id, name: name, slug: '$name-$id', muscleGroup: 'chest',
@@ -383,6 +384,7 @@ void main() {
     late FakeDraftStore drafts;
 
     setUp(() async {
+      yesterday = isoDate(DateTime.now().subtract(const Duration(days: 1)));
       await seedDay('d1');
       await seedExercise('bench', 'Bench');
       await seedExercise('row', 'Row');
@@ -442,7 +444,7 @@ void main() {
 
       final sessions = await db.getAll('SELECT id, date FROM sessions WHERE id != ?', ['Y']);
       expect(sessions.single['id'], f.sessionId);
-      expect(sessions.single['date'], today);
+      expect(sessions.single['date'], f.sessionDate); // the first finish's date
       final sets = await db.getAll(
           'SELECT id, is_top_set, is_pr FROM sets WHERE session_id = ? ORDER BY id', [f.sessionId]);
       expect(sets.map((r) => r['id']), ['s1', 's2', 's3', 't1', 'w1']);
@@ -490,7 +492,7 @@ void main() {
       await finish(c);
 
       final row = await db.get('SELECT date FROM sessions WHERE id = ?', [f.sessionId]);
-      expect(row['date'], today);
+      expect(row['date'], f.sessionDate);
       expect((await db.getAll('SELECT id FROM sets WHERE session_id = ?', [f.sessionId])).length, 4);
     });
 
