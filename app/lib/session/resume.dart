@@ -5,6 +5,7 @@ import '../data/exercise_repository.dart';
 import '../data/finished_session_store.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../l10n/app_localizations.dart';
 import '../util/dates.dart';
 import 'active_session_controller.dart';
 
@@ -228,6 +229,15 @@ Future<SessionDraft> restoreFinishedDraft(
     sessionDate: f.sessionDate,
   );
 }
+
+/// Title and message of the discard confirm. Discarding a resumed workout is
+/// not destructive — its finished session stays in History untouched — so it
+/// must not warn that the logged sets will be lost.
+({String title, String message}) discardDialogCopy(
+        AppLocalizations l, SessionDraft draft) =>
+    draft.sessionId != null
+        ? (title: l.sessionDiscardChangesTitle, message: l.sessionDiscardChangesMessage)
+        : (title: l.sessionDiscardTitle, message: l.sessionDiscardMessage);
 
 Exercise _placeholderExercise(String id) => Exercise(
       id: id,

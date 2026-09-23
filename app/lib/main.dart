@@ -86,6 +86,7 @@ Future<void> main() async {
   );
   sessionManager.notifier = workoutNotification;
   await sessionManager.resumeFromDraft();
+  await sessionManager.loadLastFinished();
 
   final loggedIn = await auth.load();
   if (shouldConnectSync(

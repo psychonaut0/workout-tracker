@@ -21,6 +21,7 @@ import '../widgets/w_dialog.dart';
 import 'active_session_controller.dart';
 import 'exercise_block.dart';
 import 'exercise_picker_sheet.dart';
+import 'resume.dart';
 import 'rest_timer.dart';
 import 'session_manager.dart';
 import 'session_summary_screen.dart';
@@ -132,10 +133,11 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     }
 
     final l = AppLocalizations.of(context);
+    final copy = discardDialogCopy(l, controller.draft);
     final confirmed = await showWConfirm(
       context,
-      title: l.sessionDiscardTitle,
-      message: l.sessionDiscardMessage,
+      title: copy.title,
+      message: copy.message,
       cancelLabel: l.sessionKeepGoing,
       confirmLabel: l.commonDiscard,
       destructive: true,
@@ -159,6 +161,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
           draftStore: draftStore,
         ),
       );
+      // Only now, after the COMMIT, may this finish become resumable:
+      // finish() notified inside the transaction, before it committed.
+      final finished = controller.lastFinished;
+      final manager = _manager;
+      if (finished != null && manager != null) {
+        unawaited(manager.recordFinished(finished));
+      }
       if (context.mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(

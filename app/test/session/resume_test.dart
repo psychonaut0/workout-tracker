@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/finished_session_store.dart';
 import 'package:workout_tracker/data/models.dart';
+import 'package:workout_tracker/l10n/app_localizations.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/resume.dart';
 
@@ -199,6 +201,31 @@ void main() {
         ..add(row('s2', 'bench', 3, w: 97.5));
       mergeLoggedSets(source, rows);
       expect(source.blocks[1].workingSets[1].weightKg, 95);
+    });
+  });
+
+  group('discardDialogCopy', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+    SessionDraft d({String? sessionId}) => SessionDraft(
+          templateId: null, name: 'Upper A', focus: '',
+          startedAt: DateTime(2026, 9, 23, 9), blocks: [], sessionId: sessionId,
+        );
+
+    test('a fresh workout warns that its logged sets will be lost', () {
+      final copy = discardDialogCopy(en, d());
+      expect(copy.title, 'Discard workout?');
+      expect(copy.message, 'Your logged sets will be lost.');
+    });
+
+    test('a resumed workout says History keeps the finished version', () {
+      final copy = discardDialogCopy(en, d(sessionId: 'S'));
+      expect(copy.title, 'Discard changes?');
+      expect(copy.message, 'The workout stays in History as it was when you finished it.');
+    });
+
+    test('Italian', () {
+      final copy = discardDialogCopy(lookupAppLocalizations(const Locale('it')), d(sessionId: 'S'));
+      expect(copy.title, 'Scartare le modifiche?');
     });
   });
 }
