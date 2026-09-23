@@ -8,9 +8,11 @@ import 'package:powersync/powersync.dart' show uuid;
 import '../data/active_session_draft.dart';
 import '../data/day_template_repository.dart'; // resolveSlot, DayTemplate
 import '../data/exercise_repository.dart';
+import '../data/finished_session_store.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../data/session_writer.dart';
+import '../util/dates.dart';
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -533,8 +535,13 @@ class ActiveSessionController extends ChangeNotifier {
     // Build a default slot from the exercise's own defaults (no slot overrides).
     final slot = Slot(exerciseId: exercise.id, position: draft.blocks.length);
     final resolved = resolveSlot(slot, exercise);
-    final lastTop = await sessionRepo.lastTopSet(exercise.id);
-    final bestKg = await sessionRepo.bestTopSet(exercise.id);
+    // A resumed workout's own finished rows stay in the DB until it is
+    // finished again; exclude them so the PR baseline and the "Last" row are
+    // the pre-workout ones (a fresh workout has no sessionId: no filter).
+    final lastTop = await sessionRepo.lastTopSet(exercise.id,
+        excludeSessionId: draft.sessionId);
+    final bestKg = await sessionRepo.bestTopSet(exercise.id,
+        excludeSessionId: draft.sessionId);
     final block = buildBlock(resolved: resolved, lastTopKg: lastTop?.weight);
     block.bestKg = bestKg;
     block.lastTop = lastTop;
@@ -544,19 +551,28 @@ class ActiveSessionController extends ChangeNotifier {
 
   // ── Finish ────────────────────────────────────────────────────────────────
 
+  /// Snapshot of the last successful [finish]; null before one, and never set
+  /// by [discard]. The caller hands it to `SessionManager.recordFinished` once
+  /// the write transaction has COMMITTED — [finish] runs, and notifies,
+  /// inside the transaction, before the commit.
+  FinishedSession? get lastFinished => _lastFinished;
+  FinishedSession? _lastFinished;
+
   /// Persists the session to the local PowerSync DB, clears the draft store,
   /// and clears the in-memory draft.
   ///
-  /// Returns the new session id. The caller must wrap this in
+  /// A fresh draft gets a new session id; a resumed draft (non-null
+  /// `sessionId`) replaces its own session in place, on its original date.
+  /// Returns the session id. The caller must wrap this in
   /// `db.writeTransaction((tx) => controller.finish(PowerSyncTxExecutor(tx)))`
   /// to ensure atomicity. Pass [draftStore] to also clear the on-disk draft
   /// (call with the same [DraftStore] used to save the session while it was active).
   Future<String> finish(SqlExecutor executor, {DraftStore? draftStore}) async {
     final d = draft;
-    final sessionId = uuid.v4();
-    final today = DateTime.now();
-    final dateIso =
-        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    final resumed = d.sessionId != null;
+    final sessionId = d.sessionId ?? uuid.v4();
+    final dateIso = d.sessionDate ?? isoDate(now);
     final splitLabel =
         d.focus.isEmpty ? d.name : '${d.name} · ${d.focus}'; // omit empty focus
 
@@ -592,16 +608,29 @@ class ActiveSessionController extends ChangeNotifier {
       sets.addAll(blockSets);
     }
 
+    final elapsedAtFinish = now.difference(d.startedAt);
     final write = SessionWrite(
       id: sessionId,
       dateIso: dateIso,
       dayTemplateId: d.templateId,
       splitLabel: splitLabel,
-      durationMin: (elapsed.inSeconds / 60).round(),
+      durationMin: (elapsedAtFinish.inSeconds / 60).round(),
       sets: sets,
     );
 
-    await persistSession(executor, write);
+    if (resumed) {
+      await replaceSession(executor, write);
+    } else {
+      await persistSession(executor, write);
+    }
+
+    _lastFinished = FinishedSession(
+      sessionId: sessionId,
+      sessionDate: dateIso,
+      finishedAt: now,
+      elapsedSeconds: elapsedAtFinish.inSeconds,
+      draft: d.deepCopy(),
+    );
 
     // Clear the on-disk draft (if a store is provided) then the in-memory state.
     _saveDebounce?.cancel();

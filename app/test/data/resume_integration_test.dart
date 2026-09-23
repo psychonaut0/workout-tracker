@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workout_tracker/data/exercise_repository.dart';
 import 'package:workout_tracker/data/session_repository.dart';
 import 'package:workout_tracker/data/session_writer.dart';
+import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/sync/schema.dart';
 
 /// Resume-a-finished-workout contracts against a REAL PowerSync database:
@@ -44,6 +46,11 @@ void main() {
           'INSERT INTO sets (id, session_id, exercise_id, set_number, weight_kg, reps, rir, '
           'is_warmup, is_top_set, is_pr) VALUES (?, ?, ?, ?, ?, 5, 1, 0, ?, 0)',
           [id, sessionId, exerciseId, n, weight, top ? 1 : 0]);
+
+  Future<void> seedExercise(String id, String name) => db.execute(
+      'INSERT INTO exercises (id, slug, name, muscle_group, equip, compound, '
+      'base_weight_kg, plate_step_kg, is_template) VALUES (?, ?, ?, ?, ?, 1, ?, ?, 0)',
+      [id, '$name-$id', name, 'chest', 'barbell', '60.00', '2.50']);
 
   /// Completes every queued upload transaction so the next one is ours.
   Future<void> drainCrud() async {
@@ -178,6 +185,37 @@ void main() {
       expect(row.date, '2026-09-23');
       expect(row.durationMin, 40);
       expect(await repo.sessionById('nope'), isNull);
+    });
+  });
+
+  group('addBlock baseline (real DB)', () {
+    Future<ActiveSessionController> controllerWithBench({String? sessionId}) async {
+      await seedExercise('bench', 'Bench');
+      await seedSession('Y', '2026-09-22');
+      await seedSet('y1', 'Y', 'bench', 1, '90.00', top: true);
+      await seedSession('S', '2026-09-23');
+      await seedSet('s1', 'S', 'bench', 1, '100.00', top: true);
+      final c = ActiveSessionController()
+        ..seedForTest(SessionDraft(
+          templateId: null, name: 'Upper A', focus: '',
+          startedAt: DateTime(2026, 9, 23, 9), blocks: [],
+          sessionId: sessionId, sessionDate: sessionId == null ? null : '2026-09-23',
+        ));
+      final bench = (await ExerciseRepository(db).byId('bench'))!;
+      await c.addBlock(bench, sessionRepo: SessionRepository(db));
+      return c;
+    }
+
+    test('an exercise added to a resumed workout is baselined without its own rows', () async {
+      final c = await controllerWithBench(sessionId: 'S');
+      expect(c.draft.blocks.single.bestKg, 90);
+      expect(c.draft.blocks.single.lastTop!.date, '2026-09-22');
+    });
+
+    test('a fresh workout still sees every logged session', () async {
+      final c = await controllerWithBench();
+      expect(c.draft.blocks.single.bestKg, 100);
+      expect(c.draft.blocks.single.lastTop!.date, '2026-09-23');
     });
   });
 }
