@@ -105,7 +105,6 @@
   "sessionRemoveExerciseTitle": "Remove exercise?",
   "sessionRemoveExerciseMessage": "Logged sets will be lost.",
   "sessionAddExercise": "Add exercise",
-  "sessionAddWarmup": "Warm-up",
   "sessionRemoveSetTitle": "Remove set?",
   "sessionRemoveSetMessage": "This logged set will be removed from the workout.",
   "sessionMoveUp": "Move up",
@@ -121,21 +120,12 @@
       }
     }
   },
-  "sessionColSet": "SET",
   "sessionColWeight": "WEIGHT",
   "sessionColReps": "REPS",
   "sessionColRir": "RIR",
   "sessionAddSet": "Add set",
   "sessionRemoveExercise": "Remove exercise",
   "sessionNoPreviousData": "No previous data",
-  "sessionLastLabel": "LAST · {ago}",
-  "@sessionLastLabel": {
-    "placeholders": {
-      "ago": {
-        "type": "String"
-      }
-    }
-  },
   "sessionToday": "today",
   "sessionYesterday": "yesterday",
   "sessionDaysAgo": "{count}d ago",
