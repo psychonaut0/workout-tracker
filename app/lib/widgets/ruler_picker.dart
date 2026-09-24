@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
-import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/number_input.dart';
 
@@ -104,7 +103,7 @@ class RulerPickerState extends State<RulerPicker> {
   /// it is not an external change.
   late double _current;
 
-  static const double _height = 88;
+  static const double _height = 80;
 
   @override
   void initState() {
@@ -229,16 +228,10 @@ class RulerPickerState extends State<RulerPicker> {
       onDecrease: () => _nudge(-1),
       onTap: widget.onTapValue,
       child: ExcludeSemantics(
-        // The tape: an inset band, darker than the card, with the values
-        // between two ruled edges.
-        child: Container(
+        // No frame of its own: the values sit on the host surface over one
+        // ruled edge, so the tape reads as part of the card it lives in.
+        child: SizedBox(
           height: _height,
-          decoration: BoxDecoration(
-            color: tokens.bg,
-            borderRadius: BorderRadius.circular(AppRadius.radius * 0.6),
-            border: Border.all(color: tokens.line),
-          ),
-          clipBehavior: Clip.antiAlias,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -251,23 +244,21 @@ class RulerPickerState extends State<RulerPicker> {
                 ).createShader(rect),
                 child: tape,
               ),
-              // Fixed centre marker: an accent tick on each ruled edge,
-              // over the selected value's own ticks.
-              for (final top in const [true, false])
-                Positioned(
-                  top: top ? 0 : null,
-                  bottom: top ? null : 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 2.5,
-                      height: _majorTick + 6,
-                      decoration: BoxDecoration(
-                        color: tokens.accent,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+              // Fixed centre marker, rising from the ruled edge under the
+              // selected value.
+              Positioned(
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 2.5,
+                    height: _majorTick + 8,
+                    decoration: BoxDecoration(
+                      color: tokens.accent,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
+              ),
               // A tap on the centre value opens typed entry; translucent so a
               // drag starting there still reaches the tape underneath.
               GestureDetector(
@@ -284,8 +275,8 @@ class RulerPickerState extends State<RulerPicker> {
   }
 }
 
-const double _majorTick = 12;
-const double _minorTick = 6;
+const double _majorTick = 14;
+const double _minorTick = 7;
 
 /// One value on the tape: its label, plus the ruled ticks on both edges for
 /// its slot (a major tick under the value and four minor ones spaced so
@@ -310,7 +301,10 @@ class _RulerMark extends StatelessWidget {
       width: extent,
       child: CustomPaint(
         painter: _TicksPainter(color: tokens.lineStrong, extent: extent),
-        child: Center(
+        child: Padding(
+          // Keep the label clear of the ticks on the ruled edge below it.
+          padding: const EdgeInsets.only(bottom: _majorTick + 4),
+          child: Center(
           child: Transform.scale(
             scale: scale,
             // Fade through the text colour, not an Opacity widget: no
@@ -327,15 +321,17 @@ class _RulerMark extends StatelessWidget {
               ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
           ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// The ruled edges for one slot: at the slot centre a major tick, and minor
-/// ticks at ±1/5 and ±2/5 of the slot, so neighbouring slots tile into an
-/// evenly spaced scale (five ticks per value).
+/// The ruled edge for one slot, along the bottom: a hairline baseline, a
+/// major tick at the slot centre and minor ticks at ±1/5 and ±2/5 of the
+/// slot, so neighbouring slots tile into one evenly spaced scale (five ticks
+/// per value).
 class _TicksPainter extends CustomPainter {
   const _TicksPainter({required this.color, required this.extent});
 
@@ -344,20 +340,29 @@ class _TicksPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final base = size.height - 0.5;
+    canvas.drawLine(
+      Offset(0, base),
+      Offset(size.width, base),
+      Paint()
+        ..color = color.withValues(alpha: 0.5)
+        ..strokeWidth = 1,
+    );
     final major = Paint()
       ..color = color
       ..strokeWidth = 1.5;
     final minor = Paint()
-      ..color = color.withValues(alpha: 0.55)
+      ..color = color.withValues(alpha: 0.6)
       ..strokeWidth = 1;
     final mid = size.width / 2;
     for (var k = -2; k <= 2; k++) {
       final x = mid + k * extent / 5;
       final isMajor = k == 0;
-      final len = isMajor ? _majorTick : _minorTick;
-      final paint = isMajor ? major : minor;
-      canvas.drawLine(Offset(x, 0), Offset(x, len), paint);
-      canvas.drawLine(Offset(x, size.height), Offset(x, size.height - len), paint);
+      canvas.drawLine(
+        Offset(x, base),
+        Offset(x, base - (isMajor ? _majorTick : _minorTick)),
+        isMajor ? major : minor,
+      );
     }
   }
 

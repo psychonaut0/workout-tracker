@@ -54,10 +54,14 @@ class LiveSetCard extends StatelessWidget {
 
     TextStyle caption() => WorkoutType.mono(
         size: 10, color: tokens.faint, letterSpacing: 0.08 * 10);
+    // Text keeps the card's inset; the rulers run the card's full width so
+    // their ruled edge reads as part of the card, fading into its sides.
+    Widget inset(Widget child) =>
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: child);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: tokens.surface2,
         borderRadius: BorderRadius.circular(AppRadius.radius * 0.8),
@@ -66,14 +70,14 @@ class LiveSetCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(label,
+          inset(Text(label,
               style: WorkoutType.mono(
                   size: 10.5,
                   weight: FontWeight.w700,
                   color: tokens.accent,
-                  letterSpacing: 0.08 * 10.5)),
+                  letterSpacing: 0.08 * 10.5))),
           const SizedBox(height: 10),
-          Text('${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}', style: caption()),
+          inset(Text('${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}', style: caption())),
           RulerPicker(
             key: const Key('live-weight'),
             value: set.weightKg,
@@ -90,8 +94,8 @@ class LiveSetCard extends StatelessWidget {
             },
             onTapValue: () => _typeWeight(context, l),
           ),
-          const SizedBox(height: 8),
-          Text(l.sessionColReps, style: caption()),
+          const SizedBox(height: 12),
+          inset(Text(l.sessionColReps, style: caption())),
           RulerPicker(
             key: const Key('live-reps'),
             value: set.reps.toDouble(),
@@ -107,8 +111,8 @@ class LiveSetCard extends StatelessWidget {
             onTapValue: () => _typeReps(context, l),
           ),
           if (set.done && !set.isWarmup) ...[
-            const SizedBox(height: 8),
-            Row(
+            const SizedBox(height: 12),
+            inset(Row(
               children: [
                 Text(l.sessionColRir, style: caption()),
                 const SizedBox(width: 12),
@@ -123,10 +127,10 @@ class LiveSetCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
+            )),
           ],
           const SizedBox(height: 10),
-          Text(
+          inset(Text(
             last == null
                 ? l.sessionNoPreviousData
                 : l.sessionLastRef('${unit.fmtWt(last.weight)}${unit.uLabel}',
@@ -134,7 +138,7 @@ class LiveSetCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: WorkoutType.mono(size: 11.5, color: tokens.dim),
-          ),
+          )),
           if (set.done)
             GestureDetector(
               key: const Key('live-mark-not-done'),
