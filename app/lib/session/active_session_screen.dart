@@ -136,6 +136,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
         .any((b) => b.allSets.any((s) => s.done));
 
     if (!hasDone) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       controller.discard();
       if (context.mounted) Navigator.of(context).pop();
       return;
@@ -153,6 +154,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     );
 
     if (confirmed == true) {
+      if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
       controller.discard();
       if (context.mounted) Navigator.of(context).pop();
     }
@@ -162,6 +164,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
 
   Future<void> _handleFinish(
       BuildContext context, ActiveSessionController controller) async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     final draftStore = DraftStore();
     try {
       // Adopts the finish snapshot only after the transaction commits.
@@ -222,7 +225,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
       Scrollable.ensureVisible(ctx,
           duration: Motion.of(context, Motion.base),
           curve: Motion.curve,
-          alignment: 0.3);
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
     });
   }
 

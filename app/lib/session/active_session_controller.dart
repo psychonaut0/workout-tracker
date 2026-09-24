@@ -655,9 +655,11 @@ class ActiveSessionController extends ChangeNotifier {
   }
 
   /// Undo for [removeSet]: puts [set] back at [index] (clamped) in its own
-  /// list. A no-op when [block] has since left the workout.
+  /// list. A no-op when the session has since finished/been discarded, or
+  /// [block] has since left the workout.
   void restoreSet(BlockState block, SetState set, int index) {
-    if (!draft.blocks.contains(block)) return;
+    final d = draftOrNull;
+    if (d == null || !d.blocks.contains(block)) return;
     final list = set.isWarmup ? block.warmupSets : block.workingSets;
     list.insert(index.clamp(0, list.length), set);
     notifyListeners();
