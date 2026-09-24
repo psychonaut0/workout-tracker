@@ -39,8 +39,8 @@ Map<String, dynamic> buildFullExport({
 /// names denormalized, weights numeric kg, warm-ups flagged.
 ///
 /// [sessions] must be the rows in range (date ASC); [setsBySession] each
-/// session's sets ordered by exercise_id, set_number (the History-screen
-/// ordering); [exerciseById] resolves id → (name, muscleGroup).
+/// session's sets in workout order — exercises by their first set_number,
+/// then set_number (the History-screen ordering); [exerciseById] resolves id → (name, muscleGroup).
 Map<String, dynamic> buildHistoryExport({
   required List<Map<String, Object?>> sessions,
   required Map<String, List<Map<String, Object?>>> setsBySession,

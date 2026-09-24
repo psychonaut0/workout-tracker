@@ -83,7 +83,11 @@ class ExportService {
     final setRows = await db.getAll(
       'SELECT s.* FROM sets s JOIN sessions se ON se.id = s.session_id '
       'WHERE se.date >= ? AND se.date <= ? '
-      'ORDER BY s.session_id, s.exercise_id, s.set_number',
+      // Workout order (see SessionRepository.setsForSession); the key is only
+      // sorted on, never selected, so exported rows stay verbatim.
+      'ORDER BY s.session_id, (SELECT MIN(f.set_number) FROM sets f '
+      'WHERE f.session_id = s.session_id AND f.exercise_id = s.exercise_id), '
+      's.exercise_id, s.set_number',
       [fromS, toS],
     );
     final setsBySession = <String, List<Map<String, Object?>>>{};

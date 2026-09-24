@@ -86,6 +86,15 @@ List<ExerciseBlockData> groupSetsIntoBlocks(List<LoggedSet> sets) {
   }).toList();
 }
 
+/// `SELECT` of every set column plus `first_set`, the lowest set_number of
+/// the set's exercise within its session — the key that orders a session's
+/// exercises in workout order. Callers append their `WHERE` (on alias `s`)
+/// and `ORDER BY first_set, s.exercise_id, s.set_number`.
+const workoutOrderSelect =
+    'SELECT s.*, (SELECT MIN(f.set_number) FROM sets f '
+    'WHERE f.session_id = s.session_id AND f.exercise_id = s.exercise_id) AS first_set '
+    'FROM sets s';
+
 /// Repository for sessions and sets — history reads, last/best top-set lookups.
 ///
 /// Local SQLite CAN JOIN freely; only the PowerSync sync-rules cannot. All
@@ -204,10 +213,17 @@ class SessionRepository {
 
   // ── Set reads ─────────────────────────────────────────────────────────────
 
-  /// Returns all sets for a session, in set_number order.
+  /// Returns all sets for a session in workout order: exercises by their
+  /// first (lowest) set_number, then each exercise's sets by set_number.
+  ///
+  /// finish() numbers sets continuously across the workout, so this is the
+  /// order the exercises were done in. Sessions from older builds numbered
+  /// sets per exercise (every exercise starts at 1); those ties fall back to
+  /// exercise_id, the order they always showed in.
   Future<List<LoggedSet>> setsForSession(String sessionId) async {
     final rows = await db.getAll(
-      'SELECT * FROM sets WHERE session_id = ? ORDER BY exercise_id, set_number',
+      '$workoutOrderSelect WHERE s.session_id = ? '
+      'ORDER BY first_set, s.exercise_id, s.set_number',
       [sessionId],
     );
     return rows.map(LoggedSet.fromRow).toList();
@@ -268,9 +284,13 @@ class SessionRepository {
   }) async {
     final id = uuid.v4();
     await db.writeTransaction((tx) async {
+      // Session-wide, not per exercise: set_number carries the workout's
+      // exercise order, so a set added here stays after everything logged —
+      // a set added to an existing exercise keeps its place, and an exercise
+      // first added from History sorts last instead of first.
       final row = await tx.getOptional(
-          'SELECT MAX(set_number) AS m FROM sets WHERE session_id = ? AND exercise_id = ?',
-          [sessionId, exerciseId]);
+          'SELECT MAX(set_number) AS m FROM sets WHERE session_id = ?',
+          [sessionId]);
       final nextNum = ((row?['m'] as int?) ?? 0) + 1;
       final op = insertSetOp(id,
           sessionId: sessionId,
