@@ -154,7 +154,7 @@ The rest haptics, the auto-stop at 0 and the notification path are unchanged; th
 Three changes after the first build ran on a phone:
 
 1. **RIR stays correctable.** The live card of a *logged working set* also shows the 0–3 RIR picker (48dp chips). The post-log strip stays as the zero-tap path; this is the "I forgot" path.
-2. **Drag to reorder exercises.** Long-pressing a block header lifts it (haptic, compact drag proxy showing the exercise name) and drops it anywhere in the workout. Move up / Move down stay in the block's ⋯ sheet.
+2. **Drag to reorder exercises.** Long-pressing a block header, or choosing "Reorder exercises" in its ⋯ sheet, opens a sheet of compact equal-height rows (name + progress). Each row drags by its 48dp handle or by a long press, and every drop applies to the workout immediately. Move up / Move down stay in the ⋯ sheet. The cards are not dragged in place: an expanded card with its live set can be many times taller than its neighbours, and Flutter's reorderable list cannot reliably move a tall item past short ones (a probe showed the drop never registering).
 3. **Ruler picker replaces − / + in the live card** (weight and reps):
    - Values sit on a horizontal tape. Swiping moves the tape, flinging moves many values, and on release it snaps so a value sits exactly under the centre marker.
    - The centre value is the selected one: large and accent-coloured. Neighbours shrink and fade with distance. Each value that crosses the centre gives a selection haptic.
