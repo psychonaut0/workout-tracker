@@ -6,6 +6,7 @@ import 'package:workout_tracker/session/exercise_block.dart';
 import 'package:workout_tracker/session/live_set_card.dart';
 import 'package:workout_tracker/session/set_line.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+import 'package:workout_tracker/widgets/pr_badge.dart';
 
 import '../support/l10n_harness.dart';
 
@@ -63,6 +64,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LiveSetCard), findsOneWidget);
     expect(find.byType(SetLine), findsOneWidget);
+  });
+
+  testWidgets('tied top sets: only the first one is marked TOP', (tester) async {
+    final b = _block(firstDone: true)..bestKg = 100; // no PR: plain TOP tags
+    b.workingSets[1].done = true; // both done at 60kg
+    await tester.pumpWidget(host(b, live: null));
+    await tester.pumpAndSettle();
+    expect(find.text('TOP'), findsOneWidget);
+    final firstLine = find.ancestor(of: find.text('TOP'), matching: find.byType(SetLine));
+    expect(tester.widget<SetLine>(firstLine).set.id, 's1');
+  });
+
+  testWidgets('tied top sets: only the first one carries the PR badge', (tester) async {
+    final b = _block(firstDone: true); // no history → the top set is a PR
+    b.workingSets[1].done = true;
+    await tester.pumpWidget(host(b, live: null));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byType(SetLine), matching: find.byType(PRBadge)),
+        findsOneWidget);
+  });
+
+  test('topSetIdOf: a weight tie goes to more reps, then the earliest set', () {
+    final b = _block(firstDone: true);
+    b.workingSets[1]
+      ..done = true
+      ..reps = 10;
+    expect(topSetIdOf(b, 60), 's2');
+    b.workingSets[1].reps = 8;
+    expect(topSetIdOf(b, 60), 's1');
+    expect(topSetIdOf(b, 0), isNull);
   });
 
   testWidgets('tapping a line focuses that set', (tester) async {

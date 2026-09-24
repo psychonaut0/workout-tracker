@@ -225,7 +225,8 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final s in block.allSets) _setWidget(block, s, top, tokens),
+                    for (final s in block.allSets)
+                      _setWidget(block, s, top, topSetIdOf(block, top.topKg), tokens),
                   ],
                 ),
               ),
@@ -236,7 +237,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
   }
 
   Widget _setWidget(BlockState block, SetState s,
-      ({double topKg, bool isPr}) top, WorkoutTokens tokens) {
+      ({double topKg, bool isPr}) top, String? topSetId, WorkoutTokens tokens) {
     final workIdx = s.isWarmup ? -1 : block.workingSets.indexOf(s) + 1;
     final Widget child;
     if (s.id == widget.liveSetId) {
@@ -254,7 +255,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
           ? card
           : KeyedSubtree(key: widget.liveCardKey, child: card);
     } else {
-      final isLiveTop = s.done && !s.isWarmup && top.topKg > 0 && s.weightKg == top.topKg;
+      final isLiveTop = s.id == topSetId;
       child = SetLine(
         set: s,
         workIndex: workIdx,
@@ -303,4 +304,18 @@ class _RemoveSetBackground extends StatelessWidget {
       child: Icon(WIcons.trash, size: 18, color: tokens.bg),
     );
   }
+}
+
+/// The one set the finished workout will record as its top set, mirroring
+/// `topSetIndex` in session_writer.dart: among done working sets at [topKg],
+/// the most reps wins, then the earliest set. Null when nothing is logged.
+@visibleForTesting
+String? topSetIdOf(BlockState block, double topKg) {
+  if (topKg <= 0) return null;
+  SetState? best;
+  for (final s in block.workingSets) {
+    if (!s.done || s.weightKg != topKg) continue;
+    if (best == null || s.reps > best.reps) best = s;
+  }
+  return best?.id;
 }
