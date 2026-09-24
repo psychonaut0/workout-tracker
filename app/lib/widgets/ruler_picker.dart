@@ -238,9 +238,18 @@ class RulerPickerState extends State<RulerPicker> {
               // Fade the tape out at both ends.
               ShaderMask(
                 blendMode: BlendMode.dstIn,
+                // Fully clear for the outer 6% so the ruled edge dissolves
+                // before it meets the host card's border.
                 shaderCallback: (rect) => const LinearGradient(
-                  colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
-                  stops: [0, 0.22, 0.78, 1],
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black,
+                    Colors.black,
+                    Colors.transparent,
+                    Colors.transparent,
+                  ],
+                  stops: [0, 0.06, 0.3, 0.7, 0.94, 1],
                 ).createShader(rect),
                 child: tape,
               ),
