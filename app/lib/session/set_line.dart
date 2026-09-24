@@ -73,44 +73,49 @@ class SetLine extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Flexible(
-                  child: Text.rich(
-                    TextSpan(children: [
-                      TextSpan(
-                        text: unit.fmtWt(set.weightKg),
-                        style: WorkoutType.mono(
-                            size: 15,
-                            weight: FontWeight.w700,
-                            color: done ? tokens.text : tokens.dim),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text.rich(
+                          TextSpan(children: [
+                            TextSpan(
+                              text: unit.fmtWt(set.weightKg),
+                              style: WorkoutType.mono(
+                                  size: 15,
+                                  weight: FontWeight.w700,
+                                  color: done ? tokens.text : tokens.dim),
+                            ),
+                            TextSpan(
+                              text: unit.uLabel,
+                              style: WorkoutType.mono(size: 11, color: tokens.faint),
+                            ),
+                            TextSpan(
+                              text: '  ×  ',
+                              style: WorkoutType.mono(size: 12, color: tokens.faint),
+                            ),
+                            TextSpan(
+                              text: '${set.reps}',
+                              style: WorkoutType.mono(
+                                  size: 15,
+                                  weight: FontWeight.w700,
+                                  color: done ? tokens.text : tokens.dim),
+                            ),
+                          ]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      TextSpan(
-                        text: unit.uLabel,
-                        style: WorkoutType.mono(size: 11, color: tokens.faint),
-                      ),
-                      TextSpan(
-                        text: '  ×  ',
-                        style: WorkoutType.mono(size: 12, color: tokens.faint),
-                      ),
-                      TextSpan(
-                        text: '${set.reps}',
-                        style: WorkoutType.mono(
-                            size: 15,
-                            weight: FontWeight.w700,
-                            color: done ? tokens.text : tokens.dim),
-                      ),
-                    ]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                      if (done && !set.isWarmup) ...[
+                        const SizedBox(width: 10),
+                        Text(
+                          l.sessionRir(set.rir ?? 0),
+                          style: WorkoutType.mono(size: 10.5, color: tokens.faint),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (done && !set.isWarmup) ...[
-                  const SizedBox(width: 10),
-                  Text(
-                    l.sessionRir(set.rir ?? 0),
-                    style: WorkoutType.mono(size: 10.5, color: tokens.faint),
-                  ),
-                ],
-                const Spacer(),
                 if (isLivePr)
                   const PRBadge(small: true)
                 else if (isLiveTop)
