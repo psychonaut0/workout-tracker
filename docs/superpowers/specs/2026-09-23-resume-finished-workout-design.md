@@ -263,3 +263,13 @@ Device checks before tagging:
 9. The ongoing notification's chronometer continues from the finish time.
 10. With sync on: after a re-finish the server holds one session with the new sets.
 11. A fast double tap on Resume opens one workout.
+
+## 16. Addendum — live-workout editing (also ships in v0.14.0)
+
+Added on 2026-09-24 as a bounded change (in-chat design, no separate spec): in the live workout you can **swipe a set row left to remove it** (a ticked set asks "Remove set?" first; an unticked one goes straight away; warm-ups and working sets alike), **add a warm-up** with a "+ Warm-up" button beside "Add set" (the i-th warm-up is `(0.5 + 0.18·i)` of the first working weight, rounded to the plate step and capped at it; reps `max(1, 8 − 2i)`), and **move an exercise up/down** with arrows in the expanded card's footer (disabled on the first/last exercise). Controller: `removeSet`, `addWarmupSet`, `moveBlock`. Finish already numbers sets by on-screen order, so moves and removals persist with no writer change; in a resumed workout a removed set that was logged is deleted at re-finish. The footer and "Last" rows now ellipsize instead of overflowing (the "No previous data" row overflowed at 320 dp / 1.3× text before this change).
+
+Device checks before tagging (in addition to §15):
+12. Swiping a set row left does not fight the weight/reps steppers, the RIR picker or an open number field.
+13. Removing a ticked set asks first; an unticked one goes at once; the set numbers and the "n/m" badge update.
+14. "+ Warm-up" produces a sensible ramp for a barbell lift and for a machine/dumbbell exercise, in kg and in lb.
+15. Moving an exercise keeps its expanded state and typed values; after Finish, History and the summary show the new order (the summary's order comes from `exercise_id` — pre-existing — so only the resumed-workout order is guaranteed).
