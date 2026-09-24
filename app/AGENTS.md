@@ -9,7 +9,7 @@ Flutter client for Reps. Android is the product target; Linux desktop is the dev
 Flutter is pinned via **fvm** (`.fvmrc`) — NEVER run `flutter` directly; every target goes through the Makefile from the repo root (`make -C app <target>`, which sets cwd so fvm resolves the pin):
 
 - `make -C app analyze` — must stay at "No issues found" (deprecation warnings count as failures)
-- `make -C app test` — full suite (~25s); single file: `make -C app test TEST=test/session/set_row_overflow_test.dart`
+- `make -C app test` — full suite (~25s); single file: `make -C app test TEST=test/session/set_line_test.dart`
 - `make -C app build` — Linux desktop bundle (compiles PowerSync native libs; good smoke test)
 - `make -C app build-apk` / `build-apk-release` — debug / signed release APK (release needs gitignored `android/key.properties`; falls back to debug signing without it)
 - `make -C app run` / `run-android`, `fmt`, `get`, `doctor`
@@ -27,7 +27,7 @@ State management is `provider`; app-wide ChangeNotifiers are created in `main.da
 - `lib/ui/` — screens; `lib/widgets/` — design-system widgets; `lib/theme/` — tokens (`context.tokens`), typography (`WorkoutType`), icons (`WIcons`), motion.
 - `lib/export/` — JSON export (pure builders + IO service). `lib/identity/`, `lib/settings/`, `lib/units/` — small services.
 
-Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.jsx` prototypes). Match its exact control sizes; make rows flex for narrow phones.
+Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.jsx` prototypes). Match its exact control sizes; make rows flex for narrow phones. **Exception — the live workout screen** follows `../docs/superpowers/specs/2026-09-24-live-set-focus-design.md` instead of `screen-log.jsx`: one live set (`ActiveSessionController.liveSet`) in a `LiveSetCard`, the rest as `SetLine`s, a pinned `LogSetBar`, rest in `SessionHeader`, and per-block/workout actions in `showWActionSheet`. Every tappable there is ≥48dp.
 
 ## Hard-won rules (violating these reintroduces shipped bugs)
 
@@ -46,6 +46,7 @@ Visual source of truth: `../docs/design_handoff_workout_tracker/` (README + `.js
 - Confirm dialogs: ALWAYS `showWConfirm`/`showWDialog` (`widgets/w_dialog.dart`) — never `AlertDialog`.
 - NEVER create a single-subscription stream (`db.watch()` / `repo.watchX()`) inside `build()` or a helper it calls — cache it in a `late final` field created once (see `_QuickStats` in profile_screen and the `_*Stream` fields in today_screen). A recycled `ListView` child re-subscribing throws `Bad state: Stream has already been listened to` (in release that renders as a gray ErrorWidget over the screen), and even the non-crashing case re-issues every watch query per rebuild. Safe only when the StreamBuilder is the screen's OUTER wrapper — caching in a `late final` field is only HALF the rule: if that field lives on a lazy `ListView` child's own State, the sliver still disposes and re-creates the whole State (field included) on scroll-out/scroll-back, re-listening the same stream instance. Every repository `watchX()` now returns a re-listenable stream via `data/re_listenable.dart`; wrap new ones the same way.
 - Motion: `theme/motion.dart` is the single source (fast/base/slow, easeOutCubic, zero bounce); every duration goes through `Motion.of(context, d)` (reduced-motion → zero); repeating controllers are skipped entirely under reduced motion. One-shot entrance widgets (`Reveal`, `StaggeredEntrance`, `MountProgress`) must keep stable keys so stream rebuilds don't replay them.
+- The live workout's `LogSetBar` MUST commit any in-flight typed value before acting (`primaryFocus?.unfocus()` + `applyFocusChangesIfNeeded()`): a logged set can be re-opened in the live card, so a stepper can be mid-edit on a done set and the bar would otherwise log the pre-edit value. Pinned by `test/session/log_set_bar_test.dart`.
 - `late final AnimationController` fields must be constructed/started in `initState`, NOT via `..forward()` in the initializer — a reduced-motion build path that never touches the field makes `dispose()` lazily create a ticker on a deactivated element and crash. This bug shipped three times.
 - Flex widgets (`Expanded`) must be DIRECT children of their Row/Column — wrappers like `UnitSwap`/`AnimatedSwitcher` go inside the `Expanded`, never around it (ParentDataWidget crash that passes CI because no test renders the row).
 - Raw image pixels for `ui.ImageDescriptor.raw`/`decodeImageFromPixels` are PREMULTIPLIED alpha — color channels must be ≤ alpha. (No current call sites — the helper this was learned from left with the ambient layer; the rule applies if raw-pixel images return.)
