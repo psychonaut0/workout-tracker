@@ -49,12 +49,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('swiping the weight ruler moves by plate steps and reports it', (tester) async {
-    final s = _s();
+  testWidgets('swiping the weight ruler moves in fixed 0.5 kg steps, not the plate step',
+      (tester) async {
+    final s = _s(); // the exercise's plate step is 2.5 kg
     await tester.pumpWidget(host(card(s)));
     await swipe(tester, const Key('live-weight'), 2);
-    expect(s.weightKg, 145);
+    expect(s.weightKg, 141);
     expect(changes, greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('in lb the weight ruler steps one pound at a time', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final lb = UnitService()..setUnit(Unit.lb);
+    final s = SetState(id: 's', weightKg: 100, reps: 6, rir: 1, isWarmup: false, done: false);
+    await tester.pumpWidget(host(LiveSetCard(
+        set: s, exercise: _ex, workIndex: 1, lastTop: null, unit: lb,
+        onChanged: () => changes++, onMarkNotDone: () {})));
+    await swipe(tester, const Key('live-weight'), -1);
+    expect(s.weightKg, closeTo(100 - 0.45359, 0.01));
+    expect(lb.fmtWt(s.weightKg), '219'); // 220 lb → 219 lb
   });
 
   testWidgets('swiping the reps ruler right lowers reps', (tester) async {

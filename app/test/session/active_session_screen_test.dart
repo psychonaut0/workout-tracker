@@ -165,13 +165,13 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100)); // let the tape snap
     }
-    expect(s0.weightKg, 105);
+    expect(s0.weightKg, 101);
 
     await tester.tap(find.byType(SetLine));
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(s0.weightKg, 105);
+    expect(s0.weightKg, 101);
     expect(s1.weightKg, 120);
     expect(controller.liveSet!.set.id, 's1');
 

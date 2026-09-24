@@ -107,10 +107,10 @@ void main() {
     await tester.timedDrag(find.byKey(const Key('live-weight')),
         const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    expect(find.text('Log set 1 · 145kg × 6'), findsOneWidget);
+    expect(find.text('Log set 1 · 141kg × 6'), findsOneWidget);
     await tester.tap(find.byKey(const Key('log-set-bar')));
     await tester.pump();
-    expect(s.weightKg, 145);
+    expect(s.weightKg, 141);
     expect(s.done, isTrue);
   });
 

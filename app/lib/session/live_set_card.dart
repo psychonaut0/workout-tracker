@@ -77,7 +77,10 @@ class LiveSetCard extends StatelessWidget {
           RulerPicker(
             key: const Key('live-weight'),
             value: set.weightKg,
-            step: exercise.plateStepKg,
+            // A fixed fine step — the ruler is fast enough that plate-sized
+            // jumps only get in the way. In lb it is exactly one pound, so the
+            // whole-pound labels stay evenly spaced.
+            step: unit.unit == Unit.lb ? UnitService.toKg(1, Unit.lb) : 0.5,
             max: 500,
             format: (v) => unit.fmtWt(v),
             semanticLabel: '${l.sessionWeight}, ${unit.uLabel}',
