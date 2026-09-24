@@ -33,6 +33,8 @@ class WStepper extends StatefulWidget {
     this.emptyValue,
     this.allowDecimal = true,
     this.large = false,
+    this.decrementLabel,
+    this.incrementLabel,
   });
 
   final double value;
@@ -77,6 +79,14 @@ class WStepper extends StatefulWidget {
   /// When false the field requests an integer keypad and refuses a decimal
   /// separator.
   final bool allowDecimal;
+
+  /// Accessibility label for the "−" button. When null, the button carries no
+  /// Semantics wrapper of its own (the default, compact-row usage).
+  final String? decrementLabel;
+
+  /// Accessibility label for the "+" button. When null, the button carries no
+  /// Semantics wrapper of its own (the default, compact-row usage).
+  final String? incrementLabel;
 
   @override
   State<WStepper> createState() => _WStepperState();
@@ -301,8 +311,8 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
       borderRadius: BorderRadius.circular(AppRadius.radius * (large ? 0.6 : 0.4)),
     );
 
-    Widget btn({required Key key, required IconData icon, required int dir}) {
-      return GestureDetector(
+    Widget btn({required Key key, required IconData icon, required int dir, String? label}) {
+      final button = GestureDetector(
         key: key,
         // Stop tap from propagating to parent (e.g. accordion header).
         behavior: HitTestBehavior.opaque,
@@ -315,6 +325,9 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
           child: Icon(icon, size: large ? 22 : 16, color: tokens.text),
         ),
       );
+      return label == null
+          ? button
+          : Semantics(button: true, label: label, excludeSemantics: true, child: button);
     }
 
     final Widget label = Text(
@@ -328,7 +341,7 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
     return Row(
       mainAxisSize: MainAxisSize.max,
       children: [
-        btn(key: const Key('stepper-dec'), icon: Icons.remove, dir: -1),
+        btn(key: const Key('stepper-dec'), icon: Icons.remove, dir: -1, label: widget.decrementLabel),
         SizedBox(width: gap),
         Expanded(
           child: Center(
@@ -409,7 +422,7 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
           ),
         ),
         SizedBox(width: gap),
-        btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1),
+        btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1, label: widget.incrementLabel),
       ],
     );
   }

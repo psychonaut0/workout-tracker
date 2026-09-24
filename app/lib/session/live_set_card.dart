@@ -79,6 +79,8 @@ class LiveSetCard extends StatelessWidget {
             large: true,
             parseDisplay: (v) => UnitService.toKg(v, unit.unit),
             min: 0,
+            decrementLabel: l.sessionDecreaseWeight,
+            incrementLabel: l.sessionIncreaseWeight,
             onChanged: (v) {
               set.weightKg = v;
               onChanged();
@@ -95,6 +97,8 @@ class LiveSetCard extends StatelessWidget {
             large: true,
             allowDecimal: false,
             min: 0,
+            decrementLabel: l.sessionDecreaseReps,
+            incrementLabel: l.sessionIncreaseReps,
             onChanged: (v) {
               set.reps = v.toInt();
               onChanged();

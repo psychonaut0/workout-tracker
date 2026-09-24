@@ -49,6 +49,19 @@ void main() {
     expect(changes, 1);
   });
 
+  testWidgets('the steppers label their buttons for screen readers', (tester) async {
+    final s = _s();
+    await tester.pumpWidget(host(card(s)));
+
+    expect(find.bySemanticsLabel('Increase weight'), findsOneWidget);
+    expect(find.bySemanticsLabel('Decrease weight'), findsOneWidget);
+    expect(find.bySemanticsLabel('Increase reps'), findsOneWidget);
+    expect(find.bySemanticsLabel('Decrease reps'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Increase weight'));
+    expect(s.weightKg, 142.5);
+  });
+
   testWidgets('shows the last-session reference or no previous data', (tester) async {
     await tester.pumpWidget(host(card(_s(), last: (weight: 140, reps: 9, date: isoDate(DateTime.now())))));
     expect(find.text('last 140kg × 9 · today'), findsOneWidget);
