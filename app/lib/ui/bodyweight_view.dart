@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../data/bodyweight_repository.dart';
 import '../data/models.dart';
+import '../settings/bodyweight_goal.dart';
+import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -21,9 +23,10 @@ import 'add_weight_sheet.dart';
 /// Bodyweight progress view — rendered inside [ProgressScreen] when the
 /// target is the `__bodyweight__` sentinel.
 ///
-/// Shows a trend chart, Current / 30-day-delta (accent) / Lowest stats,
-/// a "Log today's weight" button, and a scrollable history of the last 24
-/// entries with **inverted-polarity** deltas (loss→accent, gain→dim, 0→faint).
+/// Shows a trend chart, Current / 30-day-delta / Lowest stats,
+/// a "Log today's weight" button, and a scrollable history of the last 24 entries
+/// with signed deltas, accent-coloured only when they move toward the Profile goal
+/// (cut: loss, bulk: gain, maintain: never).
 class BodyweightView extends StatefulWidget {
   const BodyweightView({super.key, required this.onOpenPicker});
 
@@ -49,6 +52,7 @@ class _BodyweightViewState extends State<BodyweightView> {
   Widget build(BuildContext context) {
     // Rebuild on unit change.
     final unitService = context.watch<UnitService>();
+    final goal = context.watch<SettingsService>().bodyweightGoal;
     final l = AppLocalizations.of(context);
 
     return StreamBuilder<List<BodyweightEntry>>(
@@ -119,7 +123,7 @@ class _BodyweightViewState extends State<BodyweightView> {
             const SizedBox(height: 14),
 
             // BigStat cards
-            _BwStatRow(series: series, unit: unit),
+            _BwStatRow(series: series, unit: unit, goal: goal),
             const SizedBox(height: 14),
 
             // Log today's weight button
@@ -150,7 +154,7 @@ class _BodyweightViewState extends State<BodyweightView> {
                 ),
               )
             else
-              _HistoryCard(series: series, unit: unit),
+              BodyweightHistoryCard(series: series, unit: unit, goal: goal),
           ],
         );
       },
@@ -161,10 +165,11 @@ class _BodyweightViewState extends State<BodyweightView> {
 // ── BwStatRow ─────────────────────────────────────────────────────────────────
 
 class _BwStatRow extends StatelessWidget {
-  const _BwStatRow({required this.series, required this.unit});
+  const _BwStatRow({required this.series, required this.unit, required this.goal});
 
   final List<({String date, double value, int reps, bool isPr})> series;
   final String unit;
+  final BodyweightGoal goal;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +179,7 @@ class _BwStatRow extends StatelessWidget {
         children: [
           Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStatCurrent, value: '—', unit: unit))),
           const SizedBox(width: 8),
-          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStat30Day, value: '—', unit: unit, accent: true))),
+          Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStat30Day, value: '—', unit: unit, accent: false))),
           const SizedBox(width: 8),
           Expanded(child: WCard(padding: const EdgeInsets.fromLTRB(14, 13, 14, 13), child: BigStat(label: l.bodyweightStatLowest, value: '—', unit: unit))),
         ],
@@ -201,13 +206,6 @@ class _BwStatRow extends StatelessWidget {
     );
     final delta30 = last - month30.value;
 
-    String fmtSigned(double v) {
-      final s = fmtPlain(v.abs());
-      if (v > 0) return '+$s';
-      if (v < 0) return '-$s';
-      return '0';
-    }
-
     return Row(
       children: [
         Expanded(
@@ -233,7 +231,7 @@ class _BwStatRow extends StatelessWidget {
                 label: l.bodyweightStat30Day,
                 value: fmtSigned(delta30),
                 unit: unit,
-                accent: true,
+                accent: bodyweightDeltaTone(delta30, goal) == DeltaTone.good,
               ),
             ),
           ),
@@ -294,11 +292,12 @@ class _LogTodayButton extends StatelessWidget {
 
 // ── HistoryCard ───────────────────────────────────────────────────────────────
 
-class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.series, required this.unit});
+class BodyweightHistoryCard extends StatelessWidget {
+  const BodyweightHistoryCard({super.key, required this.series, required this.unit, required this.goal});
 
   final List<({String date, double value, int reps, bool isPr})> series;
   final String unit;
+  final BodyweightGoal goal;
 
   @override
   Widget build(BuildContext context) {
@@ -330,10 +329,13 @@ class _HistoryCard extends StatelessWidget {
               children: [
                 // Date with weekday
                 SizedBox(
-                  width: 64,
+                  width: 92,
                   child: Text(
                     fmtDate(entry.date, localeName, weekday: true),
                     style: WorkoutType.mono(size: 12, color: tokens.dim),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -357,29 +359,17 @@ class _HistoryCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                // Inverted-polarity delta: loss→accent, gain→dim, 0→faint '='
-                if (diff < 0)
+                // Signed, and accent only when it moves the way the goal wants.
+                if (prevValue != null)
                   Text(
-                    fmtPlain(diff.abs()),
+                    fmtSigned(diff),
                     style: WorkoutType.mono(
                       size: 11.5,
                       weight: FontWeight.w600,
-                      color: tokens.accent,
+                      color: bodyweightDeltaTone(diff, goal) == DeltaTone.good
+                          ? tokens.accent
+                          : tokens.dim,
                     ),
-                  )
-                else if (diff > 0)
-                  Text(
-                    '+${fmtPlain(diff)}',
-                    style: WorkoutType.mono(
-                      size: 11.5,
-                      weight: FontWeight.w600,
-                      color: tokens.dim,
-                    ),
-                  )
-                else
-                  Text(
-                    '=',
-                    style: WorkoutType.mono(size: 11.5, color: tokens.faint),
                   ),
               ],
             ),
