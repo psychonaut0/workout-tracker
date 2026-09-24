@@ -7,6 +7,7 @@ import 'package:workout_tracker/l10n/app_localizations.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/active_session_screen.dart';
 import 'package:workout_tracker/session/session_manager.dart';
+import 'package:workout_tracker/session/set_line.dart';
 import 'package:workout_tracker/settings/settings_service.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
@@ -135,6 +136,39 @@ void main() {
     await tester.pump();
 
     expect(block.workingSets, [s0, s1]);
+
+    await _teardown(tester);
+  });
+
+  testWidgets(
+      'tapping another set while typing in the live card commits the typed '
+      'value without throwing', (tester) async {
+    final controller = ActiveSessionController();
+    final s0 = SetState(id: 's0', weightKg: 100, reps: 8, rir: 1, isWarmup: false, done: false);
+    final s1 = SetState(id: 's1', weightKg: 120, reps: 8, rir: 1, isWarmup: false, done: false);
+    final block = _block(warm: [], work: [s0, s1]);
+    controller.seedForTest(_draftWith([block]));
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(controller.liveSet!.set.id, 's0');
+
+    // Tap the live card's weight value to open the inline edit field, then
+    // type a new value WITHOUT submitting it.
+    await tester.tap(find.text('100').first);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '135');
+    await tester.pump();
+
+    // Tap the other (not-live) set, rendered as a SetLine.
+    await tester.tap(find.byType(SetLine));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(s0.weightKg, 135);
+    expect(controller.liveSet!.set.id, 's1');
 
     await _teardown(tester);
   });

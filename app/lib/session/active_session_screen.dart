@@ -367,7 +367,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                       liveSetId: live?.set.id,
                       rirPromptSetId: controller.rirPromptSetId,
                       liveCardKey: _liveCardKey,
-                      onFocusSet: (_, s) => controller.focusSet(s),
+                      onFocusSet: (_, s) {
+                        // Commit any in-flight typed value first (same rule
+                        // as the log bar): a tap on a SetLine doesn't drop
+                        // focus from the live card's TextField on Android, so
+                        // without this the stepper's deactivate-commit runs
+                        // mid-rebuild once the live card is swapped out.
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        FocusManager.instance.applyFocusChangesIfNeeded();
+                        controller.focusSet(s);
+                      },
                       onSetChanged: (_, __) => controller.markChanged(),
                       onRir: (_, s, v) => controller.setRirFromPrompt(s, v),
                       onMarkNotDone: (_, s) => controller.markNotDone(s),
