@@ -29,6 +29,7 @@ class ExerciseBlock extends StatefulWidget {
     required this.liveSetId,
     required this.rirPromptSetId,
     this.liveCardKey,
+    this.onLongPressHeader,
     required this.onFocusSet,
     required this.onSetChanged,
     required this.onRir,
@@ -50,6 +51,9 @@ class ExerciseBlock extends StatefulWidget {
   /// Put on the live card (when it is in this block) so the screen can scroll
   /// it into view.
   final GlobalKey? liveCardKey;
+
+  /// A long press on the header (the screen opens exercise reordering).
+  final VoidCallback? onLongPressHeader;
 
   final void Function(BlockState, SetState) onFocusSet;
   final void Function(BlockState, SetState) onSetChanged;
@@ -129,6 +133,7 @@ class _ExerciseBlockState extends State<ExerciseBlock>
             onTap: containsLive
                 ? null
                 : () => setState(() => block.expanded = !block.expanded),
+            onLongPress: widget.onLongPressHeader,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
               child: Row(

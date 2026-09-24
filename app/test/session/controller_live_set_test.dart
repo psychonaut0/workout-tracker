@@ -236,6 +236,34 @@ void main() {
     });
   });
 
+  group('moveBlockTo', () {
+    test('moves a block to its final index and keeps the live set', () {
+      final a = _b('a', work: [_s('a1')]);
+      final b = _b('b', work: [_s('b1')]);
+      final c3 = _b('c', work: [_s('c1')]);
+      final c = _c([a, b, c3]);
+      var notifies = 0;
+      c.addListener(() => notifies++);
+      c.moveBlockTo(0, 2);
+      expect(c.draft.blocks.map((x) => x.exercise.id), ['b', 'c', 'a']);
+      expect(notifies, 1);
+      c.moveBlockTo(2, 0);
+      expect(c.draft.blocks.map((x) => x.exercise.id), ['a', 'b', 'c']);
+      expect(c.liveSet!.set.id, 'a1');
+    });
+
+    test('out-of-range or no-op moves change nothing and do not notify', () {
+      final c = _c([_b('a', work: [_s('a1')]), _b('b', work: [_s('b1')])]);
+      var notifies = 0;
+      c.addListener(() => notifies++);
+      c.moveBlockTo(1, 1);
+      c.moveBlockTo(-1, 0);
+      c.moveBlockTo(0, 5);
+      expect(c.draft.blocks.map((x) => x.exercise.id), ['a', 'b']);
+      expect(notifies, 0);
+    });
+  });
+
   group('helpers', () {
     test('liveTopOf reports the heaviest done working set and PR status', () {
       final a = _b('a', warm: [_s('w', warmup: true, done: true, w: 200)],

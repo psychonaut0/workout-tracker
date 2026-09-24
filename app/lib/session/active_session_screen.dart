@@ -24,6 +24,7 @@ import 'active_session_controller.dart';
 import 'exercise_block.dart';
 import 'exercise_picker_sheet.dart';
 import 'log_set_bar.dart';
+import 'reorder_exercises_sheet.dart';
 import 'resume.dart';
 import 'session_header.dart';
 import 'session_manager.dart';
@@ -283,6 +284,11 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
               icon: Icons.keyboard_arrow_down,
               enabled: !identical(b, blocks.last)),
           WSheetAction(
+              label: l.sessionReorderExercises,
+              value: 'reorder',
+              icon: Icons.drag_handle,
+              enabled: blocks.length > 1),
+          WSheetAction(
               label: l.sessionRemoveExercise,
               value: 'remove',
               icon: WIcons.trash,
@@ -298,6 +304,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
         c.moveBlock(b, -1);
       case 'down':
         c.moveBlock(b, 1);
+      case 'reorder':
+        await showReorderExercisesSheet(context, controller: c);
       case 'remove':
         if (b.allSets.any((s) => s.done)) {
           final confirmed = await showWConfirm(
@@ -370,12 +378,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                       liveSetId: live?.set.id,
                       rirPromptSetId: controller.rirPromptSetId,
                       liveCardKey: _liveCardKey,
+                      onLongPressHeader: () {
+                        HapticFeedback.mediumImpact();
+                        showReorderExercisesSheet(context, controller: controller);
+                      },
                       onFocusSet: (_, s) {
-                        // Commit any in-flight typed value first (same rule
-                        // as the log bar): a tap on a SetLine doesn't drop
-                        // focus from the live card's TextField on Android, so
-                        // without this the stepper's deactivate-commit runs
-                        // mid-rebuild once the live card is swapped out.
+                        // Commit any in-flight text entry first (same rule as
+                        // the log bar). Typed entry is a modal sheet today, so
+                        // this is defence in depth: a focused field left
+                        // behind a swapped-out live card would otherwise
+                        // commit mid-rebuild.
                         FocusManager.instance.primaryFocus?.unfocus();
                         FocusManager.instance.applyFocusChangesIfNeeded();
                         controller.focusSet(s);

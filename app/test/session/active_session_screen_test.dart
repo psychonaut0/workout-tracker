@@ -40,6 +40,11 @@ Widget _harness(ActiveSessionController controller, {SettingsService? settings})
   );
 }
 
+const _bench = Exercise(
+  id: 'bench', name: 'Bench', slug: 'bench', muscleGroup: 'chest',
+  compound: true, plateStepKg: 2.5, isTemplate: false,
+);
+
 const _compound = Exercise(
   id: 'squat', name: 'Squat', slug: 'squat', muscleGroup: 'legs',
   compound: true, plateStepKg: 2.5, isTemplate: false,
@@ -169,6 +174,33 @@ void main() {
     expect(s0.weightKg, 105);
     expect(s1.weightKg, 120);
     expect(controller.liveSet!.set.id, 's1');
+
+    await _teardown(tester);
+  });
+
+  testWidgets('long-pressing a block header opens exercise reordering', (tester) async {
+    final controller = ActiveSessionController();
+    final squat = _block(
+        warm: [],
+        work: [SetState(id: 'q1', weightKg: 100, reps: 8, rir: 1, isWarmup: false, done: true)])
+      ..expanded = false;
+    final bench = _block(
+        warm: [],
+        work: [SetState(id: 'b1', weightKg: 80, reps: 8, rir: 1, isWarmup: false, done: false)],
+        ex: _bench);
+    controller.seedForTest(_draftWith([squat, bench]));
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.longPress(find.text('Squat'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Reorder exercises'), findsOneWidget);
+    expect(find.byKey(const ValueKey('reorder-handle-bench')), findsOneWidget);
 
     await _teardown(tester);
   });

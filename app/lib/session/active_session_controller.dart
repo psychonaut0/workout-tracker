@@ -702,6 +702,22 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Moves the block at [from] so it ends up at [to] (both indexes into the
+  /// current list; [to] is the block's final position). Drag-and-drop uses
+  /// this; an out-of-range or no-op move is ignored.
+  void moveBlockTo(int from, int to) {
+    final blocks = draft.blocks;
+    if (from == to ||
+        from < 0 ||
+        to < 0 ||
+        from >= blocks.length ||
+        to >= blocks.length) {
+      return;
+    }
+    blocks.insert(to, blocks.removeAt(from));
+    notifyListeners();
+  }
+
   /// Removes [block] from the session.
   void removeBlock(BlockState block) {
     draft.blocks.remove(block);

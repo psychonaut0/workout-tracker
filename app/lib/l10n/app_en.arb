@@ -222,6 +222,7 @@
   "sessionMinimize": "Minimize",
   "sessionWeight": "Weight",
   "sessionReps": "Reps",
+  "sessionReorderExercises": "Reorder exercises",
   "sessionSearchExercises": "Search exercises…",
   "sessionNoExercisesFound": "No exercises found",
   "sessionOtherMuscle": "Other",

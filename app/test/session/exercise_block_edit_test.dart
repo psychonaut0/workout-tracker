@@ -96,6 +96,26 @@ void main() {
     expect(topSetIdOf(b, 0), isNull);
   });
 
+  testWidgets('a long press on the header reports it', (tester) async {
+    var longPresses = 0;
+    await tester.pumpWidget(wrapL10n(SingleChildScrollView(
+      child: ExerciseBlock(
+        block: _block(),
+        unit: UnitService(),
+        liveSetId: null,
+        rirPromptSetId: null,
+        onFocusSet: (_, __) {},
+        onSetChanged: (_, __) {},
+        onRir: (_, __, ___) {},
+        onMarkNotDone: (_, __) {},
+        onMenu: (_) {},
+        onLongPressHeader: () => longPresses++,
+      ),
+    )));
+    await tester.longPress(find.text('Bench Press'));
+    expect(longPresses, 1);
+  });
+
   testWidgets('tapping a line focuses that set', (tester) async {
     await tester.pumpWidget(host(_block(firstDone: true)));
     await tester.pumpAndSettle();

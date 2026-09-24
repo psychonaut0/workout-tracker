@@ -95,6 +95,7 @@
   "sessionMinimize": "Riduci",
   "sessionWeight": "Peso",
   "sessionReps": "Ripetizioni",
+  "sessionReorderExercises": "Riordina esercizi",
   "sessionSearchExercises": "Cerca esercizi…",
   "sessionNoExercisesFound": "Nessun esercizio trovato",
   "sessionOtherMuscle": "Altro",
