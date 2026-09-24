@@ -11,7 +11,7 @@ import 'card.dart';
 ///   • A 74 px muscle label
 ///   • A proportional fill bar (muted `lineStrong` when `sets < target`,
 ///     `accent` when `sets >= target`), normalized against this muscle's own
-///     `target`, with the 1.5 px target tick fixed at the 100% right edge
+///     `target`, with the 1.5 px target tick at the right end of the track
 ///   • A right-aligned `'{sets}/{target}'` value (dim when under target)
 ///
 /// `target` is always a non-null int; Task 7 coalesces goalless muscles to
@@ -77,8 +77,6 @@ class _VolumeRow extends StatelessWidget {
     // Normalize against THIS muscle's own target (0% = none, 100% = target).
     final fillFraction =
         row.target > 0 ? (row.sets / row.target).clamp(0.0, 1.0) : 0.0;
-    // The target tick sits at the right edge (100%) once normalized to target.
-    const tickFraction = 1.0;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -106,6 +104,7 @@ class _VolumeRow extends StatelessWidget {
               children: [
                 // Background track
                 Container(
+                  key: const Key('volume-track'),
                   decoration: BoxDecoration(
                     color: tokens.surface3,
                     borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -132,19 +131,16 @@ class _VolumeRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Target tick — 1.5 px wide, overhanging ±3 px vertically
-                Align(
-                  alignment: Alignment(
-                    (tickFraction.clamp(0.0, 1.0) * 2 - 1),
-                    0,
-                  ),
-                  child: OverflowBox(
-                    maxHeight: double.infinity,
-                    child: Container(
-                      width: 1.5,
-                      height: 7 + 6, // 7 track + 3 overhang each side
-                      color: tokens.text.withValues(alpha: 0.4),
-                    ),
+                // Target tick at the track's right end (bars are scaled to
+                // their own target), overhanging it by 3 px above and below.
+                Positioned(
+                  right: -0.75,
+                  top: -3,
+                  bottom: -3,
+                  child: Container(
+                    key: const Key('volume-target-tick'),
+                    width: 1.5,
+                    color: tokens.text.withValues(alpha: 0.4),
                   ),
                 ),
               ],

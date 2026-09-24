@@ -54,4 +54,18 @@ void main() {
         .widthFactor;
     expect(f, 0.0);
   });
+
+  testWidgets('the target tick sits at the right end of the track', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: buildTheme(Brightness.dark, accents[0]),
+      home: const Scaffold(
+        body: VolumeBars(rows: [(muscle: 'chest', sets: 11, target: 12)]),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final track = tester.getRect(find.byKey(const Key('volume-track')));
+    final tick = tester.getRect(find.byKey(const Key('volume-target-tick')));
+    expect(tick.center.dx, closeTo(track.right, 1.0));
+    expect(tick.height, greaterThan(track.height)); // overhangs the track
+  });
 }
