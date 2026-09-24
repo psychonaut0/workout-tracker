@@ -625,11 +625,13 @@ class ActiveSessionController extends ChangeNotifier {
     final splitLabel =
         d.focus.isEmpty ? d.name : '${d.name} · ${d.focus}'; // omit empty focus
 
-    // Collect all sets: warm-ups (is_warmup=true) then working, per block,
-    // with set_number restarting per exercise.
+    // Collect all sets: warm-ups (is_warmup=true) then working, per block.
+    // set_number runs across the whole workout (not per exercise) — it is the
+    // only persisted record of exercise order: History and the summary order
+    // exercises by their first set_number (see SessionRepository.setsForSession).
     final sets = <SetWrite>[];
+    var setNum = 1;
     for (final block in d.blocks) {
-      var setNum = 1;
       final blockSets = <SetWrite>[];
       for (final s in block.warmupSets.where((s) => s.done)) {
         blockSets.add(SetWrite(

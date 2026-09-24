@@ -223,7 +223,7 @@ void main() {
     }
   });
 
-  test('finish() running set_number restarts per exercise', () async {
+  test('finish() numbers sets continuously across exercises, in workout order', () async {
     final ex1 = Exercise.fromRow({
       'id': 'ex1', 'name': 'Squat', 'slug': 'squat', 'muscle_group': 'legs',
       'compound': 1, 'plate_step_kg': '5.0', 'base_weight_kg': '100',
@@ -259,12 +259,10 @@ void main() {
     final setInserts = exec.calls.where((c) => c.$1.contains('INSERT INTO sets')).toList();
     expect(setInserts.length, 4); // 2 + 2
 
-    // set_number is at param index 3
-    // ex1: set_number 1, 2
-    expect(setInserts[0].$2[3], 1);
-    expect(setInserts[1].$2[3], 2);
-    // ex2: set_number resets to 1, 2
-    expect(setInserts[2].$2[3], 1);
-    expect(setInserts[3].$2[3], 2);
+    // set_number is at param index 3. It runs across the whole workout so the
+    // exercise order survives in the DB (History orders exercises by their
+    // first set_number).
+    expect(setInserts.map((c) => c.$2[2]), ['ex1', 'ex1', 'ex2', 'ex2']);
+    expect(setInserts.map((c) => c.$2[3]), [1, 2, 3, 4]);
   });
 }
