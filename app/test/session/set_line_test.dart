@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/set_line.dart';
@@ -30,7 +29,7 @@ void main() {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(wrapL10n(line(_s(done: true), top: true)));
     final node = tester.getSemantics(find.byType(SetLine));
-    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(node.flagsCollection.isButton, isTrue);
     expect(find.text('140kg  ×  6'), findsOneWidget);
     expect(find.text('TOP'), findsOneWidget);
     handle.dispose();
