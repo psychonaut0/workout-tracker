@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/set_line.dart';
@@ -24,6 +25,17 @@ void main() {
         onTap: () => taps++, onRir: rirs.add,
       );
 
+  testWidgets('the whole row carries button semantics but keeps its text readable',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(wrapL10n(line(_s(done: true), top: true)));
+    final node = tester.getSemantics(find.byType(SetLine));
+    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(find.text('140kg  ×  6'), findsOneWidget);
+    expect(find.text('TOP'), findsOneWidget);
+    handle.dispose();
+  });
+
   testWidgets('a pending line is a 48dp tap target showing weight × reps', (tester) async {
     await tester.pumpWidget(wrapL10n(line(_s())));
     // A Text.rich matches find.text by its whole plain text.
@@ -46,6 +58,13 @@ void main() {
     await tester.tap(find.byKey(const Key('rir-2')));
     expect(rirs, [2]);
     expect(taps, 0);
+  });
+
+  testWidgets('RIR chips stay at least 48dp wide at a 260dp line width', (tester) async {
+    await tester.pumpWidget(wrapL10n(
+        SizedBox(width: 260, child: line(_s(done: true), prompt: true))));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('rir-0'))).width, greaterThanOrEqualTo(48));
   });
 
   testWidgets('a warm-up never shows the RIR strip and shows a W index', (tester) async {

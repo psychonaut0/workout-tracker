@@ -50,105 +50,108 @@ class SetLine extends StatelessWidget {
     final done = set.done;
     final strip = showRirPrompt && done && !set.isWarmup;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 26,
-                  child: Text(
-                    set.isWarmup ? l.sessionWarmupShort : '$workIndex',
-                    textAlign: TextAlign.center,
-                    style: WorkoutType.mono(
-                      size: 13,
-                      weight: FontWeight.w700,
-                      color: done && !set.isWarmup ? tokens.accent : tokens.faint,
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 26,
+                    child: Text(
+                      set.isWarmup ? l.sessionWarmupShort : '$workIndex',
+                      textAlign: TextAlign.center,
+                      style: WorkoutType.mono(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: done && !set.isWarmup ? tokens.accent : tokens.faint,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text.rich(
-                          TextSpan(children: [
-                            TextSpan(
-                              text: unit.fmtWt(set.weightKg),
-                              style: WorkoutType.mono(
-                                  size: 15,
-                                  weight: FontWeight.w700,
-                                  color: done ? tokens.text : tokens.dim),
-                            ),
-                            TextSpan(
-                              text: unit.uLabel,
-                              style: WorkoutType.mono(size: 11, color: tokens.faint),
-                            ),
-                            TextSpan(
-                              text: '  ×  ',
-                              style: WorkoutType.mono(size: 12, color: tokens.faint),
-                            ),
-                            TextSpan(
-                              text: '${set.reps}',
-                              style: WorkoutType.mono(
-                                  size: 15,
-                                  weight: FontWeight.w700,
-                                  color: done ? tokens.text : tokens.dim),
-                            ),
-                          ]),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (done && !set.isWarmup) ...[
-                        const SizedBox(width: 10),
-                        Text(
-                          l.sessionRir(set.rir ?? 0),
-                          style: WorkoutType.mono(size: 10.5, color: tokens.faint),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (isLivePr)
-                  const PRBadge(small: true)
-                else if (isLiveTop)
-                  Tag(label: l.sessionTagTop, tone: TagTone.solid),
-                const SizedBox(width: 10),
-                _StatusGlyph(done: done, tokens: tokens),
-              ],
-            ),
-          ),
-          AnimatedSize(
-            duration: Motion.of(context, Motion.base),
-            curve: Motion.curve,
-            alignment: Alignment.topCenter,
-            child: strip
-                ? Padding(
-                    padding: const EdgeInsets.only(left: 34, bottom: 8),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Row(
                       children: [
-                        Text(
-                          l.sessionColRir,
-                          style: WorkoutType.mono(
-                              size: 10.5, color: tokens.faint, letterSpacing: 0.08 * 10.5),
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(children: [
+                              TextSpan(
+                                text: unit.fmtWt(set.weightKg),
+                                style: WorkoutType.mono(
+                                    size: 15,
+                                    weight: FontWeight.w700,
+                                    color: done ? tokens.text : tokens.dim),
+                              ),
+                              TextSpan(
+                                text: unit.uLabel,
+                                style: WorkoutType.mono(size: 11, color: tokens.faint),
+                              ),
+                              TextSpan(
+                                text: '  ×  ',
+                                style: WorkoutType.mono(size: 12, color: tokens.faint),
+                              ),
+                              TextSpan(
+                                text: '${set.reps}',
+                                style: WorkoutType.mono(
+                                    size: 15,
+                                    weight: FontWeight.w700,
+                                    color: done ? tokens.text : tokens.dim),
+                              ),
+                            ]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: RirPicker(value: set.rir, height: 48, onChanged: onRir),
-                        ),
+                        if (done && !set.isWarmup) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            l.sessionRir(set.rir ?? 0),
+                            style: WorkoutType.mono(size: 10.5, color: tokens.faint),
+                          ),
+                        ],
                       ],
                     ),
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
+                  ),
+                  if (isLivePr)
+                    const PRBadge(small: true)
+                  else if (isLiveTop)
+                    Tag(label: l.sessionTagTop, tone: TagTone.solid),
+                  const SizedBox(width: 10),
+                  _StatusGlyph(done: done, tokens: tokens),
+                ],
+              ),
+            ),
+            AnimatedSize(
+              duration: Motion.of(context, Motion.base),
+              curve: Motion.curve,
+              alignment: Alignment.topCenter,
+              child: strip
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 22, bottom: 8),
+                      child: Row(
+                        children: [
+                          Text(
+                            l.sessionColRir,
+                            style: WorkoutType.mono(
+                                size: 10.5, color: tokens.faint, letterSpacing: 0.08 * 10.5),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: RirPicker(value: set.rir, height: 48, onChanged: onRir),
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
       ),
     );
   }
