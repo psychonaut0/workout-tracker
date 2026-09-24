@@ -9,7 +9,6 @@ import '../data/exercise_repository.dart';
 import '../data/session_repository.dart';
 import '../data/session_writer.dart';
 import '../l10n/app_localizations.dart';
-import '../settings/settings_service.dart';
 import '../shell/session_launcher.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
@@ -260,47 +259,14 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                         child: ExerciseBlock(
                           block: block,
                           unit: unit,
-                          onToggleDone: (b, s) {
-                            final wasDone = s.done;
-                            controller.toggleDone(b, s);
-                            // Start rest timer when a working set is completed.
-                            // Resolve duration: per-exercise override, else the
-                            // global compound/isolation default from Settings.
-                            if (!wasDone && !s.isWarmup) {
-                              final settings = context.read<SettingsService>();
-                              controller.startRest(
-                                b.exercise.defaultRestSeconds ??
-                                    (b.exercise.compound
-                                        ? settings.restCompoundSeconds
-                                        : settings.restIsolationSeconds),
-                              );
-                            }
-                          },
+                          liveSetId: controller.liveSet?.set.id,
+                          rirPromptSetId: controller.rirPromptSetId,
+                          onFocusSet: (_, s) => controller.focusSet(s),
                           onSetChanged: (b, s) => controller.markChanged(),
-                          onAddSet: (b) => controller.addSet(b),
-                          onAddWarmup: (b) => controller.addWarmupSet(b),
+                          onRir: (_, s, v) => controller.setRirFromPrompt(s, v),
+                          onMarkNotDone: (_, s) => controller.markNotDone(s),
                           onRemoveSet: (b, s) => controller.removeSet(b, s),
-                          onMoveUp: identical(block, draft.blocks.first)
-                              ? null
-                              : () => controller.moveBlock(block, -1),
-                          onMoveDown: identical(block, draft.blocks.last)
-                              ? null
-                              : () => controller.moveBlock(block, 1),
-                          onRemoveBlock: (b) async {
-                            final hasDone = b.allSets.any((s) => s.done);
-                            if (hasDone) {
-                              final confirmed = await showWConfirm(
-                                context,
-                                title: l.sessionRemoveExerciseTitle,
-                                message: l.sessionRemoveExerciseMessage,
-                                confirmLabel: l.commonRemove,
-                                destructive: true,
-                              );
-                              if (confirmed == true) controller.removeBlock(b);
-                            } else {
-                              controller.removeBlock(b);
-                            }
-                          },
+                          onMenu: (_) {},
                         ),
                       ),
 
