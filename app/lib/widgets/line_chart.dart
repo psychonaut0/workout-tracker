@@ -259,7 +259,7 @@ class _LineChartPainter extends CustomPainter {
     // ── per-point dots (skip last — handled separately) ───────────────────────
     for (var i = 0; i < n - 1; i++) {
       // Reveal each dot once the stroke has reached its x-fraction.
-      if (i / (n - 1) > progress) continue;
+      if (fractions[i] > progress) continue;
 
       final cx = xAt(i);
       final cy = yAt(series[i].value);
