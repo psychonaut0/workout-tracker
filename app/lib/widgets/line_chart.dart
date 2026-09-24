@@ -12,7 +12,7 @@ import '../util/format.dart';
 /// chart's x spacing reflects time rather than entry order. Equal dates share
 /// an x. When every date is the same (or there is one point) the points are
 /// spaced evenly by index instead; an unparseable date also falls back to its
-/// index fraction.
+/// index fraction. Tolerates unsorted input (extremes are found, not assumed).
 List<double> dateFractions(List<String> isoDates) {
   final n = isoDates.length;
   if (n == 1) return const [0];
@@ -36,19 +36,47 @@ List<double> dateFractions(List<String> isoDates) {
 }
 
 /// Where to put the chart's last-point value label so it never covers the
-/// line: above-right of [point], flipped left when that overflows the right
-/// edge, dropped below the point when it overflows the top, and always
-/// clamped inside [canvas].
+/// line: right of [point] if it fits, else left. When [previous] is given,
+/// place the chip on the vertical side opposite the incoming segment direction
+/// — below the point if the segment comes from above, above if from below —
+/// flipping to the other side if that overflows the canvas. Always clamped
+/// inside [canvas].
 Offset valueLabelOrigin({
   required Offset point,
   required Size label,
   required Size canvas,
   double gap = 8,
+  Offset? previous,
 }) {
+  // Horizontal: right if it fits, else left.
   var x = point.dx + gap;
   if (x + label.width > canvas.width) x = point.dx - gap - label.width;
-  var y = point.dy - gap - label.height;
-  if (y < 0) y = point.dy + gap;
+
+  // Vertical: when previous is given, place on the side opposite the incoming
+  // segment. If the previous point is above (dy < point.dy), place below;
+  // otherwise above. If that overflows, use the other side.
+  var y = point.dy - gap - label.height; // Default: above
+  if (previous != null) {
+    if (previous.dy < point.dy) {
+      // Segment comes from above; prefer below.
+      y = point.dy + gap;
+      if (y + label.height > canvas.height) {
+        // Overflow; try above instead.
+        y = point.dy - gap - label.height;
+      }
+    } else {
+      // Segment comes from below; prefer above.
+      y = point.dy - gap - label.height;
+      if (y < 0) {
+        // Overflow; try below instead.
+        y = point.dy + gap;
+      }
+    }
+  } else {
+    // No previous: use the original logic (above, drop to below if overflow).
+    if (y < 0) y = point.dy + gap;
+  }
+
   return Offset(
     x.clamp(0.0, math.max(0.0, canvas.width - label.width)),
     y.clamp(0.0, math.max(0.0, canvas.height - label.height)),
@@ -328,11 +356,14 @@ class _LineChartPainter extends CustomPainter {
     )..layout();
     const chipPad = EdgeInsets.symmetric(horizontal: 6, vertical: 3);
     final chipSize = Size(tp.width + chipPad.horizontal, tp.height + chipPad.vertical);
+    final prevX = xAt(n - 2);
+    final prevY = yAt(series[n - 2].value);
     final origin = valueLabelOrigin(
       point: Offset(lastX, lastY),
       label: chipSize,
       canvas: size,
       gap: 10,
+      previous: Offset(prevX, prevY),
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(origin & chipSize, const Radius.circular(6)),
