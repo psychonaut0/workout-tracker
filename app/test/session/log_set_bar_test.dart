@@ -114,6 +114,32 @@ void main() {
     expect(s.done, isTrue);
   });
 
+  testWidgets('tapping the bar mid-fling logs the value shown and stops the tape',
+      (tester) async {
+    final s = _s('a1');
+    final block = _block([], [s]);
+    final c = ActiveSessionController()
+      ..seedForTest(SessionDraft(templateId: null, name: 'W', focus: '',
+          startedAt: DateTime(2026, 9, 24), blocks: [block]));
+    await tester.pumpWidget(wrapL10n(StatefulBuilder(
+      builder: (context, setState) => Column(children: [
+        LiveSetCard(set: s, exercise: _ex, workIndex: 1, lastTop: null, unit: unit,
+            onChanged: () => setState(c.markChanged), onMarkNotDone: () {}),
+        const Spacer(),
+        LogSetBar(live: c.liveSet, canFinish: c.canFinish, unit: unit,
+            onLog: () => setState(() => c.logLiveSet()), onFinish: () {}),
+      ]),
+    )));
+    await tester.fling(find.byKey(const Key('live-weight')), const Offset(-150, 0), 3000);
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    final shown = s.weightKg;
+    await tester.tap(find.byKey(const Key('log-set-bar')));
+    await tester.pumpAndSettle();
+    expect(s.done, isTrue);
+    expect(s.weightKg, shown, reason: 'the fling kept writing after the set was logged');
+  });
+
   testWidgets('a long German label ellipsises on a narrow phone', (tester) async {
     final s = _s('a1');
     await tester.pumpWidget(MediaQuery(

@@ -80,7 +80,7 @@ class LiveSetCard extends StatelessWidget {
             step: exercise.plateStepKg,
             max: 500,
             format: (v) => unit.fmtWt(v),
-            semanticLabel: l.sessionWeight,
+            semanticLabel: '${l.sessionWeight}, ${unit.uLabel}',
             onChanged: (v) {
               set.weightKg = v;
               onChanged();

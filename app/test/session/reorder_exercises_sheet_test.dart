@@ -70,6 +70,19 @@ void main() {
     expect(c.draft.blocks.map((b) => b.exercise.id), ['Bench', 'Dips', 'Fly']);
   });
 
+  testWidgets('dragging the first row to the bottom moves it last', (tester) async {
+    await open(tester);
+    final g = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('reorder-handle-Bench'))));
+    for (var i = 0; i < 20; i++) {
+      await g.moveBy(const Offset(0, 8));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(c.draft.blocks.map((b) => b.exercise.id), ['Fly', 'Dips', 'Bench']);
+  });
+
   testWidgets('the handles are labelled for screen readers', (tester) async {
     final handle = tester.ensureSemantics();
     await open(tester);

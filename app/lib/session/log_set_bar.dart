@@ -6,6 +6,7 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/pending_input.dart';
 import 'active_session_controller.dart';
 
 /// The live workout's one primary action, pinned above the system inset.
@@ -45,11 +46,11 @@ class LogSetBar extends StatelessWidget {
   }
 
   void _tap() {
-    // A live-card value still being typed commits on focus loss only, and on
-    // Android a tap on a non-text widget does not drop focus. Commit it
-    // synchronously first, or the bar would log the pre-edit value.
-    FocusManager.instance.primaryFocus?.unfocus();
-    FocusManager.instance.applyFocusChangesIfNeeded();
+    // A typed value commits on focus loss only, a flung ruler keeps gliding,
+    // and on Android a tap on a non-text widget stops neither. Settle both
+    // first, or the bar would log — or the glide would later overwrite — a
+    // value other than the one shown.
+    commitPendingInput();
     if (live != null) {
       onLog();
     } else {

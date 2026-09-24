@@ -136,7 +136,7 @@ class _Row extends StatelessWidget {
                     weight: FontWeight.w700,
                     color: done == total && total > 0 ? tokens.accent : tokens.dim)),
             Semantics(
-              button: true,
+              // No tap action: the list supplies the move actions.
               label: '${l.sessionReorderExercises}: ${block.exercise.name}',
               excludeSemantics: true,
               child: ReorderableDragStartListener(

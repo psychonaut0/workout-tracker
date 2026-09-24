@@ -16,16 +16,18 @@ import '../util/number_input.dart';
 class RulerScale {
   RulerScale({
     required double anchor,
-    required this.step,
+    required double step,
     required double min,
     required double max,
-  }) {
+  }) : step = step > 0 ? step : 1 {
+    // A non-positive step (a bad plate_step_kg row) would divide by zero;
+    // fall back to 1 rather than render an error.
     final top = math.max(max, anchor);
     final lo = math.min(min, anchor);
     // Walk down from the anchor to the lowest grid value still >= lo.
-    final below = ((anchor - lo) / step + 1e-9).floor();
-    base = clampRound2(anchor - below * step, min: double.negativeInfinity);
-    count = ((top - base) / step + 1e-9).floor() + 1;
+    final below = ((anchor - lo) / this.step + 1e-9).floor();
+    base = clampRound2(anchor - below * this.step, min: double.negativeInfinity);
+    count = ((top - base) / this.step + 1e-9).floor() + 1;
   }
 
   final double step;
@@ -64,6 +66,18 @@ class RulerPicker extends StatefulWidget {
 
   static const double defaultItemExtent = 72;
 
+  static final Set<RulerPickerState> _mounted = {};
+
+  /// Stops every ruler that is still gliding after a fling, exactly on the
+  /// value it currently shows. Call before anything acts on the values (the
+  /// log bar, switching the live set): otherwise the glide keeps writing
+  /// into a set after the tap — one tick after logging it, in practice.
+  static void settleAll() {
+    for (final r in _mounted) {
+      r.settle();
+    }
+  }
+
   final double value;
   final double step;
   final String Function(double) format;
@@ -97,6 +111,26 @@ class RulerPickerState extends State<RulerPicker> {
     _current = widget.value;
     scale = _scaleFor(widget.value);
     _controller = FixedExtentScrollController(initialItem: scale.indexOf(widget.value));
+    RulerPicker._mounted.add(this);
+  }
+
+  /// True while the picker moves its own tape (re-anchoring, settling), so
+  /// the selection those moves cause is not reported as a user change.
+  bool _jumping = false;
+
+  void _jump(int index) {
+    _jumping = true;
+    try {
+      _controller.jumpToItem(index);
+    } finally {
+      _jumping = false;
+    }
+  }
+
+  /// Halts a glide on the currently selected value; see [RulerPicker.settleAll].
+  void settle() {
+    if (!_controller.hasClients) return;
+    _jump(_controller.selectedItem);
   }
 
   RulerScale _scaleFor(double anchor) =>
@@ -113,17 +147,19 @@ class RulerPickerState extends State<RulerPicker> {
     }
     final target = scale.indexOf(widget.value);
     if (_controller.hasClients && _controller.selectedItem != target) {
-      _controller.jumpToItem(target);
+      _jump(target);
     }
   }
 
   @override
   void dispose() {
+    RulerPicker._mounted.remove(this);
     _controller.dispose();
     super.dispose();
   }
 
   void _onSelected(int index) {
+    if (_jumping) return;
     final v = scale.valueAt(index);
     if (v == _current) return;
     _current = v;
@@ -190,6 +226,7 @@ class RulerPickerState extends State<RulerPicker> {
       decreasedValue: widget.format(scale.valueAt(i - 1)),
       onIncrease: () => _nudge(1),
       onDecrease: () => _nudge(-1),
+      onTap: widget.onTapValue,
       child: ExcludeSemantics(
         child: SizedBox(
           height: _height,
@@ -261,19 +298,18 @@ class _RulerMark extends StatelessWidget {
             child: Center(
               child: Transform.scale(
                 scale: scale,
-                child: Opacity(
-                  opacity: opacity,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    style: WorkoutType.display(
-                      size: 32,
-                      weight: FontWeight.w700,
-                      color: centre ? tokens.accent : tokens.text,
-                    ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                  ),
+                // Fade through the text colour, not an Opacity widget: no
+                // offscreen layer per mark while the tape moves.
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: WorkoutType.display(
+                    size: 32,
+                    weight: FontWeight.w700,
+                    color: (centre ? tokens.accent : tokens.text).withValues(alpha: opacity),
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
               ),
             ),

@@ -94,7 +94,10 @@ class _NumberEntrySheetState extends State<_NumberEntrySheet> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: Semantics(
+                      label: widget.title,
+                      textField: true,
+                      child: TextField(
                       key: const Key('number-entry-field'),
                       controller: _ctrl,
                       autofocus: true,
@@ -120,9 +123,12 @@ class _NumberEntrySheetState extends State<_NumberEntrySheet> {
                         contentPadding: EdgeInsets.symmetric(vertical: 6),
                       ),
                     ),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  GestureDetector(
+                  Semantics(
+                    button: true,
+                    child: GestureDetector(
                     key: const Key('number-entry-done'),
                     behavior: HitTestBehavior.opaque,
                     onTap: _submit,
@@ -141,6 +147,7 @@ class _NumberEntrySheetState extends State<_NumberEntrySheet> {
                                 size: 15, weight: FontWeight.w700, color: tokens.accentInk)),
                       ),
                     ),
+                  ),
                   ),
                 ],
               ),

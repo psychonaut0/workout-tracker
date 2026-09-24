@@ -18,6 +18,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/pending_input.dart';
 import '../widgets/w_action_sheet.dart';
 import '../widgets/w_dialog.dart';
 import 'active_session_controller.dart';
@@ -378,18 +379,17 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                       liveSetId: live?.set.id,
                       rirPromptSetId: controller.rirPromptSetId,
                       liveCardKey: _liveCardKey,
-                      onLongPressHeader: () {
-                        HapticFeedback.mediumImpact();
-                        showReorderExercisesSheet(context, controller: controller);
-                      },
+                      onLongPressHeader: draft.blocks.length < 2
+                          ? null
+                          : () {
+                              HapticFeedback.mediumImpact();
+                              showReorderExercisesSheet(context, controller: controller);
+                            },
                       onFocusSet: (_, s) {
-                        // Commit any in-flight text entry first (same rule as
-                        // the log bar). Typed entry is a modal sheet today, so
-                        // this is defence in depth: a focused field left
-                        // behind a swapped-out live card would otherwise
-                        // commit mid-rebuild.
-                        FocusManager.instance.primaryFocus?.unfocus();
-                        FocusManager.instance.applyFocusChangesIfNeeded();
+                        // Settle in-flight edits first (same rule as the log
+                        // bar): a gliding ruler would otherwise keep writing
+                        // into the set being left.
+                        commitPendingInput();
                         controller.focusSet(s);
                       },
                       onSetChanged: (_, __) => controller.markChanged(),

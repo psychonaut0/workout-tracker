@@ -204,4 +204,31 @@ void main() {
 
     await _teardown(tester);
   });
+
+  testWidgets('switching sets mid-fling leaves the first set at the value shown',
+      (tester) async {
+    final controller = ActiveSessionController();
+    final s0 = SetState(id: 's0', weightKg: 100, reps: 8, rir: 1, isWarmup: false, done: false);
+    final s1 = SetState(id: 's1', weightKg: 120, reps: 8, rir: 1, isWarmup: false, done: false);
+    controller.seedForTest(_draftWith([_block(warm: [], work: [s0, s1])]));
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.fling(find.byKey(const Key('live-weight')), const Offset(-150, 0), 3000);
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    final shown = s0.weightKg;
+    await tester.tap(find.byType(SetLine));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(controller.liveSet!.set.id, 's1');
+    expect(s0.weightKg, shown);
+    expect(s1.weightKg, 120);
+
+    await _teardown(tester);
+  });
 }

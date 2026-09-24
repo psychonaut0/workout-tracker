@@ -82,11 +82,17 @@ void main() {
       expect(changes.last, 92.5);
     });
 
-    testWidgets('a rebuild with the same value never reports a change', (tester) async {
+    testWidgets('a handed-in value off the two-decimal grid is not echoed back',
+        (tester) async {
       await tester.pumpWidget(ruler());
-      await tester.pumpWidget(ruler());
+      await tester.pumpWidget(ruler(value: 3 * 1.1, step: 1.1)); // 3.3000000000000003
       await tester.pumpAndSettle();
       expect(changes, isEmpty);
+    });
+
+    testWidgets('a non-positive step does not crash the tape', (tester) async {
+      await tester.pumpWidget(ruler(step: 0));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('an external value change re-centres without reporting it back', (tester) async {
@@ -116,6 +122,8 @@ void main() {
       node.owner!.performAction(node.id, SemanticsAction.increase);
       await tester.pumpAndSettle();
       expect(changes.last, 102.5);
+      node.owner!.performAction(node.id, SemanticsAction.tap);
+      expect(taps, 1, reason: 'typed entry must be reachable with a screen reader');
       handle.dispose();
     });
   });

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/live_set_card.dart';
@@ -66,7 +67,7 @@ void main() {
   testWidgets('the rulers are labelled sliders for screen readers', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(host(card(_s())));
-    expect(tester.getSemantics(find.bySemanticsLabel('Weight')).flagsCollection.isSlider, isTrue);
+    expect(tester.getSemantics(find.bySemanticsLabel('Weight, kg')).flagsCollection.isSlider, isTrue);
     expect(tester.getSemantics(find.bySemanticsLabel('Reps')).flagsCollection.isSlider, isTrue);
     handle.dispose();
   });
@@ -93,6 +94,23 @@ void main() {
     await tester.tap(find.byKey(const Key('number-entry-done')));
     await tester.pumpAndSettle();
     expect(s.reps, 6);
+    expect(changes, 0);
+  });
+
+  testWidgets('an untouched typed weight in lb does not rewrite the kg value', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final lb = UnitService()..setUnit(Unit.lb);
+    final s = SetState(id: 's', weightKg: 100, reps: 6, rir: 1, isWarmup: false, done: false);
+    await tester.pumpWidget(host(LiveSetCard(
+        set: s, exercise: _ex, workIndex: 1, lastTop: null, unit: lb,
+        onChanged: () => changes++, onMarkNotDone: () {})));
+    await tester.tap(find.descendant(
+        of: find.byKey(const Key('live-weight')), matching: find.byKey(const Key('ruler-centre'))));
+    await tester.pumpAndSettle();
+    expect(find.text('220'), findsWidgets); // 100 kg shown as whole pounds
+    await tester.tap(find.byKey(const Key('number-entry-done')));
+    await tester.pumpAndSettle();
+    expect(s.weightKg, 100);
     expect(changes, 0);
   });
 
