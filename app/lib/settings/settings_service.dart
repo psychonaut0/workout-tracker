@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/tokens.dart';
+import 'bodyweight_goal.dart';
 
 const String _kMode = 'mode';
 const String _kAccent = 'accent';
@@ -36,6 +37,7 @@ class SettingsService extends ChangeNotifier {
   String? _localeOverride;
   bool _autoCheckUpdates = true;
   int _lastUpdateCheckMs = 0;
+  BodyweightGoal _bodyweightGoal = BodyweightGoal.maintain;
 
   String get mode => _mode;
   Color get accent => _accent;
@@ -47,6 +49,7 @@ class SettingsService extends ChangeNotifier {
   int get restIsolationSeconds => _restIsolationSeconds;
   bool get autoCheckUpdates => _autoCheckUpdates;
   int get lastUpdateCheckMs => _lastUpdateCheckMs;
+  BodyweightGoal get bodyweightGoal => _bodyweightGoal;
 
   /// The persisted language-code override (e.g. 'it'), or null to follow the
   /// system locale.
@@ -77,6 +80,9 @@ class SettingsService extends ChangeNotifier {
     _localeOverride = prefs.getString('settings.locale');
     _autoCheckUpdates = prefs.getBool('settings.auto_check_updates') ?? true;
     _lastUpdateCheckMs = prefs.getInt('settings.last_update_check_ms') ?? 0;
+    final storedGoal = prefs.getString('settings.bodyweight_goal');
+    _bodyweightGoal = BodyweightGoal.values
+        .firstWhere((g) => g.name == storedGoal, orElse: () => BodyweightGoal.maintain);
 
     // Accent: stored as ARGB int via toARGB32(). Reconstruct via Color.fromARGB
     // (not Color(int) — deprecated in Flutter 3.44). Fall back to accents[0]
@@ -174,6 +180,15 @@ class SettingsService extends ChangeNotifier {
     _autoCheckUpdates = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('settings.auto_check_updates', value);
+    notifyListeners();
+  }
+
+  /// Set the bodyweight goal and persist.
+  Future<void> setBodyweightGoal(BodyweightGoal goal) async {
+    if (goal == _bodyweightGoal) return;
+    _bodyweightGoal = goal;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('settings.bodyweight_goal', goal.name);
     notifyListeners();
   }
 
