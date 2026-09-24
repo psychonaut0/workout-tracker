@@ -313,8 +313,13 @@ class BodyweightHistoryCard extends StatelessWidget {
       child: Column(
         children: List.generate(items.length, (i) {
           final entry = items[i];
-          // Previous in the reversed list = older entry.
-          final prevValue = i < items.length - 1 ? items[i + 1].value : null;
+          // items[i] is series[series.length - 1 - i]; the entry just before
+          // it chronologically is series[seriesIndex - 1], which may lie
+          // outside the capped-at-24 `items` window for the oldest visible
+          // row. Only the very first entry overall has no predecessor.
+          final seriesIndex = series.length - 1 - i;
+          final prevValue =
+              seriesIndex > 0 ? series[seriesIndex - 1].value : null;
           final diff = prevValue != null ? entry.value - prevValue : 0.0;
           final isLast = i == items.length - 1;
 
