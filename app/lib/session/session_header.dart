@@ -180,49 +180,65 @@ class SessionHeader extends StatelessWidget {
           if (resting)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(l.restLabel,
-                      style: WorkoutType.mono(
-                          size: 10, color: tokens.faint, letterSpacing: 0.08 * 10)),
-                  const SizedBox(width: 8),
-                  AnimatedDefaultTextStyle(
-                    duration: Motion.of(context, Motion.base),
-                    curve: Motion.curve,
-                    style: WorkoutType.display(
-                      size: 20,
-                      weight: FontWeight.w700,
-                      color: remaining <= _finalThreshold ? tokens.accent : tokens.text,
-                    ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                    child: Text('${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}'),
+                  Row(
+                    children: [
+                      Text(l.restLabel,
+                          style: WorkoutType.mono(
+                              size: 10, color: tokens.faint, letterSpacing: 0.08 * 10)),
+                      const SizedBox(width: 8),
+                      AnimatedDefaultTextStyle(
+                        duration: Motion.of(context, Motion.base),
+                        curve: Motion.curve,
+                        style: WorkoutType.display(
+                          size: 18,
+                          weight: FontWeight.w700,
+                          color: remaining <= _finalThreshold ? tokens.accent : tokens.text,
+                        ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                        child:
+                            Text('${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}'),
+                      ),
+                      // The chip pair sits flush right at natural width; at
+                      // extreme width/scale/translation combos there is not
+                      // enough room for both at their natural (unellipsized)
+                      // text width, so this Expanded — the row's only flex
+                      // child — lets them shrink together rather than
+                      // overflow, each keeping its own ellipsis as a floor.
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Flexible(
+                              child: _RestChip(
+                                key: const Key('rest-add'),
+                                label: l.restAdd30s,
+                                filled: false,
+                                tokens: tokens,
+                                onTap: onAdd30s,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: _RestChip(
+                                key: const Key('rest-skip'),
+                                label: l.commonSkip,
+                                filled: true,
+                                tokens: tokens,
+                                onTap: onSkip,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(nextLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: WorkoutType.mono(size: 11, color: tokens.dim)),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _RestChip(
-                      key: const Key('rest-add'),
-                      label: l.restAdd30s,
-                      filled: false,
-                      tokens: tokens,
-                      onTap: onAdd30s,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: _RestChip(
-                      key: const Key('rest-skip'),
-                      label: l.commonSkip,
-                      filled: true,
-                      tokens: tokens,
-                      onTap: onSkip,
-                    ),
-                  ),
+                  const SizedBox(height: 4),
+                  Text(nextLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: WorkoutType.mono(size: 11, color: tokens.dim)),
                 ],
               ),
             ),
@@ -273,7 +289,7 @@ class _RestChip extends StatelessWidget {
       child: Container(
         height: 48,
         constraints: const BoxConstraints(minWidth: 56),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: filled ? tokens.accent : null,
           border: filled ? null : Border.all(color: tokens.lineStrong),

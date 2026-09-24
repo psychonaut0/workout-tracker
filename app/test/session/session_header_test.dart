@@ -70,6 +70,24 @@ void main() {
       child: header(restStart: DateTime.now(), restTotal: 180, locale: const Locale('de')),
     ));
     expect(tester.takeException(), isNull);
+    final skip = find.byKey(const Key('rest-skip'));
+    expect(tester.getSize(skip).width, greaterThanOrEqualTo(56));
+    expect(tester.getSize(skip).height, greaterThanOrEqualTo(48));
+    final nextLine = find.text('Next · Lying leg curl · set 1 · 40kg × 8');
+    expect(tester.getSize(nextLine).width, greaterThanOrEqualTo(200));
+  });
+
+  testWidgets('392dp / 1.0× en: the next line gets its own full-width row',
+      (tester) async {
+    tester.view.physicalSize = const Size(392, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(size: Size(392, 800)),
+      child: header(restStart: DateTime.now(), restTotal: 90),
+    ));
+    final next = find.text('Next · Lying leg curl · set 1 · 40kg × 8');
+    expect(tester.getSize(next).width, greaterThanOrEqualTo(300));
   });
 
   group('restNextLabel', () {
