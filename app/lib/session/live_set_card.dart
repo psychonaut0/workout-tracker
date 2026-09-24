@@ -7,12 +7,16 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
-import '../widgets/stepper.dart';
+import '../util/number_input.dart';
+import '../widgets/number_entry_sheet.dart';
+import '../widgets/rir_picker.dart';
+import '../widgets/ruler_picker.dart';
 import 'active_session_controller.dart';
 
-/// The focused set of the workout: large weight and reps steppers, the
-/// last-session reference, and — for a logged set being corrected — a
-/// "mark as not done" action. Logging itself is the log bar's job.
+/// The focused set of the workout: weight and reps ruler pickers (a tap on
+/// the centre value opens typed entry), the last-session reference, and —
+/// for a logged set being corrected — its RIR and a "mark as not done"
+/// action. Logging itself is the log bar's job.
 ///
 /// Weight is held in kg; typed input converts back through
 /// [UnitService.toKg] (see the stepper rules in app/CLAUDE.md).
@@ -70,40 +74,54 @@ class LiveSetCard extends StatelessWidget {
                   letterSpacing: 0.08 * 10.5)),
           const SizedBox(height: 10),
           Text('${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}', style: caption()),
-          const SizedBox(height: 4),
-          WStepper(
+          RulerPicker(
+            key: const Key('live-weight'),
             value: set.weightKg,
             step: exercise.plateStepKg,
+            max: 500,
             format: (v) => unit.fmtWt(v),
-            editable: true,
-            large: true,
-            parseDisplay: (v) => UnitService.toKg(v, unit.unit),
-            min: 0,
-            decrementLabel: l.sessionDecreaseWeight,
-            incrementLabel: l.sessionIncreaseWeight,
+            semanticLabel: l.sessionWeight,
             onChanged: (v) {
               set.weightKg = v;
               onChanged();
             },
+            onTapValue: () => _typeWeight(context, l),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(l.sessionColReps, style: caption()),
-          const SizedBox(height: 4),
-          WStepper(
+          RulerPicker(
+            key: const Key('live-reps'),
             value: set.reps.toDouble(),
             step: 1,
+            max: 50,
+            itemExtent: 56,
             format: (v) => v.toInt().toString(),
-            editable: true,
-            large: true,
-            allowDecimal: false,
-            min: 0,
-            decrementLabel: l.sessionDecreaseReps,
-            incrementLabel: l.sessionIncreaseReps,
+            semanticLabel: l.sessionReps,
             onChanged: (v) {
               set.reps = v.toInt();
               onChanged();
             },
+            onTapValue: () => _typeReps(context, l),
           ),
+          if (set.done && !set.isWarmup) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(l.sessionColRir, style: caption()),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: RirPicker(
+                    value: set.rir,
+                    height: 48,
+                    onChanged: (v) {
+                      set.rir = v;
+                      onChanged();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             last == null
@@ -132,5 +150,32 @@ class LiveSetCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _typeWeight(BuildContext context, AppLocalizations l) async {
+    final v = await showNumberEntrySheet(
+      context,
+      title: '${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}',
+      initialText: unit.fmtWt(set.weightKg),
+      allowDecimal: true,
+      parse: (text) => parseNumberInput(text,
+          min: 0, parseDisplay: (d) => UnitService.toKg(d, unit.unit)),
+    );
+    if (v == null || v == set.weightKg) return;
+    set.weightKg = v;
+    onChanged();
+  }
+
+  Future<void> _typeReps(BuildContext context, AppLocalizations l) async {
+    final v = await showNumberEntrySheet(
+      context,
+      title: l.sessionColReps,
+      initialText: '${set.reps}',
+      allowDecimal: false,
+      parse: (text) => parseNumberInput(text, min: 0),
+    );
+    if (v == null || v.toInt() == set.reps) return;
+    set.reps = v.toInt();
+    onChanged();
   }
 }

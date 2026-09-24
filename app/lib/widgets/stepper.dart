@@ -32,9 +32,6 @@ class WStepper extends StatefulWidget {
     this.max,
     this.emptyValue,
     this.allowDecimal = true,
-    this.large = false,
-    this.decrementLabel,
-    this.incrementLabel,
   });
 
   final double value;
@@ -48,11 +45,6 @@ class WStepper extends StatefulWidget {
   /// When true, tapping the value label opens an inline text field so the user
   /// can type a value directly.
   final bool editable;
-
-  /// The live workout's focused-set size: 56dp buttons, a 30pt tabular value
-  /// that scales down rather than ellipsising, and an edit cue when
-  /// [editable]. The default stays the compact row size.
-  final bool large;
 
   /// Converts a typed value (in display space, as produced by [format]) back to
   /// the internal value space. When null, the typed value is used as-is.
@@ -79,14 +71,6 @@ class WStepper extends StatefulWidget {
   /// When false the field requests an integer keypad and refuses a decimal
   /// separator.
   final bool allowDecimal;
-
-  /// Accessibility label for the "−" button. When null, the button carries no
-  /// Semantics wrapper of its own (the default, compact-row usage).
-  final String? decrementLabel;
-
-  /// Accessibility label for the "+" button. When null, the button carries no
-  /// Semantics wrapper of its own (the default, compact-row usage).
-  final String? incrementLabel;
 
   @override
   State<WStepper> createState() => _WStepperState();
@@ -298,51 +282,37 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final large = widget.large;
-    final btnSize = large ? const Size(56, 56) : const Size(25, 34);
-    final gap = large ? 8.0 : 4.0;
-    final valueStyle = large
-        ? WorkoutType.display(size: 30, weight: FontWeight.w700, color: tokens.text)
-            .copyWith(fontFeatures: const [FontFeature.tabularFigures()])
-        : WorkoutType.mono(size: 15, weight: FontWeight.w700, color: tokens.text);
 
     final buttonDecoration = BoxDecoration(
       color: tokens.surface3,
-      borderRadius: BorderRadius.circular(AppRadius.radius * (large ? 0.6 : 0.4)),
+      borderRadius: BorderRadius.circular(AppRadius.radius * 0.4),
     );
 
-    Widget btn({required Key key, required IconData icon, required int dir, String? label}) {
-      final button = GestureDetector(
+    Widget btn({
+      required Key key,
+      required IconData icon,
+      required int dir,
+    }) {
+      return GestureDetector(
         key: key,
         // Stop tap from propagating to parent (e.g. accordion header).
         behavior: HitTestBehavior.opaque,
         onTap: () => _step(dir),
         child: Container(
-          width: btnSize.width,
-          height: btnSize.height,
+          width: 25,
+          height: 34,
           decoration: buttonDecoration,
           alignment: Alignment.center,
-          child: Icon(icon, size: large ? 22 : 16, color: tokens.text),
+          child: Icon(icon, size: 16, color: tokens.text),
         ),
       );
-      return label == null
-          ? button
-          : Semantics(button: true, label: label, excludeSemantics: true, child: button);
     }
-
-    final Widget label = Text(
-      widget.format(_internalValue),
-      key: ValueKey(widget.format(_internalValue)),
-      maxLines: 1,
-      overflow: large ? TextOverflow.visible : TextOverflow.ellipsis,
-      style: valueStyle,
-    );
 
     return Row(
       mainAxisSize: MainAxisSize.max,
       children: [
-        btn(key: const Key('stepper-dec'), icon: Icons.remove, dir: -1, label: widget.decrementLabel),
-        SizedBox(width: gap),
+        btn(key: const Key('stepper-dec'), icon: Icons.remove, dir: -1),
+        const SizedBox(width: 4),
         Expanded(
           child: Center(
             child: _editing
@@ -375,7 +345,11 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
                       }),
                     ],
                     onSubmitted: (_) => _commitEdit(),
-                    style: valueStyle,
+                    style: WorkoutType.mono(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: tokens.text,
+                    ),
                     decoration: const InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
@@ -385,44 +359,35 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
                 : GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _beginEdit,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedSwitcher(
-                          duration: Motion.of(context, Motion.fast),
-                          transitionBuilder: (child, anim) => FadeTransition(
-                            opacity: anim,
-                            child: SlideTransition(
-                              position: Tween(
-                                begin: Offset(0, _up ? 0.4 : -0.4),
-                                end: Offset.zero,
-                              ).animate(anim),
-                              child: child,
-                            ),
-                          ),
-                          child: large
-                              ? FittedBox(
-                                  key: ValueKey(widget.format(_internalValue)),
-                                  fit: BoxFit.scaleDown,
-                                  child: label,
-                                )
-                              : label,
+                    child: AnimatedSwitcher(
+                      duration: Motion.of(context, Motion.fast),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween(
+                            begin: Offset(0, _up ? 0.4 : -0.4),
+                            end: Offset.zero,
+                          ).animate(anim),
+                          child: child,
                         ),
-                        if (large && widget.editable)
-                          Container(
-                            key: const Key('stepper-edit-cue'),
-                            margin: const EdgeInsets.only(top: 2),
-                            width: 28,
-                            height: 1.5,
-                            color: tokens.lineStrong,
-                          ),
-                      ],
+                      ),
+                      child: Text(
+                        widget.format(_internalValue),
+                        key: ValueKey(widget.format(_internalValue)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WorkoutType.mono(
+                          size: 15,
+                          weight: FontWeight.w700,
+                          color: tokens.text,
+                        ),
+                      ),
                     ),
                   ),
           ),
         ),
-        SizedBox(width: gap),
-        btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1, label: widget.incrementLabel),
+        const SizedBox(width: 4),
+        btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1),
       ],
     );
   }

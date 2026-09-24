@@ -5,6 +5,7 @@ import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/live_set_card.dart';
 import 'package:workout_tracker/units/unit_service.dart';
 import 'package:workout_tracker/util/dates.dart';
+import 'package:workout_tracker/widgets/ruler_picker.dart';
 
 import '../support/l10n_harness.dart';
 
@@ -41,25 +42,74 @@ void main() {
     expect(find.text('SET 1 · LOGGED'), findsOneWidget);
   });
 
-  testWidgets('the weight + button steps by the plate and reports the change', (tester) async {
+  Future<void> swipe(WidgetTester tester, Key ruler, int steps) async {
+    await tester.timedDrag(find.byKey(ruler),
+        Offset(-steps * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('swiping the weight ruler moves by plate steps and reports it', (tester) async {
     final s = _s();
     await tester.pumpWidget(host(card(s)));
-    await tester.tap(find.byKey(const Key('stepper-inc')).first);
-    expect(s.weightKg, 142.5);
+    await swipe(tester, const Key('live-weight'), 2);
+    expect(s.weightKg, 145);
+    expect(changes, greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('swiping the reps ruler right lowers reps', (tester) async {
+    final s = _s();
+    await tester.pumpWidget(host(card(s)));
+    await swipe(tester, const Key('live-reps'), -2);
+    expect(s.reps, 4);
+  });
+
+  testWidgets('the rulers are labelled sliders for screen readers', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(host(card(_s())));
+    expect(tester.getSemantics(find.bySemanticsLabel('Weight')).flagsCollection.isSlider, isTrue);
+    expect(tester.getSemantics(find.bySemanticsLabel('Reps')).flagsCollection.isSlider, isTrue);
+    handle.dispose();
+  });
+
+  testWidgets('tapping the weight opens typed entry and commits the typed value', (tester) async {
+    final s = _s();
+    await tester.pumpWidget(host(card(s)));
+    await tester.tap(find.descendant(
+        of: find.byKey(const Key('live-weight')), matching: find.byKey(const Key('ruler-centre'))));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('number-entry-field')), '151,5');
+    await tester.tap(find.byKey(const Key('number-entry-done')));
+    await tester.pumpAndSettle();
+    expect(s.weightKg, 151.5);
     expect(changes, 1);
   });
 
-  testWidgets('the steppers label their buttons for screen readers', (tester) async {
+  testWidgets('an untouched typed entry changes nothing', (tester) async {
     final s = _s();
     await tester.pumpWidget(host(card(s)));
+    await tester.tap(find.descendant(
+        of: find.byKey(const Key('live-reps')), matching: find.byKey(const Key('ruler-centre'))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('number-entry-done')));
+    await tester.pumpAndSettle();
+    expect(s.reps, 6);
+    expect(changes, 0);
+  });
 
-    expect(find.bySemanticsLabel('Increase weight'), findsOneWidget);
-    expect(find.bySemanticsLabel('Decrease weight'), findsOneWidget);
-    expect(find.bySemanticsLabel('Increase reps'), findsOneWidget);
-    expect(find.bySemanticsLabel('Decrease reps'), findsOneWidget);
+  testWidgets('a logged working set can still correct its RIR', (tester) async {
+    final s = _s(done: true);
+    await tester.pumpWidget(host(card(s)));
+    expect(tester.getSize(find.byKey(const Key('rir-3'))).height, 48);
+    await tester.tap(find.byKey(const Key('rir-3')));
+    expect(s.rir, 3);
+    expect(changes, 1);
+  });
 
-    await tester.tap(find.bySemanticsLabel('Increase weight'));
-    expect(s.weightKg, 142.5);
+  testWidgets('no RIR picker for a pending set or a logged warm-up', (tester) async {
+    await tester.pumpWidget(host(card(_s())));
+    expect(find.byKey(const Key('rir-0')), findsNothing);
+    await tester.pumpWidget(host(card(_s(done: true, warmup: true))));
+    expect(find.byKey(const Key('rir-0')), findsNothing);
   });
 
   testWidgets('shows the last-session reference or no previous data', (tester) async {

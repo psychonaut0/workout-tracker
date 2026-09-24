@@ -6,6 +6,7 @@ import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/live_set_card.dart';
 import 'package:workout_tracker/session/log_set_bar.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+import 'package:workout_tracker/widgets/ruler_picker.dart';
 
 import '../support/l10n_harness.dart';
 
@@ -88,7 +89,7 @@ void main() {
     expect(finishes, 1);
   });
 
-  testWidgets('typed weight commits before the bar logs', (tester) async {
+  testWidgets('the bar logs exactly what the weight ruler shows', (tester) async {
     final s = _s('a1');
     final block = _block([], [s]);
     final c = ActiveSessionController()
@@ -97,20 +98,19 @@ void main() {
     await tester.pumpWidget(wrapL10n(StatefulBuilder(
       builder: (context, setState) => Column(children: [
         LiveSetCard(set: s, exercise: _ex, workIndex: 1, lastTop: null, unit: unit,
-            onChanged: c.markChanged, onMarkNotDone: () {}),
+            onChanged: () => setState(c.markChanged), onMarkNotDone: () {}),
         const Spacer(),
         LogSetBar(live: c.liveSet, canFinish: c.canFinish, unit: unit,
             onLog: () => setState(() => c.logLiveSet()), onFinish: () {}),
       ]),
     )));
-    // Open the weight field and type without pressing Done.
-    await tester.tap(find.text('140'));
-    await tester.pump();
-    await tester.enterText(find.byType(TextField), '152.5');
-    await tester.pump();
+    await tester.timedDrag(find.byKey(const Key('live-weight')),
+        const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('Log set 1 · 145kg × 6'), findsOneWidget);
     await tester.tap(find.byKey(const Key('log-set-bar')));
     await tester.pump();
-    expect(s.weightKg, 152.5);
+    expect(s.weightKg, 145);
     expect(s.done, isTrue);
   });
 

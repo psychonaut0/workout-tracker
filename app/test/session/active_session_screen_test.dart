@@ -12,6 +12,7 @@ import 'package:workout_tracker/settings/settings_service.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+import 'package:workout_tracker/widgets/ruler_picker.dart';
 
 /// Mounts [ActiveSessionScreen] with only the providers it reads. It never
 /// touches `db` unless a test taps "Add exercise" or finishes the workout,
@@ -141,8 +142,7 @@ void main() {
   });
 
   testWidgets(
-      'tapping another set while typing in the live card commits the typed '
-      'value without throwing', (tester) async {
+      'a ruler change stays on its set when another set is tapped', (tester) async {
     final controller = ActiveSessionController();
     final s0 = SetState(id: 's0', weightKg: 100, reps: 8, rir: 1, isWarmup: false, done: false);
     final s1 = SetState(id: 's1', weightKg: 120, reps: 8, rir: 1, isWarmup: false, done: false);
@@ -155,19 +155,19 @@ void main() {
 
     expect(controller.liveSet!.set.id, 's0');
 
-    // Tap the live card's weight value to open the inline edit field, then
-    // type a new value WITHOUT submitting it.
-    await tester.tap(find.text('100').first);
-    await tester.pump();
-    await tester.enterText(find.byType(TextField), '135');
-    await tester.pump();
+    await tester.timedDrag(find.byKey(const Key('live-weight')),
+        const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100)); // let the tape snap
+    }
+    expect(s0.weightKg, 105);
 
-    // Tap the other (not-live) set, rendered as a SetLine.
     await tester.tap(find.byType(SetLine));
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(s0.weightKg, 135);
+    expect(s0.weightKg, 105);
+    expect(s1.weightKg, 120);
     expect(controller.liveSet!.set.id, 's1');
 
     await _teardown(tester);
