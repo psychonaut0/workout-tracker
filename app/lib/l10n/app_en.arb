@@ -164,6 +164,72 @@
       }
     }
   },
+  "sessionLogSet": "Log set {index} · {weight} × {reps}",
+  "@sessionLogSet": {
+    "placeholders": {
+      "index": {"type": "int"},
+      "weight": {"type": "String"},
+      "reps": {"type": "int"}
+    }
+  },
+  "sessionLogWarmup": "Log warm-up · {weight} × {reps}",
+  "@sessionLogWarmup": {
+    "placeholders": {
+      "weight": {"type": "String"},
+      "reps": {"type": "int"}
+    }
+  },
+  "sessionUpdateSet": "Update set {index}",
+  "@sessionUpdateSet": {
+    "placeholders": {"index": {"type": "int"}}
+  },
+  "sessionUpdateWarmup": "Update warm-up",
+  "sessionLiveSet": "SET {index}",
+  "@sessionLiveSet": {
+    "placeholders": {"index": {"type": "int"}}
+  },
+  "sessionLiveWarmup": "WARM-UP",
+  "sessionLiveLogged": "{label} · LOGGED",
+  "@sessionLiveLogged": {
+    "placeholders": {"label": {"type": "String"}}
+  },
+  "sessionLastRef": "last {weight} × {reps} · {ago}",
+  "@sessionLastRef": {
+    "placeholders": {
+      "weight": {"type": "String"},
+      "reps": {"type": "int"},
+      "ago": {"type": "String"}
+    }
+  },
+  "sessionMarkNotDone": "Mark as not done",
+  "sessionRestNext": "Next · {what}",
+  "@sessionRestNext": {
+    "placeholders": {"what": {"type": "String"}}
+  },
+  "sessionNextSet": "{exercise} · set {index} · {weight} × {reps}",
+  "@sessionNextSet": {
+    "placeholders": {
+      "exercise": {"type": "String"},
+      "index": {"type": "int"},
+      "weight": {"type": "String"},
+      "reps": {"type": "int"}
+    }
+  },
+  "sessionNextWarmup": "{exercise} · warm-up · {weight} × {reps}",
+  "@sessionNextWarmup": {
+    "placeholders": {
+      "exercise": {"type": "String"},
+      "weight": {"type": "String"},
+      "reps": {"type": "int"}
+    }
+  },
+  "sessionWorkoutOptions": "Workout options",
+  "sessionExerciseOptions": "Exercise options",
+  "sessionDiscardWorkout": "Discard workout",
+  "sessionAddWarmupSet": "Add warm-up",
+  "sessionSetRemoved": "Set removed",
+  "commonUndo": "Undo",
+  "sessionMinimize": "Minimize",
   "sessionSearchExercises": "Search exercises…",
   "sessionNoExercisesFound": "No exercises found",
   "sessionOtherMuscle": "Other",
