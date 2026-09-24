@@ -278,6 +278,14 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                           },
                           onSetChanged: (b, s) => controller.markChanged(),
                           onAddSet: (b) => controller.addSet(b),
+                          onAddWarmup: (b) => controller.addWarmupSet(b),
+                          onRemoveSet: (b, s) => controller.removeSet(b, s),
+                          onMoveUp: identical(block, draft.blocks.first)
+                              ? null
+                              : () => controller.moveBlock(block, -1),
+                          onMoveDown: identical(block, draft.blocks.last)
+                              ? null
+                              : () => controller.moveBlock(block, 1),
                           onRemoveBlock: (b) async {
                             final hasDone = b.allSets.any((s) => s.done);
                             if (hasDone) {

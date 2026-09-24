@@ -9,6 +9,7 @@ import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
 import '../widgets/pr_badge.dart';
+import '../widgets/w_dialog.dart';
 import 'active_session_controller.dart';
 import 'set_row.dart';
 
@@ -25,6 +26,10 @@ class ExerciseBlock extends StatefulWidget {
     required this.onSetChanged,
     required this.onAddSet,
     required this.onRemoveBlock,
+    this.onRemoveSet,
+    this.onAddWarmup,
+    this.onMoveUp,
+    this.onMoveDown,
   });
 
   final BlockState block;
@@ -34,6 +39,18 @@ class ExerciseBlock extends StatefulWidget {
   final void Function(BlockState) onAddSet;
   final void Function(BlockState) onRemoveBlock;
 
+  /// Swipe-left removal of a set. Null disables the swipe. A ticked set is
+  /// confirmed first; an unticked one goes straight away.
+  final void Function(BlockState, SetState)? onRemoveSet;
+
+  /// The "+ Warm-up" button. Null hides it.
+  final void Function(BlockState)? onAddWarmup;
+
+  /// Footer reorder arrows. Null renders that arrow disabled (first / last
+  /// exercise).
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
+
   @override
   State<ExerciseBlock> createState() => _ExerciseBlockState();
 }
@@ -42,6 +59,21 @@ class _ExerciseBlockState extends State<ExerciseBlock>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
+  /// A ticked set holds logged work, so removing it is confirmed (the same
+  /// rule as removing an exercise); an unticked set goes without asking.
+  Future<bool> _confirmRemoveSet(SetState s) async {
+    if (!s.done) return true;
+    final l = AppLocalizations.of(context);
+    final confirmed = await showWConfirm(
+      context,
+      title: l.sessionRemoveSetTitle,
+      message: l.sessionRemoveSetMessage,
+      confirmLabel: l.commonRemove,
+      destructive: true,
+    );
+    return confirmed == true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -294,19 +326,30 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                               s.weightKg == completedTop;
                           final isLivePrSet = isLiveTop && isLivePr;
 
+                          final row = SetRow(
+                            set: s,
+                            exercise: ex,
+                            workIndex: workIdx,
+                            unit: unit,
+                            isLiveTop: isLiveTop,
+                            isLivePr: isLivePrSet,
+                            onChanged: (updated) =>
+                                widget.onSetChanged(block, updated),
+                            onToggleDone: () => widget.onToggleDone(block, s),
+                          );
+                          final onRemoveSet = widget.onRemoveSet;
                           return Reveal(
                             key: ValueKey(s.id),
-                            child: SetRow(
-                              set: s,
-                              exercise: ex,
-                              workIndex: workIdx,
-                              unit: unit,
-                              isLiveTop: isLiveTop,
-                              isLivePr: isLivePrSet,
-                              onChanged: (updated) =>
-                                  widget.onSetChanged(block, updated),
-                              onToggleDone: () => widget.onToggleDone(block, s),
-                            ),
+                            child: onRemoveSet == null
+                                ? row
+                                : Dismissible(
+                                    key: ValueKey('dismiss-${s.id}'),
+                                    direction: DismissDirection.endToStart,
+                                    background: _RemoveSetBackground(tokens: tokens),
+                                    confirmDismiss: (_) => _confirmRemoveSet(s),
+                                    onDismissed: (_) => onRemoveSet(block, s),
+                                    child: row,
+                                  ),
                           );
                         }),
                       ],
@@ -315,21 +358,59 @@ class _ExerciseBlockState extends State<ExerciseBlock>
 
                   const SizedBox(height: 8),
 
-                  // Dashed "Add set" button
-                  _DashedBlockButton(
-                    height: 38,
-                    icon: Icons.add,
-                    label: l.sessionAddSet,
-                    tokens: tokens,
-                    onTap: () => widget.onAddSet(block),
+                  // Dashed "+ Warm-up" and "Add set" buttons
+                  Row(
+                    children: [
+                      if (widget.onAddWarmup != null) ...[
+                        Expanded(
+                          child: _DashedBlockButton(
+                            height: 38,
+                            icon: Icons.add,
+                            label: l.sessionAddWarmup,
+                            tokens: tokens,
+                            onTap: () => widget.onAddWarmup!(block),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: _DashedBlockButton(
+                          height: 38,
+                          icon: Icons.add,
+                          label: l.sessionAddSet,
+                          tokens: tokens,
+                          onTap: () => widget.onAddSet(block),
+                        ),
+                      ),
+                    ],
                   ),
 
-                  // "Remove exercise" button
+                  // Reorder arrows + "Remove exercise"
                   const SizedBox(height: 8),
-                  _RemoveExerciseButton(
-                    tokens: tokens,
-                    label: l.sessionRemoveExercise,
-                    onTap: () => widget.onRemoveBlock(block),
+                  Row(
+                    children: [
+                      _MoveButton(
+                        icon: Icons.keyboard_arrow_up,
+                        label: l.sessionMoveUp,
+                        tokens: tokens,
+                        onTap: widget.onMoveUp,
+                      ),
+                      _MoveButton(
+                        icon: Icons.keyboard_arrow_down,
+                        label: l.sessionMoveDown,
+                        tokens: tokens,
+                        onTap: widget.onMoveDown,
+                      ),
+                      Expanded(
+                        child: _RemoveExerciseButton(
+                          tokens: tokens,
+                          label: l.sessionRemoveExercise,
+                          onTap: () => widget.onRemoveBlock(block),
+                        ),
+                      ),
+                      // Mirrors the two arrows so the label stays centred.
+                      const SizedBox(width: 80),
+                    ],
                   ),
                 ],
               ),
@@ -373,12 +454,16 @@ class _LastTopRow extends StatelessWidget {
           children: [
             Icon(WIcons.history, size: 15, color: tokens.faint),
             const SizedBox(width: 8),
-            Text(
-              l.sessionNoPreviousData,
-              style: WorkoutType.mono(
-                size: 10.5,
-                color: tokens.faint,
-                letterSpacing: 0.06 * 10.5,
+            Flexible(
+              child: Text(
+                l.sessionNoPreviousData,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: WorkoutType.mono(
+                  size: 10.5,
+                  color: tokens.faint,
+                  letterSpacing: 0.06 * 10.5,
+                ),
               ),
             ),
           ],
@@ -397,15 +482,19 @@ class _LastTopRow extends StatelessWidget {
         children: [
           Icon(WIcons.history, size: 15, color: tokens.faint),
           const SizedBox(width: 8),
-          Text(
-            l.sessionLastLabel(agoLabel.toUpperCase()),
-            style: WorkoutType.mono(
-              size: 10.5,
-              color: tokens.faint,
-              letterSpacing: 0.06 * 10.5,
+          Expanded(
+            child: Text(
+              l.sessionLastLabel(agoLabel.toUpperCase()),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: WorkoutType.mono(
+                size: 10.5,
+                color: tokens.faint,
+                letterSpacing: 0.06 * 10.5,
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           Text(
             '${unit.fmtWt(lastTop!.weight)}${unit.uLabel} × ${lastTop!.reps}',
             style: WorkoutType.mono(
@@ -452,15 +541,80 @@ class _DashedBlockButton extends StatelessWidget {
           children: [
             Icon(icon, size: 14, color: tokens.dim),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: WorkoutType.mono(
-                size: 12,
-                weight: FontWeight.w600,
-                color: tokens.dim,
+            // Two of these share a row: shrink rather than overflow at large
+            // text scale or with long translations.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: WorkoutType.mono(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: tokens.dim,
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Red trash background revealed while a set row is swiped left.
+class _RemoveSetBackground extends StatelessWidget {
+  const _RemoveSetBackground({required this.tokens});
+
+  final WorkoutTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 14),
+      decoration: BoxDecoration(
+        color: tokens.danger,
+        borderRadius: BorderRadius.circular(AppRadius.radius * 0.5),
+      ),
+      child: Icon(WIcons.trash, size: 18, color: tokens.bg),
+    );
+  }
+}
+
+/// One footer reorder arrow; a null [onTap] renders it disabled.
+class _MoveButton extends StatelessWidget {
+  const _MoveButton({
+    required this.icon,
+    required this.label,
+    required this.tokens,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final WorkoutTokens tokens;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 34,
+          child: Icon(
+            icon,
+            size: 20,
+            color: enabled ? tokens.dim : tokens.line,
+          ),
         ),
       ),
     );
@@ -491,13 +645,19 @@ class _RemoveExerciseButton extends StatelessWidget {
           children: [
             Icon(Icons.delete_outline, size: 14, color: tokens.faint),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: WorkoutType.mono(
-                size: 11.5,
-                weight: FontWeight.w600,
-                color: tokens.faint,
-                letterSpacing: 0.04 * 11.5,
+            // Shares its row with the reorder arrows: shrink rather than
+            // overflow on narrow phones or at large text scale.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: WorkoutType.mono(
+                  size: 11.5,
+                  weight: FontWeight.w600,
+                  color: tokens.faint,
+                  letterSpacing: 0.04 * 11.5,
+                ),
               ),
             ),
           ],
