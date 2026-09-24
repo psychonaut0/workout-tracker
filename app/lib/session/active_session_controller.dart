@@ -515,6 +515,50 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Removes [set] (warm-up or working) from [block].
+  void removeSet(BlockState block, SetState set) {
+    block.warmupSets.remove(set);
+    block.workingSets.remove(set);
+    notifyListeners();
+  }
+
+  /// Appends a warm-up set to [block], continuing the same ramp
+  /// [buildBlock] uses: the i-th warm-up is `(0.5 + 0.18 * i)` of the first
+  /// working set's weight (or, with no working set, the block's suggested
+  /// weight), rounded to the plate step and never above it; reps
+  /// `max(1, 8 - 2 * i)`.
+  void addWarmupSet(BlockState block) {
+    final step = block.exercise.plateStepKg;
+    final seed = block.exercise.baseWeightKg ?? 20.0;
+    final reference = block.workingSets.isNotEmpty
+        ? block.workingSets.first.weightKg
+        : roundTo(seed + (block.exercise.compound ? step : 0), step);
+    final i = block.warmupSets.length;
+    final weight = roundTo(reference * (0.5 + 0.18 * i), step);
+    block.warmupSets.add(SetState(
+      id: uuid.v4(),
+      weightKg: weight > reference ? reference : weight,
+      reps: max(1, 8 - 2 * i),
+      rir: null,
+      isWarmup: true,
+      done: false,
+    ));
+    notifyListeners();
+  }
+
+  /// Moves [block] [delta] positions in the workout (negative = up). A move
+  /// past either end is a no-op.
+  void moveBlock(BlockState block, int delta) {
+    final blocks = draft.blocks;
+    final from = blocks.indexOf(block);
+    final to = from + delta;
+    if (from < 0 || to < 0 || to >= blocks.length || delta == 0) return;
+    blocks
+      ..removeAt(from)
+      ..insert(to, block);
+    notifyListeners();
+  }
+
   /// Removes [block] from the session.
   void removeBlock(BlockState block) {
     draft.blocks.remove(block);
