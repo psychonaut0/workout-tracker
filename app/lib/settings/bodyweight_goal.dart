@@ -12,3 +12,8 @@ DeltaTone bodyweightDeltaTone(double delta, BodyweightGoal goal) => switch (goal
       BodyweightGoal.bulk when delta > 0 => DeltaTone.good,
       _ => DeltaTone.neutral,
     };
+
+/// Rounds [delta] to the same one-decimal precision `fmtSigned` displays, so
+/// a delta whose printed text reads "0" is never toned as a change — a raw
+/// delta in (0, 0.05) would otherwise still read as a gain or loss.
+double displayedBodyweightDelta(double delta) => (delta * 10).round() / 10;

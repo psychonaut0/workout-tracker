@@ -231,7 +231,9 @@ class _BwStatRow extends StatelessWidget {
                 label: l.bodyweightStat30Day,
                 value: fmtSigned(delta30),
                 unit: unit,
-                accent: bodyweightDeltaTone(delta30, goal) == DeltaTone.good,
+                accent: bodyweightDeltaTone(
+                        displayedBodyweightDelta(delta30), goal) ==
+                    DeltaTone.good,
               ),
             ),
           ),
@@ -366,7 +368,9 @@ class BodyweightHistoryCard extends StatelessWidget {
                     style: WorkoutType.mono(
                       size: 11.5,
                       weight: FontWeight.w600,
-                      color: bodyweightDeltaTone(diff, goal) == DeltaTone.good
+                      color: bodyweightDeltaTone(
+                                  displayedBodyweightDelta(diff), goal) ==
+                              DeltaTone.good
                           ? tokens.accent
                           : tokens.dim,
                     ),

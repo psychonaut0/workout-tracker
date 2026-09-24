@@ -46,4 +46,36 @@ void main() {
     final date = find.textContaining('24');
     expect(tester.getSize(date.first).height, lessThan(24));
   });
+
+  testWidgets('a delta that displays as 0 is never coloured', (tester) async {
+    final series = [
+      (date: '2026-09-06', value: 67.00, reps: 0, isPr: false),
+      (date: '2026-09-07', value: 67.03, reps: 0, isPr: false), // +0.03 → "0"
+    ];
+    await tester.pumpWidget(wrapL10n(SingleChildScrollView(
+        child: BodyweightHistoryCard(series: series, unit: 'kg', goal: BodyweightGoal.bulk))));
+    final tokens = tester.element(find.byType(BodyweightHistoryCard)).tokens;
+    expect(find.text('0'), findsOneWidget);
+    expect(_colorOf(tester, '0'), tokens.dim);
+  });
+
+  testWidgets('the oldest visible row still shows a delta when older entries exist', (tester) async {
+    // 26 entries, one per day; the card caps display at 24, newest first, so
+    // series[0] and series[1] are dropped and series[2] is the oldest shown
+    // (the 24th visible row). Its delta must come from series[1] (+3.5, a
+    // value distinct from every other consecutive delta, which is +1).
+    final values = [0.0, 2.5, 6.0, for (var i = 3; i < 26; i++) 6.0 + (i - 2)];
+    final series = List.generate(26, (i) {
+      final day = 6 + i; // 2026-08-06 .. 2026-08-31
+      return (
+        date: '2026-08-${day.toString().padLeft(2, '0')}',
+        value: values[i],
+        reps: 0,
+        isPr: false,
+      );
+    });
+    await tester.pumpWidget(wrapL10n(SingleChildScrollView(
+        child: BodyweightHistoryCard(series: series, unit: 'kg', goal: BodyweightGoal.maintain))));
+    expect(find.text('+3.5'), findsOneWidget);
+  });
 }
