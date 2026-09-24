@@ -272,4 +272,4 @@ Device checks before tagging (in addition to §15):
 12. Swiping a set row left does not fight the weight/reps steppers, the RIR picker or an open number field.
 13. Removing a ticked set asks first; an unticked one goes at once; the set numbers and the "n/m" badge update.
 14. "+ Warm-up" produces a sensible ramp for a barbell lift and for a machine/dumbbell exercise, in kg and in lb.
-15. Moving an exercise keeps its expanded state and typed values; after Finish, History and the summary show the new order (the summary's order comes from `exercise_id` — pre-existing — so only the resumed-workout order is guaranteed).
+15. Moving an exercise keeps its expanded state and typed values; after Finish, History and the summary show the new order (since v0.14.1: set_number runs across the workout and reads order exercises by their first set; workouts logged before v0.14.1 keep exercise-id order).
