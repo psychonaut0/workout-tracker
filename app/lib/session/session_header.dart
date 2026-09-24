@@ -289,23 +289,28 @@ class _RestChip extends StatelessWidget {
       child: Container(
         height: 48,
         constraints: const BoxConstraints(minWidth: 56),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        // Skip is secondary to the log bar, the screen's one lime action:
+        // a quiet filled chip, not an accent one.
         decoration: BoxDecoration(
-          color: filled ? tokens.accent : null,
+          color: filled ? tokens.surface3 : null,
           border: filled ? null : Border.all(color: tokens.lineStrong),
           borderRadius: BorderRadius.circular(AppRadius.radius * 0.5),
         ),
-        alignment: Alignment.center,
-        // Fixed sizing widens beyond 56dp for longer translations (e.g. the
-        // German "Überspringen"); ellipsize instead of forcing the row to
+        // widthFactor 1 sizes the chip to its label; a Container `alignment`
+        // would instead stretch it across all the width its Flexible offers.
+        // Longer translations (German "Überspringen") ellipsize rather than
         // overflow at small widths / large text scale.
-        child: Text(label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: WorkoutType.mono(
-                size: 12,
-                weight: FontWeight.w700,
-                color: filled ? tokens.accentInk : tokens.dim)),
+        child: Center(
+          widthFactor: 1,
+          child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: WorkoutType.mono(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: filled ? tokens.text : tokens.dim)),
+        ),
       ),
     );
   }

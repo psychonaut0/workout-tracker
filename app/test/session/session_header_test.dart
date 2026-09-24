@@ -90,6 +90,22 @@ void main() {
     expect(tester.getSize(next).width, greaterThanOrEqualTo(300));
   });
 
+  testWidgets('392dp / 1.0× en: the rest chips hug their labels instead of filling the row',
+      (tester) async {
+    tester.view.physicalSize = const Size(392, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(size: Size(392, 800)),
+      child: header(restStart: DateTime.now(), restTotal: 90),
+    ));
+    for (final key in const [Key('rest-add'), Key('rest-skip')]) {
+      final size = tester.getSize(find.byKey(key));
+      expect(size.width, inInclusiveRange(56, 100), reason: '$key');
+      expect(size.height, 48, reason: '$key');
+    }
+  });
+
   group('restNextLabel', () {
     final l = lookupAppLocalizations(const Locale('en'));
     final unit = UnitService();
