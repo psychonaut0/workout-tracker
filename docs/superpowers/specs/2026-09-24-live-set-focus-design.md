@@ -148,3 +148,17 @@ The rest haptics, the auto-stop at 0 and the notification path are unchanged; th
 - Nothing overlaps the exercise list at any time.
 - Typing a weight and then tapping the bar logs the typed value.
 - Tests cover live-set resolution, log/update/advance, the RIR strip timer, undo restore, the bar label matrix, the typed-then-log case, and no overflow at 320dp/1.3× in Italian.
+
+## Addendum — first device test (2026-09-24)
+
+Three changes after the first build ran on a phone:
+
+1. **RIR stays correctable.** The live card of a *logged working set* also shows the 0–3 RIR picker (48dp chips). The post-log strip stays as the zero-tap path; this is the "I forgot" path.
+2. **Drag to reorder exercises.** Long-pressing a block header lifts it (haptic, compact drag proxy showing the exercise name) and drops it anywhere in the workout. Move up / Move down stay in the block's ⋯ sheet.
+3. **Ruler picker replaces − / + in the live card** (weight and reps):
+   - Values sit on a horizontal tape. Swiping moves the tape, flinging moves many values, and on release it snaps so a value sits exactly under the centre marker.
+   - The centre value is the selected one: large and accent-coloured. Neighbours shrink and fade with distance. Each value that crosses the centre gives a selection haptic.
+   - Weight steps by the exercise's plate step, reps by 1. The tape is anchored on the current value, so a weight off the step grid (from history or typing) is shown exactly and never silently rounded.
+   - Tapping the centre value opens a modal number sheet for typing an exact value. Because the sheet is modal, no other control can act while a typed value is uncommitted.
+   - Accessibility: the ruler is a slider in the semantics tree, with increase/decrease actions and the formatted value.
+   - `WStepper`'s large variant and its button labels become unused and are removed. The compact `WStepper` is unchanged everywhere else.
