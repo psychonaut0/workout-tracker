@@ -13,7 +13,7 @@ The weight ruler moves in fixed 0.5 kg (1 lb) steps. A normal change of a few ki
 - **Two step sizes on the weight ruler.**
   - Coarse is the default: **1 kg** / **5 lb**.
   - A slow drag, or holding the finger still, **zooms in** to the fine step: **0.25 kg** / **1 lb**.
-- **The zoom is a real zoom.** The tape widens around the centre and the fine values and ticks fade in (about 150 ms, `Motion.of`). It zooms back out when the drag speeds up again. The in and out thresholds differ (hysteresis) so the mode doesn't flicker at the boundary. A light haptic marks each mode change.
+- **The zoom is a real zoom.** The tape widens around the centre and the fine values and ticks fade in (about 150 ms, `Motion.of`). Once zoomed during a touch, it stays zoomed until the finger lifts; a fractional value the tape rests zoomed on still zooms out on a quick swipe. A light haptic marks each mode change.
 - **Release snaps to the current mode's grid.**
   - A fast swipe lands on whole kg.
   - A zoomed drag lands on quarters.
@@ -49,7 +49,7 @@ Today it rounds to one decimal, which would show 60.25 as "60.3". Storage alread
 - **Reporting.** `onChanged` fires once per grid value of the current mode that crosses the centre, during the drag and the glide. It never fires for a value handed in by the parent, and never twice in a row for the same value. It is followed by `HapticFeedback.selectionClick()`, as today.
 - **Zoom triggers** (only when `fineStep` is set):
   - **In:** while dragging, the smoothed drag speed stays below **~120 dp/s** for **~200 ms**, or the pointer is held down with less than 4 dp of movement for **~450 ms** (tuned up from 300 after the phone test).
-  - **Out:** the smoothed speed exceeds **~250 dp/s** (tuned down from 450 after the phone test, so an ordinary move leaves the zoom mid-drag).
+  - **Out:** a zoom entered during the current touch holds at any speed until the finger lifts (the phone test asked for this). Only a zoom the tape was already resting in (a fractional value) zooms out mid-drag, when the smoothed speed exceeds **~450 dp/s**, so a quick swipe still gets back to whole steps.
   - Put these as named constants at the top of the file for tuning after device testing.
   - The zoom animates `t` around the current centre value. The centre stays put while the neighbours spread or close.
   - The "current mode" (the grid values are reported on and a release snaps to) is the one the zoom is heading for, not `t ≥ 0.5`, so a fast drag from a zoomed rest steps on whole values from its first move.

@@ -35,8 +35,9 @@ const Duration kZoomInDwell = Duration(milliseconds: 200);
 const Duration kHoldDwell = Duration(milliseconds: 450);
 const double kHoldSlop = 4;
 
-/// A drag faster than this many dp/s zooms back out.
-const double kZoomOutSpeed = 250;
+/// A drag faster than this many dp/s zooms back out of a zoom the tape was
+/// resting in. A zoom entered during the current touch holds until it lifts.
+const double kZoomOutSpeed = 450;
 
 /// The least on-screen distance between fine values, wide enough that
 /// centred labels like "100.25" keep clear of each other.
@@ -180,6 +181,11 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   /// Where the zoom is heading: true once a slow drag or a hold asked for
   /// the fine step, or the tape rests on a value off the coarse grid.
   bool _wantFine = false;
+
+  /// True once this touch zoomed in: the zoom then holds at any speed until
+  /// the finger lifts. A zoom the tape was already resting in (a fractional
+  /// value) is not locked, so a quick swipe still gets back to whole steps.
+  bool _zoomLocked = false;
 
   /// True from the start of a horizontal drag until its end; cleared early
   /// when [settle] halts the tape under the finger.
@@ -441,6 +447,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
     if (_fine == null || fine == _wantFine) return;
     HapticFeedback.lightImpact();
     _slowSince = null;
+    if (fine) _zoomLocked = true;
     _zoomTo(fine);
   }
 
@@ -482,6 +489,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   }
 
   void _onPointerDown(PointerDownEvent e) {
+    _zoomLocked = false;
     // A finger on the tape stops a glide on the value last reported, as
     // settleAll does: a tap that opens typed entry must not snap onward.
     if (_glide.isAnimating) _restOnCurrent();
@@ -569,7 +577,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
         ? sample
         : prev + (sample - prev) * (1 - math.exp(-dt / _speedSmoothing));
     if (_wantFine) {
-      if (speed > kZoomOutSpeed) _switchZoom(false);
+      if (!_zoomLocked && speed > kZoomOutSpeed) _switchZoom(false);
     } else if (speed < kZoomInSpeed) {
       final since = _slowSince ??= stamp;
       if (stamp - since >= kZoomInDwell) _switchZoom(true);

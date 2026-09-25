@@ -302,40 +302,23 @@ void main() {
       expect(state(tester).zoom, 0);
     });
 
-    testWidgets('speeding up mid-drag zooms back out', (tester) async {
+    testWidgets('a zoom entered during a touch holds at any speed until the finger lifts',
+        (tester) async {
       await tester.pumpWidget(ruler());
       final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
       // ~94 dp/s: slow enough to zoom in.
       var t = await slide(tester, gesture, Duration.zero, steps: 40, dx: -1.5);
       await tester.pump(const Duration(milliseconds: 200));
       expect(state(tester).zoom, 1);
-      // ~1250 dp/s.
+      // ~310 dp/s, then ~1250 dp/s: still zoomed while the finger is down.
+      t = await slide(tester, gesture, t, steps: 12, dx: -5);
       t = await slide(tester, gesture, t, steps: 6, dx: -20);
       await tester.pump(const Duration(milliseconds: 200));
-      expect(state(tester).zoom, 0);
+      expect(state(tester).zoom, 1);
       await gesture.up(timeStamp: t);
       await tester.pumpAndSettle();
-      expect(whole(changes.last), isTrue, reason: '$changes');
-      expect(state(tester).zoom, 0);
-    });
-
-    testWidgets('a moderate speed-up zooms out; a gentle zoomed drag stays zoomed',
-        (tester) async {
-      await tester.pumpWidget(ruler());
-      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
-      var t = await slide(tester, gesture, Duration.zero, steps: 40, dx: -1.5);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(state(tester).zoom, 1);
-      // ~200 dp/s: still a fine adjustment.
-      t = await slide(tester, gesture, t, steps: 20, dx: -3.2);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(state(tester).zoom, 1);
-      // ~310 dp/s: an ordinary move, back to whole steps.
-      t = await slide(tester, gesture, t, steps: 12, dx: -5);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(state(tester).zoom, 0);
-      await gesture.up(timeStamp: t);
-      await tester.pumpAndSettle();
+      // Released zoomed, so it lands on the fine grid.
+      expect(changes.last % 0.25, 0, reason: '$changes');
     });
 
     testWidgets('a fractional value rests zoomed; a fast drag from it lands on the coarse grid',
