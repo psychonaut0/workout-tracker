@@ -500,8 +500,10 @@ class _ArrowButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
+    final label = flip ? l.a11yPreviousDay : l.a11yNextDay;
 
-    final child = Container(
+    final visual = Container(
       width: 28,
       height: 28,
       decoration: BoxDecoration(
@@ -521,10 +523,21 @@ class _ArrowButton extends StatelessWidget {
       ),
     );
 
-    if (!enabled) {
-      return Opacity(opacity: 0.4, child: child);
-    }
+    final hitArea = SizedBox(
+      width: 48,
+      height: 48,
+      child: Center(
+        child: enabled ? visual : Opacity(opacity: 0.4, child: visual),
+      ),
+    );
 
-    return GestureDetector(onTap: onTap, child: child);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      onTap: enabled ? onTap : null,
+      child: GestureDetector(onTap: enabled ? onTap : null, child: hitArea),
+    );
   }
 }

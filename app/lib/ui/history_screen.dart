@@ -888,18 +888,23 @@ class _InlineAction extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: verticalPadding),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: verticalPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -930,7 +935,9 @@ class _BlockRow extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Padding(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -999,6 +1006,7 @@ class _BlockRow extends StatelessWidget {
               Icon(WIcons.chevron, size: 13, color: tokens.faint),
             ],
           ],
+        ),
         ),
       ),
     );

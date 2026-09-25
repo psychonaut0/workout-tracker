@@ -65,4 +65,27 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(FittedBox), findsOneWidget);
   });
+
+  testWidgets(
+      'a scaled-up long value in a 144-wide stepper (profile rest rows) does '
+      'not throw and is wrapped in a FittedBox', (tester) async {
+    await tester.pumpWidget(wrapL10n(
+      MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(1.3)),
+        child: SizedBox(
+          width: 144,
+          child: WStepper(
+            value: 180,
+            step: 15,
+            format: (v) => '${v.round()}s',
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(FittedBox), findsOneWidget);
+  });
 }

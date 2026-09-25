@@ -237,6 +237,8 @@
   },
   "a11yDecreaseGeneric": "Decrease",
   "a11yIncreaseGeneric": "Increase",
+  "a11yPreviousDay": "Previous day",
+  "a11yNextDay": "Next day",
   "commonBack": "Back",
   "sessionMinimize": "Minimize",
   "sessionWeight": "Weight",

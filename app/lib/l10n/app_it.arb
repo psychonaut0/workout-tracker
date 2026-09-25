@@ -110,6 +110,8 @@
   },
   "a11yDecreaseGeneric": "Diminuisci",
   "a11yIncreaseGeneric": "Aumenta",
+  "a11yPreviousDay": "Giorno precedente",
+  "a11yNextDay": "Giorno successivo",
   "commonBack": "Indietro",
   "sessionMinimize": "Riduci",
   "sessionWeight": "Peso",

@@ -183,4 +183,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.loads, 1);
   });
+
+  testWidgets(
+      'Resume, Add exercise, Delete session and the exercise row all meet the 48dp tap target',
+      (tester) async {
+    await tester.pumpWidget(card(FakeSessionRepository([logged(100)]),
+        state: SessionResumeState.available));
+    await expand(tester);
+
+    for (final action in [resumeAction, addAction, deleteAction]) {
+      expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
+    }
+    final blockRow = find.ancestor(
+      of: find.text('Bench'),
+      matching: find.byType(GestureDetector),
+    );
+    expect(tester.getSize(blockRow.first).height, greaterThanOrEqualTo(48));
+  });
 }

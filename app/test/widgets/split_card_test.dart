@@ -190,5 +190,28 @@ void main() {
 
       expect(find.text('NEXT IN ROTATION'), findsOneWidget);
     });
+
+    testWidgets(
+        'the previous/next arrows meet the 48dp tap target and are labelled',
+        (tester) async {
+      await pumpWithTheme(
+        tester,
+        SplitCard(
+          days: _twodays,
+          nextIndex: 0,
+          onStart: (_) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final prev = find.bySemanticsLabel('Previous day');
+      final next = find.bySemanticsLabel('Next day');
+      expect(prev, findsOneWidget);
+      expect(next, findsOneWidget);
+      expect(tester.getSize(prev).width, greaterThanOrEqualTo(48));
+      expect(tester.getSize(prev).height, greaterThanOrEqualTo(48));
+      expect(tester.getSize(next).width, greaterThanOrEqualTo(48));
+      expect(tester.getSize(next).height, greaterThanOrEqualTo(48));
+    });
   });
 }
