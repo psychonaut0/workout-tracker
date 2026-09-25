@@ -211,6 +211,7 @@
   "historyDeleteSession": "Eliminar entrenamiento",
   "historyDeleteSetTitle": "¿Eliminar la serie?",
   "historyDeleteSetMessage": "Esto elimina permanentemente esta serie.",
+  "historyDeleteSet": "Eliminar serie",
   "historyResumeWorkout": "Reanudar entrenamiento",
   "historyResumeBlockedTitle": "Entrenamiento en curso",
   "historyResumeBlockedMessage": "Termina o descarta tu entrenamiento actual antes de reanudar otro.",

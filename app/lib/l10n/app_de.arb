@@ -211,6 +211,7 @@
   "historyDeleteSession": "Training löschen",
   "historyDeleteSetTitle": "Satz löschen?",
   "historyDeleteSetMessage": "Dadurch wird dieser Satz dauerhaft entfernt.",
+  "historyDeleteSet": "Satz löschen",
   "historyResumeWorkout": "Training fortsetzen",
   "historyResumeBlockedTitle": "Training läuft",
   "historyResumeBlockedMessage": "Beende oder verwirf dein laufendes Training, bevor du ein anderes fortsetzt.",

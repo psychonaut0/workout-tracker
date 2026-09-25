@@ -443,6 +443,7 @@
   "historyDeleteSession": "Delete session",
   "historyDeleteSetTitle": "Delete set?",
   "historyDeleteSetMessage": "This permanently removes this set.",
+  "historyDeleteSet": "Delete set",
   "historyResumeWorkout": "Resume workout",
   "historyResumeBlockedTitle": "Workout in progress",
   "historyResumeBlockedMessage": "Finish or discard your current workout before resuming another.",
