@@ -13,114 +13,165 @@ import '../util/dates.dart';
 ///   • `done`   → surface-3 pill with a check icon
 ///   • else     → a 5px dot in `lineStrong`
 ///
+/// The fill (accent background) follows the current selection, not `isNext`:
+/// with no [selectedIndex] given it defaults to the `isNext` chip, matching
+/// the previous non-interactive behaviour.
+///
+/// With [onSelect] null, the strip is purely informational (no Custom chip,
+/// nothing tappable) — the same as before this became selectable. With
+/// [onSelect] set, tapping a day chip calls it with that day's index, and a
+/// trailing Custom chip calls it with `days.length`.
+///
 /// Visual spec: `screen-today.jsx` → `WeekStrip`.
 class WeekStrip extends StatelessWidget {
   const WeekStrip({
     super.key,
     required this.days,
+    this.selectedIndex,
+    this.onSelect,
   });
 
   /// Each entry describes one chip in the strip.
   ///
-  /// - [name]    — day template name (spaces stripped for display)
+  /// - [name]    — day template name
   /// - [weekday] — 0-based Monday-origin weekday (0=Mon…6=Sun); used via
   ///               [weekdayShort]. `null` → shows an empty string.
-  /// - [isNext]  — highlights this chip in accent as the next scheduled day
+  /// - [isNext]  — the next day in rotation (carries the NEXT label)
   /// - [done]    — shows a check icon (this day was trained this week)
   final List<({String name, int? weekday, bool isNext, bool done})> days;
+
+  /// The currently selected chip index, or `days.length` for Custom.
+  /// Defaults to the `isNext` chip when null.
+  final int? selectedIndex;
+
+  /// Called with the tapped day's index, or `days.length` for Custom.
+  /// `null` keeps the strip non-interactive (no Custom chip either).
+  final ValueChanged<int>? onSelect;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final chipRadius = AppRadius.radius * 0.7;
+    final filled = selectedIndex ?? days.indexWhere((d) => d.isNext);
 
-    return Row(
-      children: [
-        for (var i = 0; i < days.length; i++) ...[
-          if (i > 0) const SizedBox(width: 7),
-          Expanded(
-            child: _DayChip(
-              day: days[i],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < days.length; i++) ...[
+            if (i > 0) const SizedBox(width: 7),
+            Expanded(
+              child: _DayChip(
+                key: ValueKey('week-chip-$i'),
+                day: days[i],
+                filled: i == filled,
+                onTap: onSelect == null ? null : () => onSelect!(i),
+                tokens: tokens,
+                chipRadius: chipRadius,
+              ),
+            ),
+          ],
+          if (onSelect != null) ...[
+            const SizedBox(width: 7),
+            _CustomChip(
+              key: const ValueKey('week-chip-custom'),
+              filled: filled == days.length,
+              onTap: () => onSelect!(days.length),
               tokens: tokens,
               chipRadius: chipRadius,
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
 class _DayChip extends StatelessWidget {
   const _DayChip({
+    super.key,
     required this.day,
+    required this.filled,
+    required this.onTap,
     required this.tokens,
     required this.chipRadius,
   });
 
   final ({String name, int? weekday, bool isNext, bool done}) day;
+  final bool filled;
+  final VoidCallback? onTap;
   final WorkoutTokens tokens;
   final double chipRadius;
 
   @override
   Widget build(BuildContext context) {
-    final isNext = day.isNext;
     final isDone = day.done;
 
-    final bgColor = isNext ? tokens.accent : tokens.surface;
-    final borderColor = isNext ? Colors.transparent : tokens.line;
+    final bgColor = filled ? tokens.accent : tokens.surface;
+    final borderColor = filled ? Colors.transparent : tokens.line;
     final weekdayLabel = day.weekday != null
         ? weekdayShort(
             day.weekday!, Localizations.localeOf(context).toLanguageTag())
         : '';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(chipRadius),
-        border: Border.all(color: borderColor),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Weekday label
-          Text(
-            weekdayLabel,
-            style: WorkoutType.mono(
-              size: 9.5,
-              color: isNext
-                  ? tokens.accentInk.withValues(alpha: 0.7)
-                  : tokens.faint,
-            ),
-            textAlign: TextAlign.center,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(chipRadius),
+            border: Border.all(color: borderColor),
           ),
-          const SizedBox(height: 4),
-          // Day name (spaces stripped)
-          Text(
-            day.name.replaceAll(' ', ''),
-            style: WorkoutType.display(
-              size: 13,
-              weight: FontWeight.w700,
-              color: isNext ? tokens.accentInk : tokens.text,
-              letterSpacing: 0,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          // Status slot — fixed height 14
-          SizedBox(
-            height: 14,
-            child: Center(
-              child: _StatusIndicator(
-                isNext: isNext,
-                isDone: isDone,
-                tokens: tokens,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Weekday label
+              Text(
+                weekdayLabel,
+                style: WorkoutType.mono(
+                  size: 9.5,
+                  color: filled
+                      ? tokens.accentInk.withValues(alpha: 0.7)
+                      : tokens.faint,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 4),
+              // Day name
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  day.name,
+                  style: WorkoutType.display(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: filled ? tokens.accentInk : tokens.text,
+                    letterSpacing: 0,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  softWrap: false,
+                ),
+              ),
+              // Status slot — fixed height 14
+              SizedBox(
+                height: 14,
+                child: Center(
+                  child: _StatusIndicator(
+                    isNext: day.isNext,
+                    isDone: isDone,
+                    filled: filled,
+                    tokens: tokens,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -130,11 +181,13 @@ class _StatusIndicator extends StatelessWidget {
   const _StatusIndicator({
     required this.isNext,
     required this.isDone,
+    required this.filled,
     required this.tokens,
   });
 
   final bool isNext;
   final bool isDone;
+  final bool filled;
   final WorkoutTokens tokens;
 
   @override
@@ -145,7 +198,7 @@ class _StatusIndicator extends StatelessWidget {
         style: WorkoutType.mono(
           size: 9,
           weight: FontWeight.w700,
-          color: tokens.accentInk,
+          color: filled ? tokens.accentInk : tokens.accent,
           letterSpacing: 0.06 * 9,
         ),
       );
@@ -172,6 +225,44 @@ class _StatusIndicator extends StatelessWidget {
       decoration: BoxDecoration(
         color: tokens.lineStrong,
         borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+    );
+  }
+}
+
+class _CustomChip extends StatelessWidget {
+  const _CustomChip({
+    super.key,
+    required this.filled,
+    required this.onTap,
+    required this.tokens,
+    required this.chipRadius,
+  });
+
+  final bool filled;
+  final VoidCallback onTap;
+  final WorkoutTokens tokens;
+  final double chipRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: AppLocalizations.of(context).weekStripCustom,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          width: 48,
+          constraints: const BoxConstraints(minHeight: 48),
+          decoration: BoxDecoration(
+            color: filled ? tokens.accent : tokens.surface,
+            borderRadius: BorderRadius.circular(chipRadius),
+            border: Border.all(color: filled ? Colors.transparent : tokens.line),
+          ),
+          child: Icon(WIcons.plus, size: 20, color: filled ? tokens.accentInk : tokens.dim),
+        ),
       ),
     );
   }

@@ -32,14 +32,35 @@ import '../widgets/split_card.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/volume_bars.dart';
 import '../widgets/week_strip.dart';
+import 'today_labels.dart';
+
+/// Resolves the title shown for the active workout: the live day name when
+/// the draft is bound to a template (so a since-renamed day stays current),
+/// else the draft's own name, else the Custom Session label. Shared by the
+/// greeting header and the resume hero so they never disagree.
+String resumeSessionTitle(
+  ActiveSessionController controller,
+  List<DayTemplate> dayList,
+  AppLocalizations l,
+) {
+  final draft = controller.draftOrNull;
+  if (draft == null) return l.todayCustomSession;
+  if (draft.templateId != null) {
+    for (final d in dayList) {
+      if (d.id == draft.templateId) return d.name;
+    }
+  }
+  return draft.name.isEmpty ? l.todayCustomSession : draft.name;
+}
 
 /// The Today dashboard — the landing screen of the app.
 ///
 /// Composes 6 sections:
-///   1. Greeting header (avatar, date, 'Ready to train')
+///   1. Greeting header (avatar, rotation-only date/next-day or active-workout
+///      line, 'Ready to train' / 'Workout in progress')
 ///   2. SplitCard hero pager (split picker + Start button)
 ///   3. This week (WeekStrip)
-///   4. Stat tiles (bodyweight / sets·wk / PRs·wk)
+///   4. Stat tiles (bodyweight / sets this week / PRs this week)
 ///   5. Recent PRs (up to 4 rows)
 ///   6. Weekly volume (VolumeBars vs targets)
 ///
@@ -84,6 +105,15 @@ class _TodayScreenState extends State<TodayScreen> {
   DayTemplate? _nextDay;
   bool _rotationLoaded = false;
 
+  /// The day the hero shows, chosen on the strip or by swiping; null follows
+  /// the rotation's next day.
+  int? _selectedIndex;
+
+  /// The id of the newest session as of the last recompute — tracked so a
+  /// finished workout resets [_selectedIndex] even when it doesn't move the
+  /// rotation pick (e.g. finishing a repeated day).
+  String? _newestSessionId;
+
   // ── Session map: templateId → most-recent session date ───────────────────────
   // Populated from watchRecentSessions to provide per-day "last trained" labels.
   List<SessionSummaryRow> _recentSessions = [];
@@ -104,7 +134,7 @@ class _TodayScreenState extends State<TodayScreen> {
   late final DateTime _weekStart;
   late final Stream<List<BodyweightEntry>> _bwStream;
   late final Stream<int> _setsWeekStream;
-  late final Stream<int> _musclesWeekStream;
+  late final Stream<int> _setsLastWeekStream;
   late final Stream<int> _prsWeekStream;
   late final Stream<List<({String exerciseId, double weight, int reps, String date})>>
       _recentPrsStream;
@@ -128,7 +158,7 @@ class _TodayScreenState extends State<TodayScreen> {
     _weekStart = weekStart(DateTime.now());
     _bwStream = _bw.watchSeriesAsc();
     _setsWeekStream = _stats.watchSetsThisWeek(weekStart: _weekStart);
-    _musclesWeekStream = _stats.watchDistinctMusclesThisWeek(weekStart: _weekStart);
+    _setsLastWeekStream = _stats.watchSetsLastWeek(weekStart: _weekStart);
     _prsWeekStream = _stats.watchPrsThisWeek(weekStart: _weekStart);
     _recentPrsStream = _stats.watchRecentPrs(limit: 6);
     _catalogStream = _exercises.watchCatalog();
@@ -170,6 +200,7 @@ class _TodayScreenState extends State<TodayScreen> {
   /// Recompute the next-in-rotation pick from the current sessions + days.
   /// Pure (no setState) — callers invoke it inside their own setState.
   void _recomputeRotation() {
+    final previous = _nextDay?.id;
     final lastId = _recentSessions.isEmpty
         ? null
         : _recentSessions
@@ -179,6 +210,12 @@ class _TodayScreenState extends State<TodayScreen> {
             )
             .dayTemplateId;
     _nextDay = selectNextDay(_dayList, lastId);
+    final newest =
+        _recentSessions.isEmpty ? null : _recentSessions.first.id;
+    if (_nextDay?.id != previous || newest != _newestSessionId) {
+      _selectedIndex = null;
+    }
+    _newestSessionId = newest;
   }
 
   @override
@@ -199,9 +236,6 @@ class _TodayScreenState extends State<TodayScreen> {
     return null;
   }
 
-  /// Returns the 0-based weekday index (Mon=0 … Sun=6) for today.
-  int get _todayMon0 => DateTime.now().weekday - 1;
-
   // ── Build ─────────────────────────────────────────────────────────────────────
 
   @override
@@ -215,23 +249,13 @@ class _TodayScreenState extends State<TodayScreen> {
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final now = DateTime.now();
 
-    // Derive a "train day" label: the first scheduled day that matches today,
-    // if any, otherwise 'Rest day'.
-    final todayMon0 = _todayMon0;
-    final trainDay = _dayList.firstWhere(
-      (d) => d.scheduledWeekday == todayMon0,
-      orElse: () => DayTemplate(
-        id: '',
-        name: '',
-        focus: null,
-        scheduledWeekday: null,
-        position: 0,
-        slots: const [],
-      ),
-    );
-    final restOrTrain = trainDay.id.isEmpty
-        ? l.todayRestDay
-        : trainDay.name;
+    final activeName = manager.hasActive
+        ? resumeSessionTitle(manager.active!, _dayList, l)
+        : null;
+    final header = todayHeaderLine(l,
+        date: fmtDate(isoDate(now), localeName, weekday: true),
+        nextName: _nextDay?.name,
+        activeName: activeName);
 
     return ListView(
       padding: EdgeInsets.only(
@@ -248,8 +272,8 @@ class _TodayScreenState extends State<TodayScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _GreetingHeader(
-                dateLabel:
-                    '${fmtDate(isoDate(now), localeName, weekday: true)} · $restOrTrain',
+                dateLabel: header,
+                inProgress: manager.hasActive,
                 onTapProfile: widget.onOpenProfile,
               ),
               const SizedBox(height: 18),
@@ -282,18 +306,20 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
 
         // ── 3. This week ──────────────────────────────────────────────────────
-        StaggeredEntrance(
-          index: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SectionLabel(label: l.todayThisWeek),
-              const SizedBox(height: 10),
-              _buildWeekStrip(_weekStart),
-              const SizedBox(height: 22),
-            ],
+        // No training days (or the days stream hasn't loaded yet): no strip.
+        if (_rotationLoaded && _dayList.isNotEmpty)
+          StaggeredEntrance(
+            index: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionLabel(label: l.todayThisWeek),
+                const SizedBox(height: 10),
+                _buildWeekStrip(_weekStart, manager.hasActive),
+                const SizedBox(height: 22),
+              ],
+            ),
           ),
-        ),
 
         // ── 4. Stat tiles ──────────────────────────────────────────────────────
         StaggeredEntrance(
@@ -330,6 +356,17 @@ class _TodayScreenState extends State<TodayScreen> {
 
   // ── Section builders ──────────────────────────────────────────────────────────
 
+  /// Returns the index of [_nextDay] in [_dayList], or 0 if unresolved.
+  int _nextIndex() {
+    if (_nextDay == null) return 0;
+    final idx = _dayList.indexWhere((d) => d.id == _nextDay!.id);
+    return idx >= 0 ? idx : 0;
+  }
+
+  /// The hero/strip selection, clamped so a deleted day can't leave it
+  /// pointing past the end (`_dayList.length` is the Custom slide).
+  int _heroIndex() => (_selectedIndex ?? _nextIndex()).clamp(0, _dayList.length);
+
   Widget _buildSplitCard() {
     final l = AppLocalizations.of(context);
     // Build SplitCard entries: exerciseCount from slots, lastAgo from sessions.
@@ -343,21 +380,16 @@ class _TodayScreenState extends State<TodayScreen> {
       );
     }).toList();
 
-    // nextIndex: find _nextDay in entries, default 0.
-    int nextIndex = 0;
-    if (_nextDay != null) {
-      final idx = entries.indexWhere((e) => e.day.id == _nextDay!.id);
-      if (idx >= 0) nextIndex = idx;
-    }
-
     return SplitCard(
       days: entries,
-      nextIndex: nextIndex,
+      nextIndex: _nextIndex(),
+      selectedIndex: _heroIndex(),
+      onSelectedChanged: (i) => setState(() => _selectedIndex = i),
       onStart: widget.onStart,
     );
   }
 
-  Widget _buildWeekStrip(DateTime ws) {
+  Widget _buildWeekStrip(DateTime ws, bool hasActive) {
     // Compute which days were trained this week.
     final wsIso = isoDate(ws);
     final trainedIds = <String>{};
@@ -376,7 +408,11 @@ class _TodayScreenState extends State<TodayScreen> {
       );
     }).toList();
 
-    return WeekStrip(days: chips);
+    return WeekStrip(
+      days: chips,
+      selectedIndex: _heroIndex(),
+      onSelect: hasActive ? null : (i) => setState(() => _selectedIndex = i),
+    );
   }
 
   Widget _buildStatTiles(
@@ -425,16 +461,16 @@ class _TodayScreenState extends State<TodayScreen> {
                 stream: _setsWeekStream,
                 builder: (context, setsSnap) {
                   return StreamBuilder<int>(
-                    stream: _musclesWeekStream,
-                    builder: (context, musclesSnap) {
+                    stream: _setsLastWeekStream,
+                    builder: (context, lastWeekSnap) {
                       final sets = setsSnap.data ?? 0;
-                      final muscles = musclesSnap.data ?? 0;
+                      final lastWeek = lastWeekSnap.data ?? 0;
                       return CountUp(
                         value: sets,
                         builder: (v) => StatTile(
-                          label: l.todaySetsPerWeek,
+                          label: l.todaySetsThisWeek,
                           value: '$v',
-                          sub: l.todayMusclesCount(muscles),
+                          sub: setsVsLastWeek(l, sets, lastWeek),
                         ),
                       );
                     },
@@ -449,13 +485,36 @@ class _TodayScreenState extends State<TodayScreen> {
                 stream: _prsWeekStream,
                 builder: (context, prsSnap) {
                   final prs = prsSnap.data ?? 0;
-                  return CountUp(
-                    value: prs,
-                    builder: (v) => StatTile(
-                      label: l.todayPrsPerWeek,
-                      value: '$v',
-                      sub: l.todayNewTopSets,
-                    ),
+                  return StreamBuilder<
+                      List<({String exerciseId, double weight, int reps, String date})>>(
+                    stream: _recentPrsStream,
+                    builder: (context, recentSnap) {
+                      final recent = recentSnap.data ?? [];
+                      return StreamBuilder<List<Exercise>>(
+                        stream: _catalogStream,
+                        builder: (context, exSnap) {
+                          final exMap = {
+                            for (final ex in (exSnap.data ?? [])) ex.id: ex,
+                          };
+                          final lastPrName = recent.isEmpty
+                              ? null
+                              : exMap[recent.first.exerciseId]?.name;
+                          final sub = recent.isEmpty
+                              ? l.todayNoPrsShort
+                              : (lastPrName == null
+                                  ? ''
+                                  : l.todayLastPr(lastPrName));
+                          return CountUp(
+                            value: prs,
+                            builder: (v) => StatTile(
+                              label: l.todayPrsThisWeek,
+                              value: '$v',
+                              sub: sub,
+                            ),
+                          );
+                        },
+                      );
+                    },
                   );
                 },
               ),
@@ -475,7 +534,6 @@ class _TodayScreenState extends State<TodayScreen> {
         final l = AppLocalizations.of(context);
         final allPrs = prsSnap.data ?? [];
         final displayPrs = allPrs.take(4).toList();
-        final count = allPrs.length;
 
         return StreamBuilder<List<Exercise>>(
           stream: _catalogStream,
@@ -487,16 +545,7 @@ class _TodayScreenState extends State<TodayScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionLabel(
-                  label: l.todayRecentPrs,
-                  action: Text(
-                    '$count',
-                    style: WorkoutType.mono(
-                      size: 11,
-                      color: tokens.dim,
-                    ),
-                  ),
-                ),
+                SectionLabel(label: l.todayRecentPrs),
                 if (displayPrs.isEmpty) ...[
                   const SizedBox(height: 10),
                   _EmptyState(tokens: tokens, message: l.todayNoPrsYet),
@@ -580,10 +629,12 @@ class _TodayScreenState extends State<TodayScreen> {
 class _GreetingHeader extends StatelessWidget {
   const _GreetingHeader({
     required this.dateLabel,
+    required this.inProgress,
     required this.onTapProfile,
   });
 
   final String dateLabel;
+  final bool inProgress;
   final VoidCallback onTapProfile;
 
   @override
@@ -637,7 +688,7 @@ class _GreetingHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                l.todayGreeting,
+                inProgress ? l.todayWorkoutInProgress : l.todayGreeting,
                 style: WorkoutType.display(
                   size: 25,
                   weight: FontWeight.w700,
@@ -843,8 +894,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
         }
       }
     }
-    final title =
-        day?.name ?? (draft.name.isEmpty ? l.todayCustomSession : draft.name);
+    final title = resumeSessionTitle(widget.controller, widget.dayList, l);
     final focus = day?.focus ?? draft.focus;
     final exCount = day?.slots.length ?? draft.blocks.length;
     final now = DateTime.now();

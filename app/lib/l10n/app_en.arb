@@ -10,20 +10,8 @@
   "commonOk": "OK",
   "editorSaveFailed": "Couldn't save",
   "todayGreeting": "Ready to train",
-  "todayRestDay": "Rest day",
   "todayThisWeek": "This week",
   "todayBodyweight": "Bodyweight",
-  "todaySetsPerWeek": "Sets / wk",
-  "todayMusclesCount": "{count, plural, =1{1 muscle} other{{count} muscles}}",
-  "@todayMusclesCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "todayPrsPerWeek": "PRs / wk",
-  "todayNewTopSets": "new top sets",
   "todayRecentPrs": "Recent PRs",
   "todayNoPrsYet": "No PRs yet this cycle",
   "todayWeeklyVolume": "Weekly volume",
@@ -47,6 +35,18 @@
     }
   },
   "todayResumeWorkout": "Resume workout",
+  "todayNext": "Next: {name}",
+  "@todayNext": {"placeholders": {"name": {"type": "String"}}},
+  "todayWorkoutInProgress": "Workout in progress",
+  "todaySetsThisWeek": "Sets this week",
+  "todayPrsThisWeek": "PRs this week",
+  "todayVsLastWeek": "{delta} vs last wk",
+  "@todayVsLastWeek": {"placeholders": {"delta": {"type": "String"}}},
+  "todaySameAsLastWeek": "same as last wk",
+  "todayLastPr": "last: {name}",
+  "@todayLastPr": {"placeholders": {"name": {"type": "String"}}},
+  "todayNoPrsShort": "none yet",
+  "weekStripCustom": "Custom",
   "splitNextInRotation": "NEXT IN ROTATION",
   "splitSwitchTo": "SWITCH TO · {target}",
   "@splitSwitchTo": {

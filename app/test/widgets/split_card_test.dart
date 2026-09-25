@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
+import 'package:workout_tracker/theme/icons.dart';
 import 'package:workout_tracker/widgets/split_card.dart';
 
 import '../support/l10n_harness.dart';
@@ -189,6 +190,130 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('NEXT IN ROTATION'), findsOneWidget);
+    });
+
+    testWidgets('an outside selection moves the pager', (tester) async {
+      Widget card(int? sel) => wrapL10n(SingleChildScrollView(
+            child: SplitCard(days: _twodays, nextIndex: 0, selectedIndex: sel, onStart: (_) {}),
+          ));
+      await tester.pumpWidget(card(0));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(card(2)); // Custom
+      await tester.pumpAndSettle();
+      expect(find.text('Start empty'), findsOneWidget);
+    });
+
+    testWidgets('a swipe reports the new page', (tester) async {
+      final pages = <int>[];
+      await pumpWithTheme(
+          tester,
+          SplitCard(
+              days: _twodays, nextIndex: 0, selectedIndex: 0,
+              onSelectedChanged: pages.add, onStart: (_) {}));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(pages, [1]);
+    });
+
+    testWidgets('no pager dots or arrows remain', (tester) async {
+      await pumpWithTheme(tester, SplitCard(days: _twodays, nextIndex: 0, onStart: (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(WIcons.chevron), findsNothing);
+    });
+
+    testWidgets(
+        'reduced motion: an outside selection jumps the pager without tripping the animateToPage assert',
+        (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          FakeAccessibilityFeatures.allOn;
+      addTearDown(() {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures();
+      });
+
+      Widget card(int? sel) => wrapL10n(SingleChildScrollView(
+            child: SplitCard(
+                days: _twodays, nextIndex: 0, selectedIndex: sel, onStart: (_) {}),
+          ));
+      await tester.pumpWidget(card(0));
+      await tester.pump();
+      await tester.pumpWidget(card(2)); // Custom, via didUpdateWidget
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Start empty'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a driven jump across multiple pages reports no intermediate page',
+        (tester) async {
+      final threeDays = [
+        ..._twodays,
+        (
+          day: _makeDay(id: 'day-c', name: 'Push B', scheduledWeekday: 2, position: 2),
+          exerciseCount: 3,
+          lastAgo: '2d ago',
+        ),
+      ];
+      final reported = <int>[];
+
+      Widget card(int? sel) => wrapL10n(SingleChildScrollView(
+            child: SplitCard(
+              days: threeDays,
+              nextIndex: 0,
+              selectedIndex: sel,
+              onSelectedChanged: reported.add,
+              onStart: (_) {},
+            ),
+          ));
+      await tester.pumpWidget(card(0));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(card(3)); // jump straight to Custom (index 3)
+      await tester.pumpAndSettle();
+
+      // Only the final target (3) may be reported — never the pages the
+      // animation crossed on the way there (1, 2).
+      expect(reported, [3]);
+    });
+
+    testWidgets(
+        'tapping Start mid-drive launches the target day, not the intermediate page',
+        (tester) async {
+      final threeDays = [
+        ..._twodays,
+        (
+          day: _makeDay(id: 'day-c', name: 'Push B', scheduledWeekday: 2, position: 2),
+          exerciseCount: 3,
+          lastAgo: '2d ago',
+        ),
+      ];
+      DayTemplate? received;
+      var called = false;
+
+      Widget card(int? sel) => wrapL10n(SingleChildScrollView(
+            child: SplitCard(
+              days: threeDays,
+              nextIndex: 0,
+              selectedIndex: sel,
+              onStart: (d) {
+                called = true;
+                received = d;
+              },
+            ),
+          ));
+      await tester.pumpWidget(card(0));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(card(3)); // drive toward Custom (index 3)
+      await tester.pump(const Duration(milliseconds: 60));
+
+      // Still mid-animation — but Start must target the destination (Custom).
+      await tester.tap(find.textContaining('Start'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(called, isTrue);
+      expect(received, isNull, reason: 'Start mid-drive should launch Custom, not the intermediate day');
     });
   });
 }

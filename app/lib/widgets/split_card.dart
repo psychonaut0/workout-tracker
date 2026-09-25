@@ -4,6 +4,7 @@ import '../data/models.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
@@ -251,15 +252,17 @@ class CustomSlide extends StatelessWidget {
 /// The hero split-picker pager on the Today dashboard.
 ///
 /// Renders a [PageView] of [DaySlide]s plus a final [CustomSlide].
-/// The card body animates between accent (day slides) and surface (custom slide)
-/// over 250 ms. A fixed Start button sits below the pager inside the card.
-/// Dots + left/right arrows sit below the card on the app background.
+/// The card body animates between accent (day slides) and surface (custom slide).
+/// A fixed Start button sits below the pager inside the card.
+/// The pager responds to both swipes and outside selection control.
 class SplitCard extends StatefulWidget {
   const SplitCard({
     super.key,
     required this.days,
     required this.nextIndex,
     required this.onStart,
+    this.selectedIndex,
+    this.onSelectedChanged,
   });
 
   /// Day slides data. Each entry carries the template, exercise count, and
@@ -278,6 +281,14 @@ class SplitCard extends StatefulWidget {
   /// active (meaning the user wants an empty free-form session).
   final void Function(DayTemplate?) onStart;
 
+  /// The page to show, from the parent (index `days.length` is Custom).
+  ///
+  /// `null` keeps the pager self-driven from `nextIndex`.
+  final int? selectedIndex;
+
+  /// Called when the user swipes to a page.
+  final ValueChanged<int>? onSelectedChanged;
+
   @override
   State<SplitCard> createState() => _SplitCardState();
 }
@@ -286,11 +297,35 @@ class _SplitCardState extends State<SplitCard> {
   late PageController _pageController;
   late int _currentPage;
 
+  /// The page a programmatic [_goTo] is currently driving the pager toward,
+  /// or null when the pager isn't being driven (idle, or mid-swipe).
+  ///
+  /// While set: `onPageChanged` swallows reports for every intermediate page
+  /// the animation crosses (only the target page gets reported), and
+  /// `_onStart` treats this as the "current" page so a tap that lands mid
+  /// animation launches the destination day, not whatever page the pager
+  /// happened to be passing through.
+  int? _driveTarget;
+
   @override
   void initState() {
     super.initState();
-    _currentPage = widget.nextIndex.clamp(0, widget.days.length);
+    _currentPage = (widget.selectedIndex ?? widget.nextIndex).clamp(0, widget.days.length);
     _pageController = PageController(initialPage: _currentPage);
+  }
+
+  @override
+  void didUpdateWidget(SplitCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final sel = widget.selectedIndex;
+    // `sel != _currentPage` breaks the parent round-trip: a swipe already
+    // reports the new page via onSelectedChanged, the parent's setState
+    // feeds it straight back as `selectedIndex`, and by the time this widget
+    // rebuilds `_currentPage` already matches `sel` — re-driving here would
+    // needlessly re-animate the pager back to the page it just settled on.
+    if (sel != null && sel != oldWidget.selectedIndex && sel != _currentPage) {
+      _goTo(sel);
+    }
   }
 
   @override
@@ -305,18 +340,32 @@ class _SplitCardState extends State<SplitCard> {
 
   void _goTo(int page) {
     final target = page.clamp(0, _totalSlides - 1);
-    _pageController.animateToPage(
-      target,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.ease,
-    );
+    final duration = Motion.of(context, Motion.slow);
+    _driveTarget = target;
+    if (duration == Duration.zero) {
+      // A synchronous jumpToPage here would fire onPageChanged during THIS
+      // build (didUpdateWidget runs mid-build), which calls the parent's
+      // setState mid-build too. Defer to a post-frame callback instead.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) return;
+        _pageController.jumpToPage(target);
+        if (_driveTarget == target) _driveTarget = null;
+      });
+      return;
+    }
+    _pageController
+        .animateToPage(target, duration: duration, curve: Motion.curve)
+        .then((_) {
+      if (_driveTarget == target) _driveTarget = null;
+    });
   }
 
   void _onStart() {
-    if (_isCustom) {
+    final page = _driveTarget ?? _currentPage;
+    if (page >= widget.days.length) {
       widget.onStart(null);
     } else {
-      widget.onStart(widget.days[_currentPage].day);
+      widget.onStart(widget.days[page].day);
     }
   }
 
@@ -372,6 +421,16 @@ class _SplitCardState extends State<SplitCard> {
                           itemCount: _totalSlides,
                           onPageChanged: (page) {
                             setState(() => _currentPage = page);
+                            // While a programmatic _goTo is driving the
+                            // pager, PageView reports every intermediate
+                            // page the animation crosses — swallow those so
+                            // the strip/parent only ever hear about the
+                            // final target.
+                            if (_driveTarget != null &&
+                                page != _driveTarget) {
+                              return;
+                            }
+                            widget.onSelectedChanged?.call(page);
                           },
                           itemBuilder: (context, i) {
                             if (i < widget.days.length) {
@@ -435,96 +494,7 @@ class _SplitCardState extends State<SplitCard> {
             ],
           ),
         ),
-        // ── Dots + arrows (below card, on app bg) ───────────────────────────
-        const SizedBox(height: 13),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Left arrow
-            _ArrowButton(
-              icon: WIcons.chevron,
-              flip: true,
-              enabled: _currentPage > 0,
-              onTap: () => _goTo(_currentPage - 1),
-            ),
-            const SizedBox(width: 12),
-            // Pill dots
-            Row(
-              children: List.generate(_totalSlides, (i) {
-                final active = i == _currentPage;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.ease,
-                    width: active ? 18.0 : 6.0,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: active ? tokens.accent : tokens.lineStrong,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(width: 12),
-            // Right arrow
-            _ArrowButton(
-              icon: WIcons.chevron,
-              flip: false,
-              enabled: _currentPage < _totalSlides - 1,
-              onTap: () => _goTo(_currentPage + 1),
-            ),
-          ],
-        ),
       ],
     );
-  }
-}
-
-// ── Arrow button ─────────────────────────────────────────────────────────────
-
-class _ArrowButton extends StatelessWidget {
-  const _ArrowButton({
-    required this.icon,
-    required this.flip,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool flip;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-
-    final child = Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: tokens.line),
-        color: tokens.surface,
-      ),
-      child: Center(
-        child: Transform.scale(
-          scaleX: flip ? -1 : 1,
-          child: Icon(
-            icon,
-            size: 15,
-            color: enabled ? tokens.dim : tokens.faint,
-          ),
-        ),
-      ),
-    );
-
-    if (!enabled) {
-      return Opacity(opacity: 0.4, child: child);
-    }
-
-    return GestureDetector(onTap: onTap, child: child);
   }
 }
