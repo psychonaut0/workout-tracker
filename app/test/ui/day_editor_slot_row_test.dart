@@ -145,6 +145,18 @@ void main() {
     expect(state.expandedIndex, 0);
   });
 
+  testWidgets('tapping the handle does not expand the row', (tester) async {
+    await tester.pumpWidget(wrapL10n(const _Harness()));
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+
+    final handle = find.byIcon(Icons.drag_handle).first;
+    await tester.tap(handle);
+    await tester.pumpAndSettle();
+
+    expect(state.toggleCount, 0);
+    expect(state.expandedIndex, isNull);
+  });
+
   testWidgets('the handle is absent when the row is expanded', (tester) async {
     await tester.pumpWidget(wrapL10n(const _Harness(expandedIndex: 0)));
 

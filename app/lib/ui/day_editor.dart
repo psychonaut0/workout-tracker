@@ -324,6 +324,12 @@ class _DayEditorState extends State<DayEditor> {
           },
           onReorderItem: (from, to) =>
               setState(() => _slots.insert(to, _slots.removeAt(from))),
+          proxyDecorator: (child, index, animation) => Material(
+            color: Colors.transparent,
+            elevation: 6,
+            shadowColor: Colors.black,
+            child: child,
+          ),
           itemBuilder: (context, i) {
             final slot = _slots[i];
             final ex = _catalog.firstWhere(
@@ -507,122 +513,131 @@ class _DaySlotRowState extends State<DaySlotRow> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Collapsed row ─────────────────────────────────────────────
-          GestureDetector(
-            onTap: widget.onToggle,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  // Index
-                  SizedBox(
-                    width: 16,
-                    child: Text(
-                      '${widget.index + 1}',
-                      style: WorkoutType.mono(
-                        size: 12,
-                        weight: FontWeight.w700,
-                        color: tokens.faint,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Name + summary
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                // Only the index + name/summary toggle the expanded panel —
+                // the drag handle and trash button below sit outside this
+                // GestureDetector so tapping them never also expands the row.
+                Expanded(
+                  child: GestureDetector(
+                    onTap: widget.onToggle,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
                       children: [
-                        Text(
-                          widget.exercise.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: WorkoutType.body(
-                            size: 14,
-                            weight: FontWeight.w600,
-                            color: tokens.text,
+                        // Index
+                        SizedBox(
+                          width: 16,
+                          child: Text(
+                            '${widget.index + 1}',
+                            style: WorkoutType.mono(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: tokens.faint,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 1),
-                        Text(
-                          _collapsedLabel(l),
-                          style: WorkoutType.mono(
-                            size: 10,
-                            color: tokens.faint,
+                        const SizedBox(width: 10),
+
+                        // Name + summary
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.exercise.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: WorkoutType.body(
+                                  size: 14,
+                                  weight: FontWeight.w600,
+                                  color: tokens.text,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                _collapsedLabel(l),
+                                style: WorkoutType.mono(
+                                  size: 10,
+                                  color: tokens.faint,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Chevron (non-interactive; header toggles expanded)
+                        ExcludeSemantics(
+                          child: AnimatedRotation(
+                            turns: widget.expanded ? 0.25 : 0,
+                            duration: const Duration(milliseconds: 150),
+                            child: Icon(
+                              WIcons.chevron,
+                              size: 16,
+                              color: tokens.faint,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                ),
+                const SizedBox(width: 10),
 
-                  // Drag handle (only while collapsed — a reordering list
-                  // needs similar-height rows).
-                  if (!widget.expanded)
-                    Semantics(
-                      label: l.a11yReorderExercise(widget.exercise.name),
-                      child: ReorderableDragStartListener(
-                        index: widget.reorderIndex,
-                        child: SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: Icon(
-                            Icons.drag_handle,
-                            size: 20,
-                            color: tokens.dim,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // Trash button
+                // Drag handle (only while collapsed — a reordering list
+                // needs similar-height rows).
+                if (!widget.expanded)
                   Semantics(
-                    button: true,
-                    label: l.dayEditorRemoveExercise(widget.exercise.name),
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      onTap: widget.onRemove,
-                      behavior: HitTestBehavior.opaque,
+                    label: l.a11yReorderExercise(widget.exercise.name),
+                    child: ReorderableDragStartListener(
+                      index: widget.reorderIndex,
                       child: SizedBox(
                         width: 48,
                         height: 48,
-                        child: Center(
-                          child: Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: tokens.surface3,
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.radius * 0.4,
-                              ),
+                        child: Icon(
+                          Icons.drag_handle,
+                          size: 20,
+                          color: tokens.dim,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Trash button
+                Semantics(
+                  button: true,
+                  label: l.dayEditorRemoveExercise(widget.exercise.name),
+                  excludeSemantics: true,
+                  onTap: widget.onRemove,
+                  child: GestureDetector(
+                    onTap: widget.onRemove,
+                    behavior: HitTestBehavior.opaque,
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: tokens.surface3,
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.radius * 0.4,
                             ),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              WIcons.trash,
-                              size: 15,
-                              color: tokens.faint,
-                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            WIcons.trash,
+                            size: 15,
+                            color: tokens.faint,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-
-                  // Chevron (non-interactive; header toggles expanded)
-                  ExcludeSemantics(
-                    child: AnimatedRotation(
-                      turns: widget.expanded ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 150),
-                      child: Icon(
-                        WIcons.chevron,
-                        size: 16,
-                        color: tokens.faint,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 

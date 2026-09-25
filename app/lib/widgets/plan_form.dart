@@ -191,10 +191,11 @@ class Toggle extends StatelessWidget {
       toggled: value,
       label: semanticLabel,
       excludeSemantics: true,
+      onTap: () => onChanged(!value),
       child: GestureDetector(
         onTap: () => onChanged(!value),
         child: SizedBox(
-          width: 48,
+          width: 56,
           height: 48,
           child: Center(
             child: AnimatedContainer(
