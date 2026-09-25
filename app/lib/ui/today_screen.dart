@@ -37,10 +37,11 @@ import 'today_labels.dart';
 /// The Today dashboard — the landing screen of the app.
 ///
 /// Composes 6 sections:
-///   1. Greeting header (avatar, date, 'Ready to train')
+///   1. Greeting header (avatar, rotation-only date/next-day or active-workout
+///      line, 'Ready to train' / 'Workout in progress')
 ///   2. SplitCard hero pager (split picker + Start button)
 ///   3. This week (WeekStrip)
-///   4. Stat tiles (bodyweight / sets·wk / PRs·wk)
+///   4. Stat tiles (bodyweight / sets this week / PRs this week)
 ///   5. Recent PRs (up to 4 rows)
 ///   6. Weekly volume (VolumeBars vs targets)
 ///
@@ -88,6 +89,11 @@ class _TodayScreenState extends State<TodayScreen> {
   /// The day the hero shows, chosen on the strip or by swiping; null follows
   /// the rotation's next day.
   int? _selectedIndex;
+
+  /// The id of the newest session as of the last recompute — tracked so a
+  /// finished workout resets [_selectedIndex] even when it doesn't move the
+  /// rotation pick (e.g. finishing a repeated day).
+  String? _newestSessionId;
 
   // ── Session map: templateId → most-recent session date ───────────────────────
   // Populated from watchRecentSessions to provide per-day "last trained" labels.
@@ -185,7 +191,12 @@ class _TodayScreenState extends State<TodayScreen> {
             )
             .dayTemplateId;
     _nextDay = selectNextDay(_dayList, lastId);
-    if (_nextDay?.id != previous) _selectedIndex = null;
+    final newest =
+        _recentSessions.isEmpty ? null : _recentSessions.first.id;
+    if (_nextDay?.id != previous || newest != _newestSessionId) {
+      _selectedIndex = null;
+    }
+    _newestSessionId = newest;
   }
 
   @override
@@ -330,6 +341,10 @@ class _TodayScreenState extends State<TodayScreen> {
     return idx >= 0 ? idx : 0;
   }
 
+  /// The hero/strip selection, clamped so a deleted day can't leave it
+  /// pointing past the end (`_dayList.length` is the Custom slide).
+  int _heroIndex() => (_selectedIndex ?? _nextIndex()).clamp(0, _dayList.length);
+
   Widget _buildSplitCard() {
     final l = AppLocalizations.of(context);
     // Build SplitCard entries: exerciseCount from slots, lastAgo from sessions.
@@ -346,7 +361,7 @@ class _TodayScreenState extends State<TodayScreen> {
     return SplitCard(
       days: entries,
       nextIndex: _nextIndex(),
-      selectedIndex: _selectedIndex ?? _nextIndex(),
+      selectedIndex: _heroIndex(),
       onSelectedChanged: (i) => setState(() => _selectedIndex = i),
       onStart: widget.onStart,
     );
@@ -373,7 +388,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
     return WeekStrip(
       days: chips,
-      selectedIndex: _selectedIndex ?? _nextIndex(),
+      selectedIndex: _heroIndex(),
       onSelect: (i) => setState(() => _selectedIndex = i),
     );
   }
@@ -459,17 +474,20 @@ class _TodayScreenState extends State<TodayScreen> {
                           final exMap = {
                             for (final ex in (exSnap.data ?? [])) ex.id: ex,
                           };
-                          final lastPr = recent.isEmpty
+                          final lastPrName = recent.isEmpty
                               ? null
                               : exMap[recent.first.exerciseId]?.name;
+                          final sub = recent.isEmpty
+                              ? l.todayNoPrsShort
+                              : (lastPrName == null
+                                  ? ''
+                                  : l.todayLastPr(lastPrName));
                           return CountUp(
                             value: prs,
                             builder: (v) => StatTile(
                               label: l.todayPrsThisWeek,
                               value: '$v',
-                              sub: lastPr == null
-                                  ? l.todayNoPrsShort
-                                  : l.todayLastPr(lastPr),
+                              sub: sub,
                             ),
                           );
                         },
