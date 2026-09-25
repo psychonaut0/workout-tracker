@@ -43,18 +43,22 @@ class UnitService extends ChangeNotifier {
 
   /// Format a weight in kg for display in the current unit.
   ///
-  /// kg:  integer values shown bare ("80"), non-integer to 1 dp ("72.5").
+  /// kg:  integer values shown bare ("80"), non-integer up to 2 dp ("72.25").
   /// lb:  converted and rounded to whole number ("220").
-  String fmtWt(double kg) {
-    final v = fromKg(kg, _unit);
-    if (_unit == Unit.lb) {
+  String fmtWt(double kg) => fmtDisplay(fromKg(kg, _unit), _unit);
+
+  /// Format a value already in [unit] for display: kg up to two decimals
+  /// (trailing zeros trimmed), lb as a whole number.
+  static String fmtDisplay(double v, Unit unit) {
+    if (unit == Unit.lb) {
       return v.round().toString();
     }
     // kg: drop trailing ".0"
     if (v == v.truncateToDouble()) {
       return v.toInt().toString();
     }
-    return v.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+    // Up to two decimals (quarter-kilo loads), trailing zeros trimmed.
+    return v.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
   /// The current unit label ("kg" or "lb").

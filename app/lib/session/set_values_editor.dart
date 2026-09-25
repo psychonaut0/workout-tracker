@@ -12,8 +12,11 @@ import '../widgets/ruler_picker.dart';
 /// and (later) the History set editor: captions, full-bleed [RulerPicker]s,
 /// and tap-to-type modal entry.
 ///
-/// Weight is held in kg; typed input converts back through
-/// [UnitService.toKg] (see the stepper rules in app/CLAUDE.md).
+/// The weight ruler works in display units (kg or lb), with a coarse step
+/// (1 kg / 5 lb) and a fine step it zooms into on a slow drag or a hold
+/// (0.25 kg / 1 lb). [onWeight] converts back to kg through
+/// [UnitService.toKg]; typed input does the same (see the stepper rules in
+/// app/CLAUDE.md).
 class SetValuesEditor extends StatelessWidget {
   const SetValuesEditor({
     super.key,
@@ -48,15 +51,13 @@ class SetValuesEditor extends StatelessWidget {
         inset(Text('${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}', style: caption())),
         RulerPicker(
           key: const Key('live-weight'),
-          value: weightKg,
-          // A fixed fine step — the ruler is fast enough that plate-sized
-          // jumps only get in the way. In lb it is exactly one pound, so the
-          // whole-pound labels stay evenly spaced.
-          step: unit.unit == Unit.lb ? UnitService.toKg(1, Unit.lb) : 0.5,
-          max: 500,
-          format: (v) => unit.fmtWt(v),
+          value: UnitService.fromKg(weightKg, unit.unit),
+          step: unit.unit == Unit.lb ? 5 : 1,
+          fineStep: unit.unit == Unit.lb ? 1 : 0.25,
+          max: UnitService.fromKg(500, unit.unit),
+          format: (v) => UnitService.fmtDisplay(v, unit.unit),
           semanticLabel: '${l.sessionWeight}, ${unit.uLabel}',
-          onChanged: onWeight,
+          onChanged: (v) => onWeight(clampRound2(UnitService.toKg(v, unit.unit))),
           onTapValue: () => _typeWeight(context, l),
         ),
         const SizedBox(height: 12),

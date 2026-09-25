@@ -160,18 +160,20 @@ void main() {
 
     expect(controller.liveSet!.set.id, 's0');
 
+    // ~180 dp/s: comfortably above the 120 dp/s zoom-in threshold and below
+    // the 300 dp/s fling dead zone, so it stays a plain 2-step coarse swipe.
     await tester.timedDrag(find.byKey(const Key('live-weight')),
-        const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
+        const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(milliseconds: 800));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100)); // let the tape snap
     }
-    expect(s0.weightKg, 101);
+    expect(s0.weightKg, 102);
 
     await tester.tap(find.byType(SetLine));
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(s0.weightKg, 101);
+    expect(s0.weightKg, 102);
     expect(s1.weightKg, 120);
     expect(controller.liveSet!.set.id, 's1');
 
