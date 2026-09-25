@@ -34,6 +34,25 @@ import '../widgets/volume_bars.dart';
 import '../widgets/week_strip.dart';
 import 'today_labels.dart';
 
+/// Resolves the title shown for the active workout: the live day name when
+/// the draft is bound to a template (so a since-renamed day stays current),
+/// else the draft's own name, else the Custom Session label. Shared by the
+/// greeting header and the resume hero so they never disagree.
+String resumeSessionTitle(
+  ActiveSessionController controller,
+  List<DayTemplate> dayList,
+  AppLocalizations l,
+) {
+  final draft = controller.draftOrNull;
+  if (draft == null) return l.todayCustomSession;
+  if (draft.templateId != null) {
+    for (final d in dayList) {
+      if (d.id == draft.templateId) return d.name;
+    }
+  }
+  return draft.name.isEmpty ? l.todayCustomSession : draft.name;
+}
+
 /// The Today dashboard — the landing screen of the app.
 ///
 /// Composes 6 sections:
@@ -230,8 +249,9 @@ class _TodayScreenState extends State<TodayScreen> {
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final now = DateTime.now();
 
-    final activeName =
-        manager.hasActive ? manager.active!.draftOrNull?.name : null;
+    final activeName = manager.hasActive
+        ? resumeSessionTitle(manager.active!, _dayList, l)
+        : null;
     final header = todayHeaderLine(l,
         date: fmtDate(isoDate(now), localeName, weekday: true),
         nextName: _nextDay?.name,
@@ -286,18 +306,20 @@ class _TodayScreenState extends State<TodayScreen> {
         ),
 
         // ── 3. This week ──────────────────────────────────────────────────────
-        StaggeredEntrance(
-          index: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SectionLabel(label: l.todayThisWeek),
-              const SizedBox(height: 10),
-              _buildWeekStrip(_weekStart),
-              const SizedBox(height: 22),
-            ],
+        // No training days (or the days stream hasn't loaded yet): no strip.
+        if (_rotationLoaded && _dayList.isNotEmpty)
+          StaggeredEntrance(
+            index: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionLabel(label: l.todayThisWeek),
+                const SizedBox(height: 10),
+                _buildWeekStrip(_weekStart, manager.hasActive),
+                const SizedBox(height: 22),
+              ],
+            ),
           ),
-        ),
 
         // ── 4. Stat tiles ──────────────────────────────────────────────────────
         StaggeredEntrance(
@@ -367,7 +389,7 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _buildWeekStrip(DateTime ws) {
+  Widget _buildWeekStrip(DateTime ws, bool hasActive) {
     // Compute which days were trained this week.
     final wsIso = isoDate(ws);
     final trainedIds = <String>{};
@@ -389,7 +411,7 @@ class _TodayScreenState extends State<TodayScreen> {
     return WeekStrip(
       days: chips,
       selectedIndex: _heroIndex(),
-      onSelect: (i) => setState(() => _selectedIndex = i),
+      onSelect: hasActive ? null : (i) => setState(() => _selectedIndex = i),
     );
   }
 
@@ -872,8 +894,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
         }
       }
     }
-    final title =
-        day?.name ?? (draft.name.isEmpty ? l.todayCustomSession : draft.name);
+    final title = resumeSessionTitle(widget.controller, widget.dayList, l);
     final focus = day?.focus ?? draft.focus;
     final exCount = day?.slots.length ?? draft.blocks.length;
     final now = DateTime.now();

@@ -32,7 +32,12 @@ class StatsRepository {
   /// Live count of working sets logged in the week before [weekStart]
   /// (`[weekStart − 7 days, weekStart)`), for Today's week-over-week line.
   Stream<int> watchSetsLastWeek({required DateTime weekStart}) {
-    final from = isoDate(weekStart.subtract(const Duration(days: 7)));
+    // Date-component subtraction (not `Duration(days: 7)`), matching
+    // `weekStart()` in util/dates.dart — a `Duration` subtraction crosses a
+    // DST change at the local-time boundary and lands on the previous day
+    // 23:00, widening this to an 8-day window.
+    final from = isoDate(DateTime(
+        weekStart.year, weekStart.month, weekStart.day - 7));
     final to = isoDate(weekStart);
     // SQL: SELECT COUNT(*) AS n FROM sets s JOIN sessions se ON se.id = s.session_id
     //      WHERE s.is_warmup = 0 AND se.date >= ? AND se.date < ?
