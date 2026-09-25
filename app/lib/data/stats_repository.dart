@@ -29,6 +29,24 @@ class StatsRepository {
         .map((rs) => rs.first['n'] as int? ?? 0));
   }
 
+  /// Live count of working sets logged in the week before [weekStart]
+  /// (`[weekStart − 7 days, weekStart)`), for Today's week-over-week line.
+  Stream<int> watchSetsLastWeek({required DateTime weekStart}) {
+    final from = isoDate(weekStart.subtract(const Duration(days: 7)));
+    final to = isoDate(weekStart);
+    // SQL: SELECT COUNT(*) AS n FROM sets s JOIN sessions se ON se.id = s.session_id
+    //      WHERE s.is_warmup = 0 AND se.date >= ? AND se.date < ?
+    return reListenable(() => db
+        .watch(
+          'SELECT COUNT(*) AS n '
+          'FROM sets s '
+          'JOIN sessions se ON se.id = s.session_id '
+          'WHERE s.is_warmup = 0 AND se.date >= ? AND se.date < ?',
+          parameters: [from, to],
+        )
+        .map((rs) => rs.first['n'] as int? ?? 0));
+  }
+
   /// Live count of distinct muscle groups trained since [weekStart].
   Stream<int> watchDistinctMusclesThisWeek({required DateTime weekStart}) {
     return reListenable(() => db

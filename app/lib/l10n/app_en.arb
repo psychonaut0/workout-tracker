@@ -47,6 +47,18 @@
     }
   },
   "todayResumeWorkout": "Resume workout",
+  "todayNext": "Next: {name}",
+  "@todayNext": {"placeholders": {"name": {"type": "String"}}},
+  "todayWorkoutInProgress": "Workout in progress",
+  "todaySetsThisWeek": "Sets this week",
+  "todayPrsThisWeek": "PRs this week",
+  "todayVsLastWeek": "{delta} vs last wk",
+  "@todayVsLastWeek": {"placeholders": {"delta": {"type": "String"}}},
+  "todaySameAsLastWeek": "same as last wk",
+  "todayLastPr": "last: {name}",
+  "@todayLastPr": {"placeholders": {"name": {"type": "String"}}},
+  "todayNoPrsShort": "none yet",
+  "weekStripCustom": "Custom",
   "splitNextInRotation": "NEXT IN ROTATION",
   "splitSwitchTo": "SWITCH TO · {target}",
   "@splitSwitchTo": {
