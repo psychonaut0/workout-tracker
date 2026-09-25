@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
+import 'package:workout_tracker/theme/icons.dart';
 import 'package:workout_tracker/widgets/split_card.dart';
 
 import '../support/l10n_harness.dart';
@@ -189,6 +190,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('NEXT IN ROTATION'), findsOneWidget);
+    });
+
+    testWidgets('an outside selection moves the pager', (tester) async {
+      Widget card(int? sel) => wrapL10n(SingleChildScrollView(
+            child: SplitCard(days: _twodays, nextIndex: 0, selectedIndex: sel, onStart: (_) {}),
+          ));
+      await tester.pumpWidget(card(0));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(card(2)); // Custom
+      await tester.pumpAndSettle();
+      expect(find.text('Start empty'), findsOneWidget);
+    });
+
+    testWidgets('a swipe reports the new page', (tester) async {
+      final pages = <int>[];
+      await pumpWithTheme(
+          tester,
+          SplitCard(
+              days: _twodays, nextIndex: 0, selectedIndex: 0,
+              onSelectedChanged: pages.add, onStart: (_) {}));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(pages, [1]);
+    });
+
+    testWidgets('no pager dots or arrows remain', (tester) async {
+      await pumpWithTheme(tester, SplitCard(days: _twodays, nextIndex: 0, onStart: (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(WIcons.chevron), findsNothing);
     });
   });
 }
