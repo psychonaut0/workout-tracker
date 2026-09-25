@@ -794,7 +794,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileCompoundRest,
                       sub: l.profileCompoundRestSub,
                       right: SizedBox(
-                        width: 120,
+                        width: 168,
                         child: WStepper(
                           value: settings.restCompoundSeconds.toDouble(),
                           step: 15,
@@ -805,6 +805,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           allowDecimal: false,
                           min: 0,
                           formatForEdit: (v) => v.round().toString(),
+                          semanticLabel: l.profileCompoundRest,
                         ),
                       ),
                     ),
@@ -813,7 +814,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileIsolationRest,
                       sub: l.profileIsolationRestSub,
                       right: SizedBox(
-                        width: 120,
+                        width: 168,
                         child: WStepper(
                           value: settings.restIsolationSeconds.toDouble(),
                           step: 15,
@@ -824,6 +825,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           allowDecimal: false,
                           min: 0,
                           formatForEdit: (v) => v.round().toString(),
+                          semanticLabel: l.profileIsolationRest,
                         ),
                       ),
                     ),

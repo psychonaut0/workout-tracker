@@ -136,7 +136,7 @@ class _TargetRow extends StatelessWidget {
               ),
             ),
             SizedBox(
-              width: 120,
+              width: 168,
               child: WStepper(
                 value: sets.toDouble(),
                 step: 1,
@@ -148,6 +148,7 @@ class _TargetRow extends StatelessWidget {
                 max: 40,
                 emptyValue: 0,
                 formatForEdit: (v) => v.round() == 0 ? '' : v.round().toString(),
+                semanticLabel: localizedMuscle(context, muscle),
               ),
             ),
           ],

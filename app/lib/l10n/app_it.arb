@@ -92,6 +92,24 @@
   "sessionAddWarmupSet": "Aggiungi riscaldamento",
   "sessionSetRemoved": "Serie rimossa",
   "commonUndo": "Annulla",
+  "a11yDecrease": "Diminuisci {label}",
+  "@a11yDecrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yIncrease": "Aumenta {label}",
+  "@a11yIncrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yDecreaseGeneric": "Diminuisci",
+  "a11yIncreaseGeneric": "Aumenta",
   "sessionMinimize": "Riduci",
   "sessionWeight": "Peso",
   "sessionReps": "Ripetizioni",

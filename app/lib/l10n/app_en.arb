@@ -219,6 +219,24 @@
   "sessionAddWarmupSet": "Add warm-up",
   "sessionSetRemoved": "Set removed",
   "commonUndo": "Undo",
+  "a11yDecrease": "Decrease {label}",
+  "@a11yDecrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yIncrease": "Increase {label}",
+  "@a11yIncrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yDecreaseGeneric": "Decrease",
+  "a11yIncreaseGeneric": "Increase",
   "sessionMinimize": "Minimize",
   "sessionWeight": "Weight",
   "sessionReps": "Reps",

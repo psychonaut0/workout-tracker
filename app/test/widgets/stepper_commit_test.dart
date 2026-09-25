@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/l10n/app_localizations.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/widgets/stepper.dart';
@@ -7,6 +9,13 @@ import 'package:workout_tracker/widgets/stepper.dart';
 void main() {
   Widget host(Widget child) => MaterialApp(
         theme: buildTheme(Brightness.dark, accents[0]),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(body: Center(child: SizedBox(width: 160, child: child))),
       );
 

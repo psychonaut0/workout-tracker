@@ -92,6 +92,24 @@
   "sessionAddWarmupSet": "Aufwärmsatz hinzufügen",
   "sessionSetRemoved": "Satz entfernt",
   "commonUndo": "Rückgängig",
+  "a11yDecrease": "{label} verringern",
+  "@a11yDecrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yIncrease": "{label} erhöhen",
+  "@a11yIncrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yDecreaseGeneric": "Verringern",
+  "a11yIncreaseGeneric": "Erhöhen",
   "sessionMinimize": "Minimieren",
   "sessionWeight": "Gewicht",
   "sessionReps": "Wiederholungen",
