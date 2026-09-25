@@ -56,4 +56,26 @@ void main() {
     // The card stretches to the full Expanded width.
     expect(tester.getSize(find.byType(Container)).width, 800);
   });
+
+  testWidgets('a content-sized child still fills the Expanded width',
+      (tester) async {
+    // AnimatedSwitcher's default Stack loosens constraints, which shrank the
+    // Profile bodyweight card to its text and centred it.
+    await tester.pumpWidget(MaterialApp(
+      home: Row(children: [
+        Expanded(
+          child: UnitSwap(
+            unitKey: 'kg',
+            child: Container(
+              key: const Key('card'),
+              padding: const EdgeInsets.all(8),
+              child: const Text('66.4kg'),
+            ),
+          ),
+        ),
+      ]),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('card'))).width, 800);
+  });
 }
