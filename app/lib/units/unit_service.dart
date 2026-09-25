@@ -54,7 +54,8 @@ class UnitService extends ChangeNotifier {
     if (v == v.truncateToDouble()) {
       return v.toInt().toString();
     }
-    return v.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+    // Up to two decimals (quarter-kilo loads), trailing zeros trimmed.
+    return v.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
   /// The current unit label ("kg" or "lb").
