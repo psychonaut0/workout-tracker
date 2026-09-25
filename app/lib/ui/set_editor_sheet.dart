@@ -62,13 +62,15 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   void initState() {
     super.initState();
     _sets = widget.block.sets
-        .map((s) => _EditableSet(
-              id: s.id,
-              weightKg: s.weightKg,
-              reps: s.reps,
-              rir: s.rir,
-              isWarmup: s.isWarmup,
-            ))
+        .map(
+          (s) => _EditableSet(
+            id: s.id,
+            weightKg: s.weightKg,
+            reps: s.reps,
+            rir: s.rir,
+            isWarmup: s.isWarmup,
+          ),
+        )
         .toList();
   }
 
@@ -84,11 +86,11 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   }
 
   Future<void> _persist(_EditableSet s) => widget.sessionRepo.updateSet(
-        s.id,
-        weightKg: s.weightKg.toStringAsFixed(2),
-        reps: s.reps,
-        rir: s.rir,
-      );
+    s.id,
+    weightKg: s.weightKg.toStringAsFixed(2),
+    reps: s.reps,
+    rir: s.rir,
+  );
 
   /// Mutates [s] in place, rebuilds so the editor reflects the new value
   /// (its typed-entry unchanged-value guard compares against the value it
@@ -106,7 +108,10 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     });
   }
 
-  /// Cancels [id]'s pending debounce timer, if any, and persists immediately.
+  /// Cancels [id]'s pending debounce timer, if any, and awaits its persist.
+  /// Used only where the caller must not race the delete against a stale
+  /// value — everywhere else the write only needs to be *issued*
+  /// synchronously (see [_flushSync]), not awaited.
   Future<void> _flush(String id) async {
     final timer = _timers.remove(id);
     if (timer == null) return;
@@ -116,13 +121,38 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     await _persist(_sets[idx]);
   }
 
+  /// Cancels [id]'s pending debounce timer, if any, and starts persisting its
+  /// current value without awaiting the round trip. The `updateSet` call is
+  /// still issued synchronously within this call — ahead of whatever a
+  /// non-awaiting caller (switching sets, adding a set, or the sheet's own
+  /// pop handler) does next, such as History's post-close reload.
+  void _flushSync(String id) {
+    final timer = _timers.remove(id);
+    if (timer == null) return;
+    timer.cancel();
+    final idx = _sets.indexWhere((e) => e.id == id);
+    if (idx == -1) return;
+    unawaited(_persist(_sets[idx]));
+  }
+
+  /// Flushes every set with a pending edit, synchronously. Called when the
+  /// sheet is popped — see the `PopScope` in [build] — so every `updateSet`
+  /// call lands before the caller's own post-close reload, which otherwise
+  /// races an unfired debounce timer (`showModalBottomSheet`'s future
+  /// completes at pop, well before `dispose`).
+  void _flushAllSync() {
+    for (final id in _timers.keys.toList()) {
+      _flushSync(id);
+    }
+  }
+
   /// Opens [id]'s editing card, or collapses it if already open. Flushes
-  /// whichever card was open before (itself, if collapsing).
-  Future<void> _toggle(String id) async {
+  /// whichever card was open before (itself, if collapsing) without waiting
+  /// on the write to land.
+  void _toggle(String id) {
     commitPendingInput();
     final previous = _openId;
-    if (previous != null) await _flush(previous);
-    if (!mounted) return;
+    if (previous != null) _flushSync(previous);
     setState(() => _openId = previous == id ? null : id);
   }
 
@@ -151,18 +181,21 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   /// heaviest existing set) so the user usually only needs minor tweaks, then
   /// opens its card.
   Future<void> _addSet() async {
-    // Flush BEFORE `_sets`/`working` are read below — an in-flight edit on
-    // the last row must land before it gets read as the seed for the new row.
+    // Flush BEFORE `_sets`/`working` are read below. The seed itself only
+    // needs the LOCAL `_sets` values (already current — `_edit` mutates in
+    // place synchronously), so this doesn't need to await the write landing;
+    // it only needs to be issued before whatever runs next.
     commitPendingInput();
     final open = _openId;
-    if (open != null) await _flush(open);
-    if (!mounted) return;
+    if (open != null) _flushSync(open);
 
     final working = _sets.where((s) => !s.isWarmup).toList();
-    final last =
-        working.isNotEmpty ? working.last : (_sets.isNotEmpty ? _sets.last : null);
+    final last = working.isNotEmpty
+        ? working.last
+        : (_sets.isNotEmpty ? _sets.last : null);
 
-    final double w = last?.weightKg ??
+    final double w =
+        last?.weightKg ??
         (_sets.isEmpty
             ? 0.0
             : _sets.map((s) => s.weightKg).reduce((a, b) => a >= b ? a : b));
@@ -179,7 +212,15 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     );
     if (!mounted) return;
     setState(() {
-      _sets.add(_EditableSet(id: newId, weightKg: w, reps: r, rir: rir, isWarmup: false));
+      _sets.add(
+        _EditableSet(
+          id: newId,
+          weightKg: w,
+          reps: r,
+          rir: rir,
+          isWarmup: false,
+        ),
+      );
       _openId = newId;
     });
   }
@@ -200,91 +241,123 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     final l = AppLocalizations.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        decoration: BoxDecoration(
-          color: tokens.bg,
-          border: Border(top: BorderSide(color: tokens.line)),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        padding: EdgeInsets.fromLTRB(
-            16, 14, 16, 16 + MediaQuery.paddingOf(context).bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Grab handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: tokens.lineStrong,
-                  borderRadius: BorderRadius.circular(99),
+    // `showModalBottomSheet`'s future completes at pop — before the exit
+    // animation ends and well before `dispose` — so History's post-close
+    // reload can otherwise race a still-pending debounce timer and read a
+    // stale value. Flushing here issues every pending `updateSet` call
+    // synchronously at pop, ahead of that reload; `dispose` keeps the same
+    // flush as a backstop (idempotent — the timers are already gone).
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) return;
+        commitPendingInput();
+        _flushAllSync();
+      },
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Container(
+          decoration: BoxDecoration(
+            color: tokens.bg,
+            border: Border(top: BorderSide(color: tokens.line)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            14,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Grab handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: tokens.lineStrong,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            // Title
-            Text(
-              widget.exercise.name,
-              style: WorkoutType.display(size: 18, weight: FontWeight.w700, color: tokens.text),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              l.historyEditSets,
-              style: WorkoutType.mono(size: 11, color: tokens.faint),
-            ),
-            const SizedBox(height: 14),
+              // Title
+              Text(
+                widget.exercise.name,
+                style: WorkoutType.display(
+                  size: 18,
+                  weight: FontWeight.w700,
+                  color: tokens.text,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                l.historyEditSets,
+                style: WorkoutType.mono(size: 11, color: tokens.faint),
+              ),
+              const SizedBox(height: 14),
 
-            // Sets (scrollable in case of many)
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (var i = 0; i < _sets.length; i++)
-                      Reveal(
-                        key: ValueKey(_sets[i].id),
-                        child: _SetEntry(
-                          set: _sets[i],
-                          workIndex: _workIndexOf(i),
-                          units: widget.units,
-                          open: _openId == _sets[i].id,
-                          onTap: () => _toggle(_sets[i].id),
-                          onWeight: (v) => _edit(_sets[i], weight: v),
-                          onReps: (v) => _edit(_sets[i], reps: v),
-                          onRir: (v) => _edit(_sets[i], rir: v),
-                          onDelete: () => _deleteSet(_sets[i]),
+              // Sets (scrollable in case of many)
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < _sets.length; i++)
+                        Reveal(
+                          key: ValueKey(_sets[i].id),
+                          child: _SetEntry(
+                            set: _sets[i],
+                            workIndex: _workIndexOf(i),
+                            units: widget.units,
+                            open: _openId == _sets[i].id,
+                            onTap: () => _toggle(_sets[i].id),
+                            onWeight: (v) => _edit(_sets[i], weight: v),
+                            onReps: (v) => _edit(_sets[i], reps: v),
+                            onRir: (v) => _edit(_sets[i], rir: v),
+                            onDelete: () => _deleteSet(_sets[i]),
+                          ),
                         ),
-                      ),
-                    const SizedBox(height: 6),
-                    // Add-set affordance.
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _addSet,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(WIcons.plus, size: 14, color: tokens.accent),
-                            const SizedBox(width: 6),
-                            Text(
-                              l.sessionAddSet,
-                              style: WorkoutType.mono(
-                                  size: 11, weight: FontWeight.w600, color: tokens.accent),
+                      const SizedBox(height: 6),
+                      // Add-set affordance.
+                      GestureDetector(
+                        key: const Key('add-set'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _addSet,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  WIcons.plus,
+                                  size: 14,
+                                  color: tokens.accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l.sessionAddSet,
+                                  style: WorkoutType.mono(
+                                    size: 11,
+                                    weight: FontWeight.w600,
+                                    color: tokens.accent,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -397,7 +470,11 @@ class _SetLineRow extends StatelessWidget {
                 child: Text(
                   set.isWarmup ? l.sessionWarmupShort : '$workIndex',
                   textAlign: TextAlign.center,
-                  style: WorkoutType.mono(size: 13, weight: FontWeight.w700, color: tokens.dim),
+                  style: WorkoutType.mono(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: tokens.dim,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -406,33 +483,52 @@ class _SetLineRow extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text.rich(
-                        TextSpan(children: [
-                          TextSpan(
-                            text: units.fmtWt(set.weightKg),
-                            style: WorkoutType.mono(size: 15, weight: FontWeight.w700, color: tokens.text),
-                          ),
-                          TextSpan(
-                            text: units.uLabel,
-                            style: WorkoutType.mono(size: 11, color: tokens.faint),
-                          ),
-                          TextSpan(
-                            text: '  ×  ',
-                            style: WorkoutType.mono(size: 12, color: tokens.faint),
-                          ),
-                          TextSpan(
-                            text: '${set.reps}',
-                            style: WorkoutType.mono(size: 15, weight: FontWeight.w700, color: tokens.text),
-                          ),
-                        ]),
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: units.fmtWt(set.weightKg),
+                              style: WorkoutType.mono(
+                                size: 15,
+                                weight: FontWeight.w700,
+                                color: tokens.text,
+                              ),
+                            ),
+                            TextSpan(
+                              text: units.uLabel,
+                              style: WorkoutType.mono(
+                                size: 11,
+                                color: tokens.faint,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '  ×  ',
+                              style: WorkoutType.mono(
+                                size: 12,
+                                color: tokens.faint,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '${set.reps}',
+                              style: WorkoutType.mono(
+                                size: 15,
+                                weight: FontWeight.w700,
+                                color: tokens.text,
+                              ),
+                            ),
+                          ],
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (!set.isWarmup) ...[
+                    if (!set.isWarmup && set.rir != null) ...[
                       const SizedBox(width: 10),
                       Text(
-                        l.sessionRir(set.rir ?? 0),
-                        style: WorkoutType.mono(size: 10.5, color: tokens.faint),
+                        l.sessionRir(set.rir!),
+                        style: WorkoutType.mono(
+                          size: 10.5,
+                          color: tokens.faint,
+                        ),
                       ),
                     ],
                   ],
@@ -472,9 +568,15 @@ class _SetEditingCard extends StatelessWidget {
     final tokens = context.tokens;
     final l = AppLocalizations.of(context);
 
-    TextStyle caption() => WorkoutType.mono(size: 10, color: tokens.faint, letterSpacing: 0.08 * 10);
-    Widget inset(Widget child) =>
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: child);
+    TextStyle caption() => WorkoutType.mono(
+      size: 10,
+      color: tokens.faint,
+      letterSpacing: 0.08 * 10,
+    );
+    Widget inset(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: child,
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -496,16 +598,25 @@ class _SetEditingCard extends StatelessWidget {
           ),
           if (!set.isWarmup) ...[
             const SizedBox(height: 12),
-            inset(Row(
-              children: [
-                Text(l.sessionColRir, style: caption()),
-                const SizedBox(width: 12),
-                Expanded(child: RirPicker(value: set.rir, height: 48, onChanged: onRir)),
-              ],
-            )),
+            inset(
+              Row(
+                children: [
+                  Text(l.sessionColRir, style: caption()),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: RirPicker(
+                      value: set.rir,
+                      height: 48,
+                      onChanged: onRir,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 10),
           GestureDetector(
+            key: const Key('delete-set'),
             behavior: HitTestBehavior.opaque,
             onTap: onDelete,
             child: ConstrainedBox(
@@ -518,7 +629,11 @@ class _SetEditingCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       l.historyDeleteSet,
-                      style: WorkoutType.body(size: 14, weight: FontWeight.w600, color: tokens.danger),
+                      style: WorkoutType.body(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: tokens.danger,
+                      ),
                     ),
                   ],
                 ),

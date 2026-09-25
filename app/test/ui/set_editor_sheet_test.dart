@@ -77,6 +77,31 @@ Widget sheet(FakeSessionRepository repo, List<LoggedSet> sets) => wrapL10n(SetEd
       units: UnitService(),
     ));
 
+/// A host that opens the sheet the same way History does — via
+/// `showModalBottomSheet` — so its route can actually be popped, exercising
+/// the real dismissal path instead of just the sheet in isolation.
+Widget host(FakeSessionRepository repo, List<LoggedSet> sets) => wrapL10n(
+      Builder(
+        builder: (context) => ElevatedButton(
+          key: const Key('open-sheet'),
+          onPressed: () => showModalBottomSheet<void>(
+            context: context,
+            backgroundColor: Colors.transparent,
+            isScrollControlled: true,
+            builder: (_) => SetEditorSheet(
+              block: ExerciseBlockData(
+                  exerciseId: 'bench', sets: sets, topWeight: 100, topReps: 5, isPr: false),
+              exercise: _exercise,
+              sessionId: 'session-1',
+              sessionRepo: repo,
+              units: UnitService(),
+            ),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+
 void main() {
   testWidgets('each set is a >=48dp line; tapping one opens its rulers', (tester) async {
     final repo = FakeSessionRepository();
@@ -136,6 +161,11 @@ void main() {
     await tester.tap(find.byKey(const Key('set-line-s1')));
     await tester.pump();
     expect(repo.updateCalls, hasLength(1));
+
+    // The flushed timer must actually be cancelled — no second, stale fire
+    // later.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(repo.updateCalls, hasLength(1));
   });
 
   testWidgets(
@@ -170,7 +200,7 @@ void main() {
     await tester.tap(find.byKey(const Key('set-line-s1')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Delete set'));
+    await tester.tap(find.byKey(const Key('delete-set')));
     await tester.pumpAndSettle();
     expect(repo.deleteCalls, isEmpty); // nothing before the confirm
     await tester.tap(find.text('Delete')); // the showWConfirm confirm button
@@ -178,18 +208,45 @@ void main() {
 
     expect(repo.deleteCalls, ['s1']);
     expect(find.byKey(const Key('live-weight')), findsNothing);
+    expect(repo.updateCalls, isEmpty); // no updateSet call after the delete
   });
 
-  testWidgets('add set calls addSet and opens the new set card', (tester) async {
-    final repo = FakeSessionRepository()..nextId = 's2';
-    await tester.pumpWidget(sheet(repo, [_set('s1')]));
+  testWidgets('delete set: cancelling the confirm leaves the card open and the set untouched',
+      (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(sheet(repo, [_set('s1', weight: 100, reps: 5, rir: 2)]));
+    await tester.tap(find.byKey(const Key('set-line-s1')));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Add set'));
+    await tester.tap(find.byKey(const Key('delete-set')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(repo.deleteCalls, isEmpty);
+    // The card is still open with its original values.
+    expect(find.byKey(const Key('live-weight')), findsOneWidget);
+    expect(
+        tester.widget<RulerPicker>(find.byKey(const Key('live-weight'))).value, 100);
+    expect(tester.widget<RulerPicker>(find.byKey(const Key('live-reps'))).value, 5);
+  });
+
+  testWidgets('add set calls addSet, seeded from the last working set, and opens its card',
+      (tester) async {
+    final repo = FakeSessionRepository()..nextId = 's2';
+    await tester.pumpWidget(sheet(repo, [_set('s1', weight: 102.5, reps: 6, rir: 2)]));
+
+    await tester.tap(find.byKey(const Key('add-set')));
     await tester.pumpAndSettle();
 
     expect(repo.addCalls, hasLength(1));
-    expect(repo.addCalls.single.sessionId, 'session-1');
-    expect(repo.addCalls.single.exerciseId, 'bench');
+    final call = repo.addCalls.single;
+    expect(call.sessionId, 'session-1');
+    expect(call.exerciseId, 'bench');
+    expect(call.weightKg, '102.50');
+    expect(call.reps, 6);
+    expect(call.rir, 2);
+    expect(call.isWarmup, isFalse);
     expect(find.byKey(const Key('live-weight')), findsOneWidget);
   });
 
@@ -200,5 +257,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.getSize(find.byKey(const Key('rir-0'))).height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('the Delete set action is at least 48dp tall', (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(sheet(repo, [_set('s1')]));
+    await tester.tap(find.byKey(const Key('set-line-s1')));
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(find.byKey(const Key('delete-set'))).height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('the Add set action is at least 48dp tall', (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(sheet(repo, [_set('s1')]));
+
+    expect(tester.getSize(find.byKey(const Key('add-set'))).height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('a working set with no RIR recorded shows no RIR label on its line', (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(sheet(repo, [_set('s1', rir: null)]));
+
+    expect(find.textContaining('RIR'), findsNothing);
+  });
+
+  testWidgets(
+      'a pending edit is flushed synchronously when the sheet is popped, ahead of the '
+      'exit animation and dispose',
+      (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(host(repo, [_set('s1')]));
+    await tester.tap(find.byKey(const Key('open-sheet')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('set-line-s1')));
+    await tester.pumpAndSettle();
+
+    await tester.timedDrag(find.byKey(const Key('live-weight')), dragOffset, dragDuration);
+    await tester.pump();
+    expect(repo.updateCalls, isEmpty); // debounce still pending
+
+    // Dismiss by tapping the modal barrier — the real dismissal path a user
+    // takes, distinct from Navigator.pop called directly. showModalBottomSheet
+    // completes its future at pop, before the exit animation ends.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump(); // let the pop's synchronous work run; no time elapses
+
+    // The sheet is still mid-exit-animation (not yet disposed) — proves this
+    // was PopScope firing at pop, not the dispose backstop.
+    expect(find.byType(SetEditorSheet), findsOneWidget);
+    expect(repo.updateCalls, hasLength(1));
+    expect(repo.updateCalls.single.id, 's1');
+
+    await tester.pumpAndSettle(); // let the exit animation and dispose finish
   });
 }
