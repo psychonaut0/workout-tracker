@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -8,15 +8,91 @@ import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../util/format.dart';
 
+/// Each ISO date's position in [0, 1] between the first and last date, so a
+/// chart's x spacing reflects time rather than entry order. Equal dates share
+/// an x. When every date is the same (or there is one point) the points are
+/// spaced evenly by index instead; an unparseable date also falls back to its
+/// index fraction. Tolerates unsorted input (extremes are found, not assumed).
+List<double> dateFractions(List<String> isoDates) {
+  final n = isoDates.length;
+  if (n == 1) return const [0];
+  double byIndex(int i) => i / (n - 1);
+  // Calendar days in UTC, so a daylight-saving change can't make a day 23 or
+  // 25 hours long.
+  final days = isoDates.map((d) {
+    final p = DateTime.tryParse(d);
+    return p == null ? null : DateTime.utc(p.year, p.month, p.day);
+  }).toList();
+  final valid = days.whereType<DateTime>().toList();
+  if (valid.length < 2) return [for (var i = 0; i < n; i++) byIndex(i)];
+  final first = valid.reduce((a, b) => a.isBefore(b) ? a : b);
+  final last = valid.reduce((a, b) => a.isAfter(b) ? a : b);
+  final span = last.difference(first).inHours;
+  if (span == 0) return [for (var i = 0; i < n; i++) byIndex(i)];
+  return [
+    for (var i = 0; i < n; i++)
+      days[i] == null ? byIndex(i) : days[i]!.difference(first).inHours / span,
+  ];
+}
+
+/// Where to put the chart's last-point value label so it never covers the
+/// line: right of [point] if it fits, else left. When [previous] is given,
+/// place the chip on the vertical side opposite the incoming segment direction
+/// — below the point if the segment comes from above, above if from below —
+/// flipping to the other side if that overflows the canvas. Always clamped
+/// inside [canvas].
+Offset valueLabelOrigin({
+  required Offset point,
+  required Size label,
+  required Size canvas,
+  double gap = 8,
+  Offset? previous,
+}) {
+  // Horizontal: right if it fits, else left.
+  var x = point.dx + gap;
+  if (x + label.width > canvas.width) x = point.dx - gap - label.width;
+
+  // Vertical: when previous is given, place on the side opposite the incoming
+  // segment. If the previous point is above (dy < point.dy), place below;
+  // otherwise above. If that overflows, use the other side.
+  var y = point.dy - gap - label.height; // Default: above
+  if (previous != null) {
+    if (previous.dy < point.dy) {
+      // Segment comes from above; prefer below.
+      y = point.dy + gap;
+      if (y + label.height > canvas.height) {
+        // Overflow; try above instead.
+        y = point.dy - gap - label.height;
+      }
+    } else {
+      // Segment comes from below; prefer above.
+      y = point.dy - gap - label.height;
+      if (y < 0) {
+        // Overflow; try below instead.
+        y = point.dy + gap;
+      }
+    }
+  } else {
+    // No previous: use the original logic (above, drop to below if overflow).
+    if (y < 0) y = point.dy + gap;
+  }
+
+  return Offset(
+    x.clamp(0.0, math.max(0.0, canvas.width - label.width)),
+    y.clamp(0.0, math.max(0.0, canvas.height - label.height)),
+  );
+}
+
 /// A progression line chart ported from `ui.jsx` `LineChart`.
 ///
 /// Renders a [CustomPaint] with area-fill gradient, polyline, PR markers,
-/// month x-labels, and a floating value label at the last point. Falls back
+/// month x-labels, and a value label on a chip beside the last point. Falls back
 /// to an empty [SizedBox] when `series.length < 2`.
 ///
 /// Series values are already in display units — callers convert.
 /// Each record includes a [date] (ISO-8601 date string, e.g. '2024-03-15')
-/// used to derive month boundary x-labels, mirroring `ui.jsx` `s.date`.
+/// used to space the x-axis by calendar time (not entry index) and to derive
+/// month boundary x-labels, mirroring `ui.jsx` `s.date`.
 class LineChart extends StatelessWidget {
   const LineChart({
     super.key,
@@ -106,13 +182,14 @@ class _LineChartPainter extends CustomPainter {
 
     // ── y-domain ──────────────────────────────────────────────────────────────
     final values = series.map((s) => s.value).toList();
-    var lo = values.reduce(min);
-    var hi = values.reduce(max);
-    final span = max(hi - lo, 4.0);
+    var lo = values.reduce(math.min);
+    var hi = values.reduce(math.max);
+    final span = math.max(hi - lo, 4.0);
     lo -= span * 0.18;
     hi += span * 0.22;
 
-    double xAt(int i) => _padL + (i / (n - 1)) * iw;
+    final fractions = dateFractions([for (final s in series) s.date]);
+    double xAt(int i) => _padL + fractions[i] * iw;
     double yAt(double v) => _padT + ih - ((v - lo) / (hi - lo)) * ih;
 
     // ── 5 gridlines + left y labels ───────────────────────────────────────────
@@ -182,7 +259,7 @@ class _LineChartPainter extends CustomPainter {
     // ── per-point dots (skip last — handled separately) ───────────────────────
     for (var i = 0; i < n - 1; i++) {
       // Reveal each dot once the stroke has reached its x-fraction.
-      if (i / (n - 1) > progress) continue;
+      if (fractions[i] > progress) continue;
 
       final cx = xAt(i);
       final cy = yAt(series[i].value);
@@ -261,25 +338,38 @@ class _LineChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke,
     );
 
-    // Floating value label — translate(min(lastX, W-58), max(lastY-26, 4))
+    // Value label on a small chip beside the last point — placed so it never
+    // covers the line's final segment.
     final label =
         '${fmtPlain(last.value)}$unit${showReps ? ' ×${last.reps}' : ''}';
-    final labelX = min(lastX, W - 58);
-    final labelY = max(lastY - 26, 4.0);
-
-    _paintText(
-      canvas,
-      text: label,
-      x: labelX,
-      y: labelY,
-      rightAlign: false,
-      style: TextStyle(
-        fontFamily: 'JetBrainsMono',
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        color: text,
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          fontFamily: 'JetBrainsMono',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: text,
+        ),
       ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    const chipPad = EdgeInsets.symmetric(horizontal: 6, vertical: 3);
+    final chipSize = Size(tp.width + chipPad.horizontal, tp.height + chipPad.vertical);
+    final prevX = xAt(n - 2);
+    final prevY = yAt(series[n - 2].value);
+    final origin = valueLabelOrigin(
+      point: Offset(lastX, lastY),
+      label: chipSize,
+      canvas: size,
+      gap: 10,
+      previous: Offset(prevX, prevY),
     );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(origin & chipSize, const Radius.circular(6)),
+      Paint()..color = bg,
+    );
+    tp.paint(canvas, origin + Offset(chipPad.left, chipPad.top));
   }
 
   /// Paints [text] at logical position ([x], [y]).

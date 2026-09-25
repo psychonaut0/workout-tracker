@@ -11,6 +11,14 @@ String fmtPlain(double v) {
   return s;
 }
 
+/// A signed [fmtPlain]: "+0.3", "−1" (U+2212, the width of "+"), or "0" when
+/// the value rounds to zero at one decimal.
+String fmtSigned(double v) {
+  final s = fmtPlain(v.abs());
+  if (s == '0') return '0';
+  return v > 0 ? '+$s' : '−$s';
+}
+
 /// Formats a value as a comma-grouped integer string (no `intl` dependency),
 /// matching `toLocaleString('en-US')`.
 ///

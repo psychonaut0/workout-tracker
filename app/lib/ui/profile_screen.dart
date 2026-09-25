@@ -11,6 +11,7 @@ import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../export/export_service.dart';
 import '../l10n/app_localizations.dart';
+import '../settings/bodyweight_goal.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../sync/sync_status_ui.dart';
@@ -24,6 +25,7 @@ import '../update/update_service.dart';
 import '../update/update_ui.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
+import '../widgets/w_action_sheet.dart';
 import '../widgets/w_dialog.dart';
 import 'login_screen.dart';
 
@@ -399,6 +401,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await settings.setLocaleOverride(choice == 'system' ? null : choice);
   }
 
+  // ── Bodyweight goal picker ──────────────────────────────────────────────
+
+  String _goalLabel(AppLocalizations l, BodyweightGoal g) => switch (g) {
+        BodyweightGoal.cut => l.goalCut,
+        BodyweightGoal.bulk => l.goalBulk,
+        BodyweightGoal.maintain => l.goalMaintain,
+      };
+
+  Future<void> _pickGoal(BuildContext context, SettingsService settings) async {
+    final l = AppLocalizations.of(context);
+    final picked = await showWActionSheet<BodyweightGoal>(context,
+        title: l.profileGoal,
+        actions: [
+          for (final g in BodyweightGoal.values)
+            WSheetAction(
+              label: _goalLabel(l, g),
+              value: g,
+              icon: g == settings.bodyweightGoal ? WIcons.check : WIcons.target,
+            ),
+        ]);
+    if (picked != null) await settings.setBodyweightGoal(picked);
+  }
+
   // ── Server-switch flow ────────────────────────────────────────────────────
 
   Future<void> _applyServer(SettingsService settings) async {
@@ -711,6 +736,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         labelOf: (u) => u == Unit.kg ? 'kg' : 'lb',
                         onSelect: unitService.setUnit,
                       ),
+                    ),
+                  ],
+                ),
+
+                // ── Bodyweight ──────────────────────────────────────────────
+                _Group(
+                  label: l.profileGroupBodyweight,
+                  children: [
+                    _Row(
+                      icon: WIcons.scale,
+                      title: l.profileGoal,
+                      sub: _goalLabel(l, settings.bodyweightGoal),
+                      onTap: () => _pickGoal(context, settings),
                     ),
                   ],
                 ),
