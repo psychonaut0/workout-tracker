@@ -24,12 +24,16 @@ class RirPicker extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.height = 30,
   });
 
   /// Currently selected RIR value (0–3), or null for no selection.
   final int? value;
 
   final ValueChanged<int> onChanged;
+
+  /// Chip height; the live workout's post-log strip uses 48.
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +51,7 @@ class RirPicker extends StatelessWidget {
               onChanged(r);
             },
             child: Container(
-              height: 30,
+              height: height,
               margin: EdgeInsets.only(right: r < 3 ? 3 : 0),
               decoration: BoxDecoration(
                 color: selected ? tokens.accent : tokens.surface3,

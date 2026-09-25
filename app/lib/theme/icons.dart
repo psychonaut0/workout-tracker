@@ -32,4 +32,5 @@ abstract final class WIcons {
   static const IconData update = Icons.system_update_outlined;
   static const IconData refresh = Icons.refresh;
   static const IconData resume = Icons.play_arrow_rounded;
+  static const IconData more = Icons.more_horiz;
 }

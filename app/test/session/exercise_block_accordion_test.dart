@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/exercise_block.dart';
+import 'package:workout_tracker/session/set_line.dart';
 import 'package:workout_tracker/units/unit_service.dart';
 
 import '../support/l10n_harness.dart';
@@ -52,10 +53,13 @@ void main() {
                   key: const ValueKey('e1'),
                   block: b,
                   unit: UnitService(),
-                  onToggleDone: (_, __) {},
+                  liveSetId: null,
+                  rirPromptSetId: null,
+                  onFocusSet: (_, __) {},
                   onSetChanged: (_, __) {},
-                  onAddSet: (_) {},
-                  onRemoveBlock: (_) {},
+                  onRir: (_, __, ___) {},
+                  onMarkNotDone: (_, __) {},
+                  onMenu: (_) {},
                 ),
               )
             : const SizedBox.shrink(),
@@ -67,14 +71,14 @@ void main() {
 
     await tester.pumpWidget(host(b, showBlock: true));
     await tester.pumpAndSettle();
-    // Expanded: the "Add set" affordance is visible.
-    expect(find.text('Add set'), findsOneWidget);
+    // Expanded: the set line is visible.
+    expect(find.byType(SetLine), findsOneWidget);
 
     // Collapse via the header tap.
     await tester.tap(find.text('Bench Press'));
     await tester.pumpAndSettle();
     expect(b.expanded, isFalse); // model field updated
-    expect(find.text('Add set'), findsNothing);
+    expect(find.byType(SetLine), findsNothing);
 
     // Simulate scroll-out: unmount the block entirely, then remount.
     await tester.pumpWidget(host(b, showBlock: false));
@@ -84,6 +88,6 @@ void main() {
 
     // Still collapsed after remount.
     expect(b.expanded, isFalse);
-    expect(find.text('Add set'), findsNothing);
+    expect(find.byType(SetLine), findsNothing);
   });
 }

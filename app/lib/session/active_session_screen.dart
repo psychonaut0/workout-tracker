@@ -18,12 +18,16 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/pending_input.dart';
+import '../widgets/w_action_sheet.dart';
 import '../widgets/w_dialog.dart';
 import 'active_session_controller.dart';
 import 'exercise_block.dart';
 import 'exercise_picker_sheet.dart';
+import 'log_set_bar.dart';
+import 'reorder_exercises_sheet.dart';
 import 'resume.dart';
-import 'rest_timer.dart';
+import 'session_header.dart';
 import 'session_manager.dart';
 import 'session_summary_screen.dart';
 
@@ -32,12 +36,14 @@ import 'session_summary_screen.dart';
 /// Visual spec: `docs/design_handoff_workout_tracker/design/app/screen-log.jsx`
 /// `ActiveSession`.
 ///
-/// - Sticky header: back btn (confirm-close if sets done), title
-///   `"{name} · {focus}"`, mono `"{doneWork}/{totalWork} sets[· N PR]"`,
-///   right-side elapsed `m:ss` accent, 3px progress bar.
-/// - Body: ExerciseBlock list + dashed "Add exercise" + "Finish workout" (h52).
+/// - Sticky [SessionHeader]: minimize, title/focus, sets progress + elapsed,
+///   the workout ⋯ menu, and — while resting — a draining rest bar with a
+///   countdown, "Next · …" line and +30s / Skip chips (no floating card
+///   covers the list anymore).
+/// - Body: the list of [ExerciseBlock]s + dashed "Add exercise".
+/// - Pinned [LogSetBar] in `bottomNavigationBar`: logs the live set (starting
+///   rest afterward) or finishes the workout when nothing is live.
 /// - Finish wires through `db.writeTransaction(PowerSyncTxExecutor)`.
-/// - Rest timer floats above the finish button when active.
 class ActiveSessionScreen extends StatefulWidget {
   const ActiveSessionScreen({super.key});
 
@@ -58,6 +64,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
   bool _tickHapticFired = false; // 3s remaining → selectionClick
   bool _buzzHapticFired = false; // 0s remaining → vibrate
 
+  /// On the live card, so logging can scroll the next live set into view.
+  final GlobalKey _liveCardKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +85,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
             c.restTotal - DateTime.now().difference(start).inSeconds;
         if (remaining <= 0) c.stopRest();
       }
+      c?.expireRirPrompt(DateTime.now());
       setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,6 +138,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
         .any((b) => b.allSets.any((s) => s.done));
 
     if (!hasDone) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       controller.discard();
       if (context.mounted) Navigator.of(context).pop();
       return;
@@ -145,6 +156,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     );
 
     if (confirmed == true) {
+      if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
       controller.discard();
       if (context.mounted) Navigator.of(context).pop();
     }
@@ -154,6 +166,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
 
   Future<void> _handleFinish(
       BuildContext context, ActiveSessionController controller) async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     final draftStore = DraftStore();
     try {
       // Adopts the finish snapshot only after the transaction commits.
@@ -184,6 +197,132 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     }
   }
 
+  // ── Rest / log-bar handling ───────────────────────────────────────────────
+
+  int _restSecondsFor(BlockState b) {
+    final settings = context.read<SettingsService>();
+    return b.exercise.defaultRestSeconds ??
+        (b.exercise.compound
+            ? settings.restCompoundSeconds
+            : settings.restIsolationSeconds);
+  }
+
+  /// The log bar: logs the live set (the bar has already committed any
+  /// in-flight typed value), starts rest after a newly logged working set,
+  /// and scrolls the next live set into view.
+  void _logLive(ActiveSessionController c) {
+    final r = c.logLiveSet();
+    if (r == null) return;
+    if (r.newlyDone) {
+      final top = liveTopOf(r.block);
+      final isPr = !r.set.isWarmup && top.isPr && r.set.weightKg == top.topKg;
+      isPr ? HapticFeedback.heavyImpact() : HapticFeedback.mediumImpact();
+      if (!r.set.isWarmup) c.startRest(_restSecondsFor(r.block));
+    } else {
+      HapticFeedback.selectionClick();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _liveCardKey.currentContext;
+      if (ctx == null || !mounted) return;
+      Scrollable.ensureVisible(ctx,
+          duration: Motion.of(context, Motion.base),
+          curve: Motion.curve,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
+    });
+  }
+
+  void _removeSet(ActiveSessionController c, BlockState b, SetState s) {
+    final index = c.removeSet(b, s);
+    final l = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(l.sessionSetRemoved),
+        action: SnackBarAction(
+          label: l.commonUndo,
+          onPressed: () => c.restoreSet(b, s, index),
+        ),
+      ));
+  }
+
+  Future<void> _openWorkoutMenu(ActiveSessionController c) async {
+    final l = AppLocalizations.of(context);
+    final picked = await showWActionSheet<String>(context,
+        title: l.sessionWorkoutOptions,
+        actions: [
+          WSheetAction(
+              label: l.sessionFinishWorkout,
+              value: 'finish',
+              icon: WIcons.check,
+              enabled: c.canFinish),
+          WSheetAction(
+              label: l.sessionDiscardWorkout,
+              value: 'discard',
+              icon: WIcons.trash,
+              destructive: true),
+        ]);
+    if (!mounted || picked == null) return;
+    if (picked == 'finish') await _handleFinish(context, c);
+    if (picked == 'discard' && mounted) await _handleClose(context, c);
+  }
+
+  Future<void> _openBlockMenu(ActiveSessionController c, BlockState b) async {
+    final l = AppLocalizations.of(context);
+    final blocks = c.draft.blocks;
+    final picked = await showWActionSheet<String>(context,
+        title: b.exercise.name,
+        actions: [
+          WSheetAction(label: l.sessionAddSet, value: 'set', icon: WIcons.plus),
+          WSheetAction(label: l.sessionAddWarmupSet, value: 'warmup', icon: WIcons.flame),
+          WSheetAction(
+              label: l.sessionMoveUp,
+              value: 'up',
+              icon: Icons.keyboard_arrow_up,
+              enabled: !identical(b, blocks.first)),
+          WSheetAction(
+              label: l.sessionMoveDown,
+              value: 'down',
+              icon: Icons.keyboard_arrow_down,
+              enabled: !identical(b, blocks.last)),
+          WSheetAction(
+              label: l.sessionReorderExercises,
+              value: 'reorder',
+              icon: Icons.drag_handle,
+              enabled: blocks.length > 1),
+          WSheetAction(
+              label: l.sessionRemoveExercise,
+              value: 'remove',
+              icon: WIcons.trash,
+              destructive: true),
+        ]);
+    if (!mounted || picked == null) return;
+    switch (picked) {
+      case 'set':
+        c.addSet(b);
+      case 'warmup':
+        c.addWarmupSet(b);
+      case 'up':
+        c.moveBlock(b, -1);
+      case 'down':
+        c.moveBlock(b, 1);
+      case 'reorder':
+        await showReorderExercisesSheet(context, controller: c);
+      case 'remove':
+        if (b.allSets.any((s) => s.done)) {
+          final confirmed = await showWConfirm(
+            context,
+            title: l.sessionRemoveExerciseTitle,
+            message: l.sessionRemoveExerciseMessage,
+            confirmLabel: l.commonRemove,
+            destructive: true,
+          );
+          if (confirmed == true) c.removeBlock(b);
+        } else {
+          c.removeBlock(b);
+        }
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -200,335 +339,100 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
     }
 
     final draft = controller.draft;
-    final elapsed = controller.elapsed;
-    final mm = elapsed.inMinutes;
-    final ss = elapsed.inSeconds % 60;
-    final doneWork = controller.doneWork;
-    final totalWork = controller.totalWork;
-    final prCount = controller.prCount;
-    final progress = totalWork > 0 ? doneWork / totalWork : 0.0;
-
-    // Compute rest timer remaining
-    int restRemaining = 0;
-    if (controller.restStart != null) {
-      final elapsed2 =
-          DateTime.now().difference(controller.restStart!).inSeconds;
-      restRemaining = controller.restTotal - elapsed2;
-      if (restRemaining <= 0) {
-        // Auto-dismiss on next frame
-        WidgetsBinding.instance.addPostFrameCallback((_) => controller.stopRest());
-        restRemaining = 0;
-      }
-    }
+    final live = controller.liveSet;
 
     return Scaffold(
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              // ── Sticky header ────────────────────────────────────────────
-              _Header(
-                draft: draft,
-                mm: mm,
-                ss: ss,
-                doneWork: doneWork,
-                totalWork: totalWork,
-                prCount: prCount,
-                progress: progress,
-                tokens: tokens,
-                l: l,
-                onMinimize: () => Navigator.of(context).pop(),
-                onDiscard: () => _handleClose(context, controller),
-              ),
-
-              // ── Scrollable body ──────────────────────────────────────────
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 140),
-                  children: [
-                    // Empty-session placeholder
-                    if (draft.blocks.isEmpty) ...[
-                      const SizedBox(height: 40),
-                      _EmptySessionPlaceholder(tokens: tokens, l: l),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Exercise blocks
-                    for (final block in draft.blocks)
-                      Reveal(
-                        key: ValueKey(block.exercise.id),
-                        child: ExerciseBlock(
-                          block: block,
-                          unit: unit,
-                          onToggleDone: (b, s) {
-                            final wasDone = s.done;
-                            controller.toggleDone(b, s);
-                            // Start rest timer when a working set is completed.
-                            // Resolve duration: per-exercise override, else the
-                            // global compound/isolation default from Settings.
-                            if (!wasDone && !s.isWarmup) {
-                              final settings = context.read<SettingsService>();
-                              controller.startRest(
-                                b.exercise.defaultRestSeconds ??
-                                    (b.exercise.compound
-                                        ? settings.restCompoundSeconds
-                                        : settings.restIsolationSeconds),
-                              );
-                            }
-                          },
-                          onSetChanged: (b, s) => controller.markChanged(),
-                          onAddSet: (b) => controller.addSet(b),
-                          onAddWarmup: (b) => controller.addWarmupSet(b),
-                          onRemoveSet: (b, s) => controller.removeSet(b, s),
-                          onMoveUp: identical(block, draft.blocks.first)
-                              ? null
-                              : () => controller.moveBlock(block, -1),
-                          onMoveDown: identical(block, draft.blocks.last)
-                              ? null
-                              : () => controller.moveBlock(block, 1),
-                          onRemoveBlock: (b) async {
-                            final hasDone = b.allSets.any((s) => s.done);
-                            if (hasDone) {
-                              final confirmed = await showWConfirm(
-                                context,
-                                title: l.sessionRemoveExerciseTitle,
-                                message: l.sessionRemoveExerciseMessage,
-                                confirmLabel: l.commonRemove,
-                                destructive: true,
-                              );
-                              if (confirmed == true) controller.removeBlock(b);
-                            } else {
-                              controller.removeBlock(b);
-                            }
-                          },
-                        ),
-                      ),
-
-                    const SizedBox(height: 10),
-
-                    // Dashed "Add exercise" button
-                    _DashedButton(
-                      height: 46,
-                      icon: WIcons.plus,
-                      label: l.sessionAddExercise,
-                      tokens: tokens,
-                      onTap: () async {
-                        final repo = ExerciseRepository(db);
-                        final all = await repo.all();
-                        if (!context.mounted) return;
-                        final picked = await showExercisePicker(
-                          context,
-                          exercises: all,
-                        );
-                        if (picked != null) {
-                          await controller.addBlock(
-                            picked,
-                            sessionRepo: SessionRepository(db),
-                          );
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // "Finish workout" button
-                    _FinishButton(
-                      canFinish: controller.canFinish,
-                      label: l.sessionFinishWorkout,
-                      tokens: tokens,
-                      onTap: () => _handleFinish(context, controller),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          SessionHeader(
+            draft: draft,
+            elapsed: controller.elapsed,
+            doneWork: controller.doneWork,
+            totalWork: controller.totalWork,
+            prCount: controller.prCount,
+            restStart: controller.restStart,
+            restTotal: controller.restTotal,
+            nextLabel: restNextLabel(l, unit, live),
+            onMinimize: () => Navigator.of(context).pop(),
+            onMenu: () => _openWorkoutMenu(controller),
+            onAdd30s: () {
+              HapticFeedback.lightImpact();
+              controller.addRestTime(30);
+            },
+            onSkip: controller.stopRest,
           ),
-
-          // ── Floating rest timer ──────────────────────────────────────────
-          if (controller.restStart != null && restRemaining > 0)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 44,
-              child: RestTimerCard(
-                totalSeconds: controller.restTotal,
-                startTime: controller.restStart!,
-                onAdd30s: () => controller.addRestTime(30),
-                onDismiss: controller.stopRest,
-              ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              children: [
+                if (draft.blocks.isEmpty) ...[
+                  const SizedBox(height: 40),
+                  _EmptySessionPlaceholder(tokens: tokens, l: l),
+                  const SizedBox(height: 20),
+                ],
+                for (final block in draft.blocks)
+                  Reveal(
+                    key: ValueKey(block.exercise.id),
+                    child: ExerciseBlock(
+                      block: block,
+                      unit: unit,
+                      liveSetId: live?.set.id,
+                      rirPromptSetId: controller.rirPromptSetId,
+                      liveCardKey: _liveCardKey,
+                      onLongPressHeader: draft.blocks.length < 2
+                          ? null
+                          : () {
+                              HapticFeedback.mediumImpact();
+                              showReorderExercisesSheet(context, controller: controller);
+                            },
+                      onFocusSet: (_, s) {
+                        // Settle in-flight edits first (same rule as the log
+                        // bar): a gliding ruler would otherwise keep writing
+                        // into the set being left.
+                        commitPendingInput();
+                        controller.focusSet(s);
+                      },
+                      onSetChanged: (_, __) => controller.markChanged(),
+                      onRir: (_, s, v) => controller.setRirFromPrompt(s, v),
+                      onMarkNotDone: (_, s) => controller.markNotDone(s),
+                      onRemoveSet: (b, s) => _removeSet(controller, b, s),
+                      onMenu: (b) => _openBlockMenu(controller, b),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                _DashedButton(
+                  height: 48,
+                  icon: WIcons.plus,
+                  label: l.sessionAddExercise,
+                  tokens: tokens,
+                  onTap: () async {
+                    final repo = ExerciseRepository(db);
+                    final all = await repo.all();
+                    if (!context.mounted) return;
+                    final picked = await showExercisePicker(context, exercises: all);
+                    if (picked != null) {
+                      await controller.addBlock(picked, sessionRepo: SessionRepository(db));
+                    }
+                  },
+                ),
+              ],
             ),
+          ),
         ],
+      ),
+      // In bottomNavigationBar (not the body) so the undo snackbar floats above it.
+      bottomNavigationBar: LogSetBar(
+        live: live,
+        canFinish: controller.canFinish,
+        unit: unit,
+        onLog: () => _logLive(controller),
+        onFinish: () => _handleFinish(context, controller),
       ),
     );
   }
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.draft,
-    required this.mm,
-    required this.ss,
-    required this.doneWork,
-    required this.totalWork,
-    required this.prCount,
-    required this.progress,
-    required this.tokens,
-    required this.l,
-    required this.onMinimize,
-    required this.onDiscard,
-  });
-
-  final SessionDraft draft;
-  final int mm;
-  final int ss;
-  final int doneWork;
-  final int totalWork;
-  final int prCount;
-  final double progress;
-  final WorkoutTokens tokens;
-  final AppLocalizations l;
-  final VoidCallback onMinimize;
-  final VoidCallback onDiscard;
-
-  @override
-  Widget build(BuildContext context) {
-    final prText = prCount > 0 ? l.sessionPrCount(prCount) : '';
-    final setsText = '${l.sessionSetsProgress(doneWork, totalWork)}$prText';
-
-    return Container(
-      color: tokens.bg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Status-bar padding
-          SizedBox(height: MediaQuery.of(context).padding.top + 8),
-
-          // Title row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Row(
-              children: [
-                // Minimize button (chevron down)
-                GestureDetector(
-                  onTap: onMinimize,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: tokens.surface,
-                      border: Border.all(color: tokens.line),
-                    ),
-                    alignment: Alignment.center,
-                    child: Transform.rotate(
-                      angle: 1.5708,
-                      child: Icon(WIcons.chevron,
-                          size: 18, color: tokens.dim),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Title + sets counter
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          style: WorkoutType.display(
-                              size: 18,
-                              weight: FontWeight.w700,
-                              color: tokens.text),
-                          children: [
-                            TextSpan(text: draft.name),
-                            if (draft.focus.isNotEmpty) ...[
-                              TextSpan(
-                                text: ' · ${draft.focus}',
-                                style: WorkoutType.display(
-                                    size: 18,
-                                    weight: FontWeight.w600,
-                                    color: tokens.faint),
-                              ),
-                            ],
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        setsText,
-                        style: WorkoutType.mono(
-                            size: 11, color: tokens.faint),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: onDiscard,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: tokens.surface,
-                      border: Border.all(color: tokens.line),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(WIcons.trash, size: 16, color: tokens.dim),
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Elapsed timer
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$mm:${ss.toString().padLeft(2, '0')}',
-                      style: WorkoutType.mono(
-                        size: 18,
-                        weight: FontWeight.w700,
-                        color: tokens.accent,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l.sessionElapsed,
-                      style: WorkoutType.mono(
-                        size: 9,
-                        color: tokens.faint,
-                        letterSpacing: 0.06 * 9,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // 3px progress bar
-          Container(
-            height: 3,
-            color: tokens.surface3,
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: progress.clamp(0.0, 1.0),
-              child: Container(color: tokens.accent),
-            ),
-          ),
-
-          // Bottom border
-          Container(height: 1, color: tokens.line),
-        ],
-      ),
-    );
-  }
-}
 
 class _EmptySessionPlaceholder extends StatelessWidget {
   const _EmptySessionPlaceholder({required this.tokens, required this.l});
@@ -608,43 +512,6 @@ class _DashedButton extends StatelessWidget {
                   color: tokens.dim),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FinishButton extends StatelessWidget {
-  const _FinishButton({
-    required this.canFinish,
-    required this.label,
-    required this.tokens,
-    required this.onTap,
-  });
-
-  final bool canFinish;
-  final String label;
-  final WorkoutTokens tokens;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: canFinish ? onTap : null,
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: canFinish ? tokens.accent : tokens.surface3,
-          borderRadius: BorderRadius.circular(AppRadius.radius),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: WorkoutType.display(
-            size: 16,
-            weight: FontWeight.w700,
-            color: canFinish ? tokens.accentInk : tokens.faint,
-          ),
         ),
       ),
     );

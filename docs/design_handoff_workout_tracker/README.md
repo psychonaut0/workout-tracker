@@ -180,3 +180,7 @@ Active tab = accent. Profile opens as an overlay from the Today avatar (not a ta
 
 ## Implementation order (suggested)
 1. Tokens + nav shell. 2. Data layer wired to PowerSync (the model above). 3. Active session logging (the core loop) + rest timer + PR detection. 4. Progress chart + metric tabs. 5. Plan (slots + exercise editor). 6. Bodyweight. 7. History. 8. Profile/settings + unit/theme.
+
+## Superseded: live workout layout
+
+The live workout screen (`screen-log.jsx` `SetRow`, `ExerciseBlock` footer, `RestTimer`) is superseded by `docs/superpowers/specs/2026-09-24-live-set-focus-design.md`: one live set with large steppers, compact read-only set lines, a pinned "Log set" bar, rest in the header, and ⋯ action sheets. Tokens, type and colour from this README still apply.

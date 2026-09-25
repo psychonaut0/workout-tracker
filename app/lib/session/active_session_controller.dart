@@ -83,6 +83,28 @@ BlockState buildBlock({
   );
 }
 
+/// A set together with the block it belongs to.
+typedef LiveSet = ({BlockState block, SetState set});
+
+/// The heaviest done working set in [block] and whether it beats the
+/// block's all-time best (no history counts as a PR). The same rule the
+/// block header and the finish-time PR flag use.
+({double topKg, bool isPr}) liveTopOf(BlockState block) {
+  final top = block.workingSets
+      .where((s) => s.done)
+      .fold<double>(0, (m, s) => s.weightKg > m ? s.weightKg : m);
+  final best = block.bestKg;
+  return (topKg: top, isPr: top > 0 && (best == null || top > best));
+}
+
+/// A fresh workout opens with only its first exercise expanded; the live set
+/// expands the others as the workout reaches them.
+void expandOnlyFirst(List<BlockState> blocks) {
+  for (var i = 0; i < blocks.length; i++) {
+    blocks[i].expanded = i == 0;
+  }
+}
+
 // ── Data classes ─────────────────────────────────────────────────────────────
 
 /// Mutable state for a single set during an active session.
@@ -381,6 +403,7 @@ class ActiveSessionController extends ChangeNotifier {
       blocks.add(block);
     }
 
+    expandOnlyFirst(blocks);
     _draft = SessionDraft(
       templateId: template.id,
       name: template.name,
@@ -444,6 +467,107 @@ class ActiveSessionController extends ChangeNotifier {
     if (this.restStart == restStart && this.restTotal == restTotal) return;
     this.restStart = restStart;
     this.restTotal = restTotal;
+    notifyListeners();
+  }
+
+  // ── Live set (in-memory focus; never persisted — recomputed on resume) ──
+
+  String? _focusedSetId;
+  String? _rirPromptSetId;
+  DateTime? _rirPromptUntil;
+
+  /// How long the RIR correction strip stays open after a set is logged.
+  static const rirPromptWindow = Duration(seconds: 4);
+
+  /// The set the log bar acts on: the tapped set while it still exists,
+  /// otherwise the first not-done set in on-screen order (blocks top to
+  /// bottom, warm-ups before working sets). Null when every set is done.
+  LiveSet? get liveSet {
+    final d = _draft;
+    if (d == null) return null;
+    final focused = _focusedSetId;
+    if (focused != null) {
+      for (final b in d.blocks) {
+        for (final s in b.allSets) {
+          if (s.id == focused) return (block: b, set: s);
+        }
+      }
+    }
+    for (final b in d.blocks) {
+      for (final s in b.allSets) {
+        if (!s.done) return (block: b, set: s);
+      }
+    }
+    return null;
+  }
+
+  /// The logged set whose RIR strip is open, or null.
+  String? get rirPromptSetId => _rirPromptSetId;
+
+  /// Makes [set] the live set (a tap on its row).
+  void focusSet(SetState set) {
+    if (_focusedSetId == set.id) return;
+    _focusedSetId = set.id;
+    notifyListeners();
+  }
+
+  /// Logs the live set, or — when it is already logged — confirms the
+  /// correction made in the live card. Focus then falls back to the first
+  /// not-done set; when that is in another block, the block just finished
+  /// collapses (only if every set in it is done) and the next one expands.
+  /// A newly logged working set opens the RIR strip; anything else closes it.
+  /// Returns null when there is no live set.
+  ({BlockState block, SetState set, bool newlyDone})? logLiveSet(
+      {DateTime? now}) {
+    final live = liveSet;
+    if (live == null) return null;
+    final newlyDone = !live.set.done;
+    live.set.done = true;
+    _focusedSetId = null;
+    if (newlyDone && !live.set.isWarmup) {
+      _rirPromptSetId = live.set.id;
+      _rirPromptUntil = (now ?? DateTime.now()).add(rirPromptWindow);
+    } else {
+      _rirPromptSetId = null;
+      _rirPromptUntil = null;
+    }
+    final next = liveSet;
+    if (next != null && !identical(next.block, live.block)) {
+      if (live.block.allSets.every((s) => s.done)) live.block.expanded = false;
+      next.block.expanded = true;
+    }
+    notifyListeners();
+    return (block: live.block, set: live.set, newlyDone: newlyDone);
+  }
+
+  /// Un-logs [set] and makes it the live set.
+  void markNotDone(SetState set) {
+    set.done = false;
+    _focusedSetId = set.id;
+    if (_rirPromptSetId == set.id) {
+      _rirPromptSetId = null;
+      _rirPromptUntil = null;
+    }
+    notifyListeners();
+  }
+
+  /// A tap on the RIR strip: stores [rir] and restarts the strip's window.
+  void setRirFromPrompt(SetState set, int rir, {DateTime? now}) {
+    set.rir = rir;
+    _rirPromptSetId = set.id;
+    _rirPromptUntil = (now ?? DateTime.now()).add(rirPromptWindow);
+    notifyListeners();
+  }
+
+  /// Closes the RIR strip once its window has passed. Called by the
+  /// screen's one-second ticker; notifies only when it actually closes.
+  void expireRirPrompt(DateTime now) {
+    final until = _rirPromptUntil;
+    if (_rirPromptSetId == null || until == null || now.isBefore(until)) {
+      return;
+    }
+    _rirPromptSetId = null;
+    _rirPromptUntil = null;
     notifyListeners();
   }
 
@@ -515,10 +639,29 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Removes [set] (warm-up or working) from [block].
-  void removeSet(BlockState block, SetState set) {
-    block.warmupSets.remove(set);
-    block.workingSets.remove(set);
+  /// Removes [set] (warm-up or working) from [block] and returns its index in
+  /// its own list (-1 if it was not there), for [restoreSet].
+  int removeSet(BlockState block, SetState set) {
+    final list = set.isWarmup ? block.warmupSets : block.workingSets;
+    final index = list.indexOf(set);
+    list.remove(set);
+    if (_focusedSetId == set.id) _focusedSetId = null;
+    if (_rirPromptSetId == set.id) {
+      _rirPromptSetId = null;
+      _rirPromptUntil = null;
+    }
+    notifyListeners();
+    return index;
+  }
+
+  /// Undo for [removeSet]: puts [set] back at [index] (clamped) in its own
+  /// list. A no-op when the session has since finished/been discarded, or
+  /// [block] has since left the workout.
+  void restoreSet(BlockState block, SetState set, int index) {
+    final d = draftOrNull;
+    if (d == null || !d.blocks.contains(block)) return;
+    final list = set.isWarmup ? block.warmupSets : block.workingSets;
+    list.insert(index.clamp(0, list.length), set);
     notifyListeners();
   }
 
@@ -556,6 +699,22 @@ class ActiveSessionController extends ChangeNotifier {
     blocks
       ..removeAt(from)
       ..insert(to, block);
+    notifyListeners();
+  }
+
+  /// Moves the block at [from] so it ends up at [to] (both indexes into the
+  /// current list; [to] is the block's final position). Drag-and-drop uses
+  /// this; an out-of-range or no-op move is ignored.
+  void moveBlockTo(int from, int to) {
+    final blocks = draft.blocks;
+    if (from == to ||
+        from < 0 ||
+        to < 0 ||
+        from >= blocks.length ||
+        to >= blocks.length) {
+      return;
+    }
+    blocks.insert(to, blocks.removeAt(from));
     notifyListeners();
   }
 
@@ -689,6 +848,9 @@ class ActiveSessionController extends ChangeNotifier {
     _draft = null;
     restStart = null;
     restTotal = 0;
+    _focusedSetId = null;
+    _rirPromptSetId = null;
+    _rirPromptUntil = null;
     notifyListeners();
 
     return sessionId;
@@ -701,6 +863,9 @@ class ActiveSessionController extends ChangeNotifier {
     _draft = null;
     restStart = null;
     restTotal = 0;
+    _focusedSetId = null;
+    _rirPromptSetId = null;
+    _rirPromptUntil = null;
     _draftStore?.clear(); // fire-and-forget; a discarded workout must not resurrect
     notifyListeners();
   }
