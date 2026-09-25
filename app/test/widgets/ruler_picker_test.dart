@@ -60,18 +60,16 @@ void main() {
           ),
         ));
 
+    RulerPickerState state(WidgetTester tester) =>
+        tester.state<RulerPickerState>(find.byType(RulerPicker));
+
     testWidgets('swiping left moves up the tape and snaps onto a value', (tester) async {
       await tester.pumpWidget(ruler());
       await tester.timedDrag(find.byType(RulerPicker), const Offset(-3 * RulerPicker.defaultItemExtent, 0),
           const Duration(seconds: 1));
       await tester.pumpAndSettle();
-      expect(changes, isNotEmpty);
-      expect(changes.last, 107.5);
-      final ctrl = tester
-          .widget<ListWheelScrollView>(find.byType(ListWheelScrollView))
-          .controller as FixedExtentScrollController;
-      final steps = ctrl.offset / RulerPicker.defaultItemExtent;
-      expect(steps, closeTo(steps.roundToDouble(), 0.01)); // snapped onto a mark
+      expect(changes, [102.5, 105, 107.5]);
+      expect(state(tester).position, 107.5); // snapped onto a mark
     });
 
     testWidgets('swiping right moves down the tape', (tester) async {
@@ -80,6 +78,41 @@ void main() {
           const Duration(seconds: 1));
       await tester.pumpAndSettle();
       expect(changes.last, 92.5);
+    });
+
+    testWidgets('a drag past the end stops at the lowest value', (tester) async {
+      await tester.pumpWidget(ruler(value: 5));
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(10 * RulerPicker.defaultItemExtent, 0),
+          const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(changes, [2.5, 0]);
+      expect(state(tester).position, 0);
+    });
+
+    testWidgets('a fling travels several values and lands exactly on one', (tester) async {
+      await tester.pumpWidget(ruler());
+      await tester.fling(find.byType(RulerPicker), const Offset(-150, 0), 3000);
+      await tester.pumpAndSettle();
+      expect(changes.length, greaterThan(4), reason: 'the glide should carry on past the drag');
+      for (var i = 1; i < changes.length; i++) {
+        expect(changes[i] - changes[i - 1], 2.5, reason: 'each value is reported once, in order');
+      }
+      final pos = state(tester).position;
+      expect(pos, changes.last);
+      expect((pos - 100) / 2.5, closeTo(((pos - 100) / 2.5).roundToDouble(), 1e-9));
+    });
+
+    testWidgets('settleAll stops a glide on the last reported value', (tester) async {
+      await tester.pumpWidget(ruler());
+      await tester.fling(find.byType(RulerPicker), const Offset(-150, 0), 3000);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      final shown = changes.last;
+      final reported = changes.length;
+      RulerPicker.settleAll();
+      await tester.pumpAndSettle();
+      expect(changes.length, reported, reason: 'nothing reported after settling');
+      expect(state(tester).position, shown);
     });
 
     testWidgets('a handed-in value off the two-decimal grid is not echoed back',
@@ -97,14 +130,18 @@ void main() {
 
     testWidgets('an external value change re-centres without reporting it back', (tester) async {
       await tester.pumpWidget(ruler());
+      await tester.pumpWidget(ruler(value: 105));
+      await tester.pumpAndSettle();
+      expect(state(tester).position, 105);
       await tester.pumpWidget(ruler(value: 121)); // off the old grid
       await tester.pumpAndSettle();
       expect(changes, isEmpty);
-      final ctrl = tester
-          .widget<ListWheelScrollView>(find.byType(ListWheelScrollView))
-          .controller as FixedExtentScrollController;
-      final state = tester.state<RulerPickerState>(find.byType(RulerPicker));
-      expect(state.scale.valueAt(ctrl.selectedItem), 121);
+      expect(state(tester).position, 121);
+      // The tape moves in steps from the handed-in value.
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-RulerPicker.defaultItemExtent, 0),
+          const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(changes, [123.5]);
     });
 
     testWidgets('tapping the centre value asks for typed entry', (tester) async {
