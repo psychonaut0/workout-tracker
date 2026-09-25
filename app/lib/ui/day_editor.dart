@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' hide TextInput;
 
 import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
@@ -18,14 +19,11 @@ import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
 import 'exercise_sheet.dart';
 
-// ── _SlotState ────────────────────────────────────────────────────────────────
+// ── DaySlotState ────────────────────────────────────────────────────────────────
 
 /// Mutable UI state for a single slot row (wraps [SlotDraft] + RIR raw text).
-class _SlotState {
-  _SlotState({
-    required this.draft,
-    required this.rirText,
-  });
+class DaySlotState {
+  DaySlotState({required this.draft, required this.rirText});
 
   SlotDraft draft;
 
@@ -35,8 +33,8 @@ class _SlotState {
   String get exerciseId => draft.exerciseId;
 }
 
-_SlotState _slotStateFromResolved(ResolvedSlot r, String? itemId) {
-  return _SlotState(
+DaySlotState daySlotStateFromResolved(ResolvedSlot r, String? itemId) {
+  return DaySlotState(
     draft: SlotDraft(
       itemId: itemId,
       exerciseId: r.exercise.id,
@@ -58,11 +56,7 @@ _SlotState _slotStateFromResolved(ResolvedSlot r, String? itemId) {
 /// [id] null → new day; non-null → edit existing.
 /// [onBack] is called after save or delete so the parent can return to the list.
 class DayEditor extends StatefulWidget {
-  const DayEditor({
-    super.key,
-    required this.id,
-    required this.onBack,
-  });
+  const DayEditor({super.key, required this.id, required this.onBack});
 
   final String? id;
   final VoidCallback onBack;
@@ -81,7 +75,7 @@ class _DayEditorState extends State<DayEditor> {
   late final TextEditingController _focusCtrl;
   int? _weekday; // 0=Mon … 6=Sun
 
-  final List<_SlotState> _slots = [];
+  final List<DaySlotState> _slots = [];
   String? _expandedExId; // keyed by exerciseId (NOT index)
 
   List<Exercise> _catalog = [];
@@ -139,12 +133,12 @@ class _DayEditorState extends State<DayEditor> {
     final exById = {for (final e in catalog) e.id: e};
 
     // Resolve slots.
-    final slots = <_SlotState>[];
+    final slots = <DaySlotState>[];
     for (final slot in day.slots) {
       final ex = exById[slot.exerciseId];
       if (ex == null) continue; // skip orphaned slots
       final resolved = resolveSlot(slot, ex);
-      slots.add(_slotStateFromResolved(resolved, slot.id));
+      slots.add(daySlotStateFromResolved(resolved, slot.id));
     }
 
     setState(() {
@@ -163,16 +157,6 @@ class _DayEditorState extends State<DayEditor> {
   void _toggleSlot(String exId) {
     setState(() {
       _expandedExId = _expandedExId == exId ? null : exId;
-    });
-  }
-
-  void _moveSlot(int index, int dir) {
-    final j = index + dir;
-    if (j < 0 || j >= _slots.length) return;
-    setState(() {
-      final tmp = _slots[index];
-      _slots[index] = _slots[j];
-      _slots[j] = tmp;
     });
   }
 
@@ -205,7 +189,7 @@ class _DayEditorState extends State<DayEditor> {
       ex,
     );
     setState(() {
-      _slots.add(_slotStateFromResolved(resolved, null));
+      _slots.add(daySlotStateFromResolved(resolved, null));
     });
   }
 
@@ -328,41 +312,52 @@ class _DayEditorState extends State<DayEditor> {
           hint: l.dayEditorSlotHint,
         ),
 
-        // Slot rows
-        ..._slots.asMap().entries.map((entry) {
-          final index = entry.key;
-          final slot = entry.value;
-          final ex = _catalog.firstWhere(
-            (e) => e.id == slot.exerciseId,
-            orElse: () => Exercise(
-              id: slot.exerciseId,
-              name: slot.exerciseId,
-              slug: '',
-              muscleGroup: '',
-              compound: false,
-              plateStepKg: 2.5,
-              isTemplate: true,
-            ),
-          );
-          return Reveal(
-            key: ValueKey(slot.exerciseId),
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 7),
-              child: _SlotRow(
-                index: index,
-                total: _slots.length,
-                slot: slot,
-                exercise: ex,
-                tokens: tokens,
-                expanded: _expandedExId == slot.exerciseId,
-                onToggle: () => _toggleSlot(slot.exerciseId),
-                onMove: (dir) => _moveSlot(index, dir),
-                onRemove: () => _removeSlot(index),
-                onChanged: () => setState(() {}),
+        // Slot rows (reorderable by drag handle)
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          itemCount: _slots.length,
+          onReorderStart: (_) {
+            HapticFeedback.mediumImpact();
+            setState(() => _expandedExId = null);
+          },
+          onReorderItem: (from, to) =>
+              setState(() => _slots.insert(to, _slots.removeAt(from))),
+          itemBuilder: (context, i) {
+            final slot = _slots[i];
+            final ex = _catalog.firstWhere(
+              (e) => e.id == slot.exerciseId,
+              orElse: () => Exercise(
+                id: slot.exerciseId,
+                name: slot.exerciseId,
+                slug: '',
+                muscleGroup: '',
+                compound: false,
+                plateStepKg: 2.5,
+                isTemplate: true,
               ),
-            ),
-          );
-        }),
+            );
+            return Reveal(
+              key: ValueKey(slot.exerciseId),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: DaySlotRow(
+                  index: i,
+                  reorderIndex: i,
+                  total: _slots.length,
+                  slot: slot,
+                  exercise: ex,
+                  tokens: tokens,
+                  expanded: _expandedExId == slot.exerciseId,
+                  onToggle: () => _toggleSlot(slot.exerciseId),
+                  onRemove: () => _removeSlot(i),
+                  onChanged: () => setState(() {}),
+                ),
+              ),
+            );
+          },
+        ),
 
         const SizedBox(height: 3),
 
@@ -394,36 +389,37 @@ class _DayEditorState extends State<DayEditor> {
 
 // ── SlotRow ───────────────────────────────────────────────────────────────────
 
-class _SlotRow extends StatefulWidget {
-  const _SlotRow({
+class DaySlotRow extends StatefulWidget {
+  const DaySlotRow({
+    super.key,
     required this.index,
+    required this.reorderIndex,
     required this.total,
     required this.slot,
     required this.exercise,
     required this.tokens,
     required this.expanded,
     required this.onToggle,
-    required this.onMove,
     required this.onRemove,
     required this.onChanged,
   });
 
   final int index;
+  final int reorderIndex;
   final int total;
-  final _SlotState slot;
+  final DaySlotState slot;
   final Exercise exercise;
   final WorkoutTokens tokens;
   final bool expanded;
   final VoidCallback onToggle;
-  final void Function(int dir) onMove;
   final VoidCallback onRemove;
   final VoidCallback onChanged;
 
   @override
-  State<_SlotRow> createState() => _SlotRowState();
+  State<DaySlotRow> createState() => _DaySlotRowState();
 }
 
-class _SlotRowState extends State<_SlotRow> {
+class _DaySlotRowState extends State<DaySlotRow> {
   late final TextEditingController _rirCtrl;
 
   @override
@@ -433,7 +429,7 @@ class _SlotRowState extends State<_SlotRow> {
   }
 
   @override
-  void didUpdateWidget(_SlotRow old) {
+  void didUpdateWidget(DaySlotRow old) {
     super.didUpdateWidget(old);
     // Sync controller if the slot state changed externally (e.g. reorder).
     if (old.slot != widget.slot) {
@@ -486,10 +482,7 @@ class _SlotRowState extends State<_SlotRow> {
     final work = d.workSets ?? 3;
     final repLow = d.repLow ?? 8;
     final repHigh = d.repHigh ?? 12;
-    final rirStr = rirToString(
-      d.rirLow ?? 1,
-      d.rirHigh ?? 1,
-    );
+    final rirStr = rirToString(d.rirLow ?? 1, d.rirHigh ?? 1);
     final warm = d.warmupSets ?? 0;
     final warmSuffix = warm > 0 ? ' · ${l.dayEditorWarmupShort(warm)}' : '';
     return '$work×$repLow–$repHigh · RIR $rirStr$warmSuffix';
@@ -514,29 +507,29 @@ class _SlotRowState extends State<_SlotRow> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Collapsed row ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                // Index
-                SizedBox(
-                  width: 16,
-                  child: Text(
-                    '${widget.index + 1}',
-                    style: WorkoutType.mono(
-                      size: 12,
-                      weight: FontWeight.w700,
-                      color: tokens.faint,
+          GestureDetector(
+            onTap: widget.onToggle,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  // Index
+                  SizedBox(
+                    width: 16,
+                    child: Text(
+                      '${widget.index + 1}',
+                      style: WorkoutType.mono(
+                        size: 12,
+                        weight: FontWeight.w700,
+                        color: tokens.faint,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                  const SizedBox(width: 10),
 
-                // Name + summary (tappable to expand)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: widget.onToggle,
-                    behavior: HitTestBehavior.opaque,
+                  // Name + summary
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -561,62 +554,75 @@ class _SlotRowState extends State<_SlotRow> {
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                  const SizedBox(width: 10),
 
-                // Up/Down reorder buttons
-                _ReorderBtn(
-                  dir: -1,
-                  disabled: widget.index == 0,
-                  tokens: tokens,
-                  onTap: () => widget.onMove(-1),
-                ),
-                _ReorderBtn(
-                  dir: 1,
-                  disabled: widget.index == widget.total - 1,
-                  tokens: tokens,
-                  onTap: () => widget.onMove(1),
-                ),
-
-                const SizedBox(width: 5),
-
-                // Trash button
-                GestureDetector(
-                  onTap: widget.onRemove,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: tokens.surface3,
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.radius * 0.4),
+                  // Drag handle (only while collapsed — a reordering list
+                  // needs similar-height rows).
+                  if (!widget.expanded)
+                    Semantics(
+                      label: l.a11yReorderExercise(widget.exercise.name),
+                      child: ReorderableDragStartListener(
+                        index: widget.reorderIndex,
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Icon(
+                            Icons.drag_handle,
+                            size: 20,
+                            color: tokens.dim,
+                          ),
+                        ),
+                      ),
                     ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      WIcons.trash,
-                      size: 15,
-                      color: tokens.faint,
+
+                  // Trash button
+                  Semantics(
+                    button: true,
+                    label: l.dayEditorRemoveExercise(widget.exercise.name),
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      onTap: widget.onRemove,
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: tokens.surface3,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.radius * 0.4,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              WIcons.trash,
+                              size: 15,
+                              color: tokens.faint,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                  const SizedBox(width: 4),
 
-                // Chevron (toggles expanded)
-                GestureDetector(
-                  onTap: widget.onToggle,
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedRotation(
-                    turns: widget.expanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Icon(
-                      WIcons.chevron,
-                      size: 16,
-                      color: tokens.faint,
+                  // Chevron (non-interactive; header toggles expanded)
+                  ExcludeSemantics(
+                    child: AnimatedRotation(
+                      turns: widget.expanded ? 0.25 : 0,
+                      duration: const Duration(milliseconds: 150),
+                      child: Icon(
+                        WIcons.chevron,
+                        size: 16,
+                        color: tokens.faint,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -725,64 +731,6 @@ class _SlotRowState extends State<_SlotRow> {
   }
 }
 
-// ── Reorder button ────────────────────────────────────────────────────────────
-
-class _ReorderBtn extends StatelessWidget {
-  const _ReorderBtn({
-    required this.dir,
-    required this.disabled,
-    required this.tokens,
-    required this.onTap,
-  });
-
-  final int dir; // -1 = up, 1 = down
-  final bool disabled;
-  final WorkoutTokens tokens;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isUp = dir < 0;
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Opacity(
-        opacity: disabled ? 0.4 : 1.0,
-        child: Container(
-          width: 28,
-          height: 30,
-          decoration: BoxDecoration(
-            color: tokens.surface3,
-            borderRadius: BorderRadius.only(
-              topLeft: isUp
-                  ? Radius.circular(AppRadius.radius * 0.4)
-                  : Radius.zero,
-              bottomLeft: isUp
-                  ? Radius.circular(AppRadius.radius * 0.4)
-                  : Radius.zero,
-              topRight: isUp
-                  ? Radius.zero
-                  : Radius.circular(AppRadius.radius * 0.4),
-              bottomRight: isUp
-                  ? Radius.zero
-                  : Radius.circular(AppRadius.radius * 0.4),
-            ),
-          ),
-          alignment: Alignment.center,
-          child: RotatedBox(
-            quarterTurns: isUp ? 0 : 2,
-            child: Icon(
-              WIcons.arrowUp,
-              size: 13,
-              color: disabled ? tokens.faint : tokens.dim,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ── Add exercise button ───────────────────────────────────────────────────────
 
 class _AddExerciseButton extends StatelessWidget {
@@ -804,7 +752,9 @@ class _AddExerciseButton extends StatelessWidget {
         ),
         child: CustomPaint(
           painter: DashedBorderPainter(
-              color: tokens.lineStrong, radius: AppRadius.radius * 0.6),
+            color: tokens.lineStrong,
+            radius: AppRadius.radius * 0.6,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -825,4 +775,3 @@ class _AddExerciseButton extends StatelessWidget {
     );
   }
 }
-

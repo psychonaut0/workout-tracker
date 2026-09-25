@@ -311,6 +311,22 @@
   "dayEditorSaveChanges": "Save changes",
   "dayEditorCreateDay": "Create training day",
   "dayEditorDeleteButton": "Delete day",
+  "a11yReorderExercise": "Reorder {name}",
+  "@a11yReorderExercise": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dayEditorRemoveExercise": "Remove {name}",
+  "@dayEditorRemoveExercise": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "exerciseEditorCantDeleteTitle": "Can't delete",
   "exerciseEditorActiveWorkoutMessage": "Finish or discard your active workout first.",
   "exerciseEditorBlockedByHistory": "{count, plural, =1{This exercise is used in 1 logged set. Delete that session first.} other{This exercise is used in {count} logged sets. Delete those sessions first.}}",

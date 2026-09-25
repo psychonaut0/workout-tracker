@@ -156,6 +156,8 @@
   "dayEditorSaveChanges": "Änderungen speichern",
   "dayEditorCreateDay": "Trainingstag erstellen",
   "dayEditorDeleteButton": "Tag löschen",
+  "a11yReorderExercise": "{name} verschieben",
+  "dayEditorRemoveExercise": "{name} entfernen",
   "exerciseEditorCantDeleteTitle": "Löschen nicht möglich",
   "exerciseEditorActiveWorkoutMessage": "Beende oder verwirf zuerst dein laufendes Training.",
   "exerciseEditorBlockedByHistory": "{count, plural, =1{Diese Übung wird in 1 protokollierten Satz verwendet. Lösche zuerst diese Einheit.} other{Diese Übung wird in {count} protokollierten Sätzen verwendet. Lösche zuerst diese Einheiten.}}",

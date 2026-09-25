@@ -156,6 +156,8 @@
   "dayEditorSaveChanges": "Salva modifiche",
   "dayEditorCreateDay": "Crea giorno",
   "dayEditorDeleteButton": "Elimina giorno",
+  "a11yReorderExercise": "Riordina {name}",
+  "dayEditorRemoveExercise": "Rimuovi {name}",
   "exerciseEditorCantDeleteTitle": "Impossibile eliminare",
   "exerciseEditorActiveWorkoutMessage": "Termina o annulla prima l'allenamento in corso.",
   "exerciseEditorBlockedByHistory": "{count, plural, =1{Questo esercizio è usato in 1 serie registrata. Elimina prima quella sessione.} other{Questo esercizio è usato in {count} serie registrate. Elimina prima quelle sessioni.}}",
