@@ -505,5 +505,37 @@ void main() {
       expect(state(tester).position, 80.5);
       expect(state(tester).zoom, 1, reason: '80.5 rests zoomed');
     });
+
+    for (final v in [4.99, 60.01]) {
+      testWidgets('a resting $v kg paints its own label at the centre', (tester) async {
+        await tester.pumpWidget(ruler(value: v, format: kg));
+        await tester.pump();
+        expect(state(tester).zoom, 1);
+        expect(state(tester).centreLabels, [kg(v)]);
+      });
+    }
+
+    testWidgets('settling mid-glide re-fits a fine grid a handed-in value shifted', (tester) async {
+      await tester.pumpWidget(ruler(value: 60.3, format: kg));
+      await tester.fling(find.byType(RulerPicker), const Offset(-150, 0), 3000);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      RulerPicker.settleAll();
+      await tester.pumpAndSettle();
+      final settled = changes.last;
+      expect(whole(settled), isTrue, reason: '$changes');
+      expect(state(tester).zoom, 0);
+      // One fine slot after a hold lands on the plain quarter grid, not on
+      // the old 60.3-anchored one.
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await tester.pump(kHoldDwell + const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveBy(const Offset(-kTouchSlop - 2, 0), timeStamp: const Duration(milliseconds: 600));
+      await gesture.moveBy(const Offset(-kFineExtent, 0), timeStamp: const Duration(milliseconds: 1400));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up(timeStamp: const Duration(milliseconds: 2400));
+      await tester.pumpAndSettle();
+      expect(changes.last, settled + 0.25);
+    });
   });
 }

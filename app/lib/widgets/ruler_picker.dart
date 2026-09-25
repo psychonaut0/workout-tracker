@@ -96,7 +96,7 @@ class RulerScale {
 ///
 /// With a [fineStep], a slow drag or a still finger zooms the tape into the
 /// fine step around the centre value, and a fast drag zooms back out; a
-/// release lands on the grid of the zoom on show.
+/// release lands on the grid the zoom is heading for.
 class RulerPicker extends StatefulWidget {
   const RulerPicker({
     super.key,
@@ -205,6 +205,11 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
 
   final _labels = _LabelCache();
   final _paints = _TapePaints();
+  final List<String> _centreLabels = [];
+
+  /// The labels the last paint drew within half a slot of the centre.
+  @visibleForTesting
+  List<String> get centreLabels => List.unmodifiable(_centreLabels);
 
   static const double _height = 80;
 
@@ -319,11 +324,19 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   void _restOnCurrent() {
     _stopGlide();
     _dragging = false;
+    _refitFine(_current);
     _wantFine = _restsFine(_current);
     _zoom
       ..stop()
       ..value = _wantFine ? 1 : 0;
     setState(() => _pos = _restPos(_current));
+  }
+
+  /// Once the tape rests on [v] on the plain fine grid, drops any anchor a
+  /// handed-in off-grid value gave the fine grid.
+  void _refitFine(double v) {
+    final fineStep = _fineStep;
+    if (fineStep != null && _onGrid(v, fineStep)) _fine = _fineFor(v, fineStep);
   }
 
   @override
@@ -403,11 +416,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   /// The tape came to rest: settle the zoom by the value it rests on.
   void _onRest() {
     _glideGrid = null;
-    final fineStep = _fineStep;
-    if (fineStep != null && _onGrid(_pos, fineStep)) {
-      // Back on the plain fine grid: drop any anchor a handed-in value set.
-      _fine = _fineFor(_pos, fineStep);
-    }
+    _refitFine(_pos);
     _zoomTo(_restsFine(_pos));
   }
 
@@ -616,6 +625,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
         line: tokens.lineStrong,
         labels: _labels,
         paints: _paints,
+        centreLabels: _centreLabels,
       ),
     ));
 
@@ -795,7 +805,11 @@ class _TapePainter extends CustomPainter {
     required this.line,
     required this.labels,
     required this.paints,
-  }) : generation = labels.generation;
+    required this.centreLabels,
+  })  : generation = labels.generation,
+        // A new closure arrives with every parent build; what matters is
+        // whether it renders differently (a unit switch).
+        formatProbe = format(position);
 
   final double position;
   final RulerScale coarse;
@@ -809,17 +823,24 @@ class _TapePainter extends CustomPainter {
   final _LabelCache labels;
   final _TapePaints paints;
   final int generation;
+  final String formatProbe;
+
+  /// Filled on each paint with the labels drawn within half a slot of the
+  /// centre, for tests.
+  final List<String> centreLabels;
 
   double _x(double v, Size size) => size.width / 2 + (v - position) * pxPerValue;
 
-  /// Whether [v] is also a value of [grid] (to within 1% of its step).
+  /// Whether [v] is exactly a value of [grid] (both are rounded to two
+  /// decimals, so only float noise is forgiven: 60.01 is not on a 1 grid).
   static bool _isOn(double v, RulerScale grid) {
     final r = (v - grid.base) / grid.step;
-    return (r - r.round()).abs() < 0.01;
+    return (r - r.round()).abs() < 1e-6;
   }
 
   @override
   void paint(Canvas canvas, Size size) {
+    centreLabels.clear();
     final step = coarse.step;
     final base = size.height - 0.5;
     final halfSpan = size.width / 2 / pxPerValue + step;
@@ -901,6 +922,7 @@ class _TapePainter extends CustomPainter {
     final size = d <= 1 ? 1 - 0.28 * d : 0.72 - 0.08 * (d - 1);
     final opacity = (1 - 0.26 * d).clamp(0.22, 1.0) * fade;
     if (opacity < 0.01) return;
+    if (centre) centreLabels.add(text);
     final tp = labels.get(text, centre: centre, opacity: opacity);
     canvas
       ..save()
@@ -918,6 +940,6 @@ class _TapePainter extends CustomPainter {
       old.coarse != coarse ||
       old.fine != fine ||
       old.line != line ||
-      old.format != format ||
+      old.formatProbe != formatProbe ||
       old.generation != generation;
 }
