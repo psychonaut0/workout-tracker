@@ -191,13 +191,20 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   double _unsampledPx = 0;
   Duration? _slowSince;
 
-  // The hold detector: fires when the finger stays within [kHoldSlop] of
-  // [_holdFrom] for [kHoldDwell].
+  // The hold detector: one periodic check per touch, which zooms in once
+  // the finger has stayed within [kHoldSlop] of [_holdFrom] for [kHoldDwell].
   Timer? _holdTimer;
   int? _holdPointer;
   Offset _holdFrom = Offset.zero;
+  int _stillTicks = 0;
+  static const Duration _holdTick = Duration(milliseconds: 50);
+
+  /// The direction the tape was last moved in by a drag or glide: +1 up,
+  /// -1 down.
+  int _glideDir = 0;
 
   final _labels = _LabelCache();
+  final _paints = _TapePaints();
 
   static const double _height = 80;
 
@@ -224,8 +231,10 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
     return coarse + (_fineExtent / fine.step - coarse) * _zoom.value;
   }
 
-  /// The grid of the current mode: fine from halfway through the zoom.
-  RulerScale get _modeGrid => _fine != null && _zoom.value >= 0.5 ? _fine! : scale;
+  /// The grid of the current mode: the one the zoom is heading for, so a
+  /// fast drag from a zoomed rest steps on whole values from its first
+  /// move rather than once the 120 ms zoom-out is half done.
+  RulerScale get _modeGrid => _wantFine ? _fine! : scale;
 
   /// The grid values are reported on: a glide's own, else the mode's.
   RulerScale get _reportGrid => _glideGrid ?? _modeGrid;
@@ -258,6 +267,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
     scale = _scaleFor(zooms ? _roundTo(v, step) : v);
     _fine = zooms ? _fineFor(v, fineStep) : null;
     _wantFine = zooms && !_onGrid(v, step);
+    _pos = _restPos(v);
   }
 
   RulerScale _scaleFor(double anchor) =>
@@ -272,33 +282,48 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   static double _roundTo(double v, double step) =>
       clampRound2((v / step).round() * step, min: double.negativeInfinity);
 
-  /// Whether [v] is on the absolute grid of [step], within 5% of a step (so
-  /// a converted 134.99 lb counts as 135).
-  static bool _onGrid(double v, double step) {
-    final r = v / step;
-    return (r - r.round()).abs() <= 0.05;
-  }
+  /// Whether [a] and [b] read the same on screen: a converted 220.46 lb is
+  /// "220", but 4.99 kg is not "5".
+  bool _showsAs(double a, double b) =>
+      (a - b).abs() < 1e-9 || widget.format(a) == widget.format(b);
 
-  /// Whether [v] is the value the picker already holds, give or take the
-  /// floating-point noise of a unit round trip in the parent.
-  bool _same(double v) => (v - _current).abs() <= (_fine ?? scale).step * 0.02;
+  /// Whether [v] is on the absolute grid of [step] as far as the display
+  /// can tell.
+  bool _onGrid(double v, double step) => _showsAs(_roundTo(v, step), v);
+
+  /// Whether [v] is the value the picker already holds (the parent echoing
+  /// it back, possibly through a unit round trip).
+  bool _same(double v) => _showsAs(v, _current);
 
   /// The zoom a tape resting on [v] shows: fine when [v] is off the coarse
   /// grid, so the centre always sits on a labelled value.
   bool _restsFine(double v) => _fine != null && !_onGrid(v, scale.step);
 
+  /// Where the tape rests for [v]: on the grid value that reads as [v] (so
+  /// 220.46 lb centres the "220" mark exactly), else on [v] itself.
+  double _restPos(double v) {
+    final grid = _restsFine(v) ? _fine! : scale;
+    final snapped = grid.snap(v);
+    return _showsAs(snapped, v) ? snapped : v;
+  }
+
   /// Halts a glide and any zoom on the value last reported; see
   /// [RulerPicker.settleAll]. Synchronous, and reports nothing.
   void settle() {
     if (!mounted) return;
+    _cancelHold();
+    _restOnCurrent();
+  }
+
+  /// Stops the tape, jumping to the last reported value at its rest zoom.
+  void _restOnCurrent() {
     _stopGlide();
     _dragging = false;
-    _cancelHold();
     _wantFine = _restsFine(_current);
     _zoom
       ..stop()
       ..value = _wantFine ? 1 : 0;
-    setState(() => _pos = _current);
+    setState(() => _pos = _restPos(_current));
   }
 
   @override
@@ -308,6 +333,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
     if (!stepChanged && _same(widget.value)) return;
     _stopGlide();
     _dragging = false;
+    _cancelHold();
     _adopt(widget.value);
     _zoomTo(_wantFine);
   }
@@ -332,17 +358,21 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
 
   /// Reports the grid value under the centre when it differs from the last
   /// one reported — and every value in between, in order, when one frame
-  /// carried the tape past several.
-  void _reportCentre() {
+  /// carried the tape past several. [dir] is the way the tape is moving
+  /// (+1 up, -1 down, 0 unknown): a value behind it, which only a switch to
+  /// the other zoom's grid can put under the centre, is not reported.
+  void _reportCentre(int dir) {
     final grid = _reportGrid;
     final to = grid.indexOf(_pos);
     final target = grid.valueAt(to);
-    if (target == _current) return;
+    if (_showsAs(target, _current)) return;
     final up = target > _current;
+    if (dir != 0 && up != dir > 0) return;
     // Start at the first grid value past the last reported one; that one may
     // sit off this grid (a value from the other zoom, or the parent's).
+    bool behind(double v) => (up ? v <= _current : v >= _current) || _showsAs(v, _current);
     var i = grid.indexOf(_current);
-    while (i != to && (up ? grid.valueAt(i) <= _current : grid.valueAt(i) >= _current)) {
+    while (i != to && behind(grid.valueAt(i))) {
       i += up ? 1 : -1;
     }
     HapticFeedback.selectionClick();
@@ -353,13 +383,15 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
     }
   }
 
-  void _moveTo(double p) {
+  void _moveTo(double p, {int? dir}) {
     final grid = _reportGrid;
-    setState(() => _pos = p.clamp(grid.first, grid.last));
-    _reportCentre();
+    final next = p.clamp(grid.first, grid.last);
+    final moved = dir ?? (next - _pos).sign.toInt();
+    setState(() => _pos = next);
+    _reportCentre(moved);
   }
 
-  void _onGlideTick() => _moveTo(_glide.value);
+  void _onGlideTick() => _moveTo(_glide.value, dir: _glideDir);
 
   void _onZoomTick() => setState(() {});
 
@@ -424,6 +456,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
           milliseconds: ms.clamp(duration.inMilliseconds.toDouble(), kMaxGlide.inMilliseconds.toDouble()).round());
     }
     _glideGrid = grid;
+    _glideDir = distancePx.sign.toInt();
     _glide.value = _pos;
     _glide.animateTo(target, duration: duration, curve: Motion.curve);
   }
@@ -440,16 +473,34 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   }
 
   void _onPointerDown(PointerDownEvent e) {
-    // A finger on the tape catches a glide where it is.
-    if (_glide.isAnimating) _stopGlide();
+    // A finger on the tape stops a glide on the value last reported, as
+    // settleAll does: a tap that opens typed entry must not snap onward.
+    if (_glide.isAnimating) _restOnCurrent();
     if (_fine == null || _holdPointer != null) return;
     _holdPointer = e.pointer;
-    _restartHold(e.position);
+    _holdFrom = e.position;
+    _stillTicks = 0;
+    _holdTimer?.cancel();
+    _holdTimer = Timer.periodic(_holdTick, _onHoldTick);
   }
 
   void _onPointerMove(PointerMoveEvent e) {
     if (e.pointer != _holdPointer) return;
-    if ((e.position - _holdFrom).distance >= kHoldSlop) _restartHold(e.position);
+    final moved = e.position - _holdFrom;
+    if (moved.distance < kHoldSlop) return;
+    if (!_dragging && moved.dy.abs() > moved.dx.abs()) {
+      // Mostly vertical before any drag: a page scroll, not the tape's.
+      _cancelHold();
+      return;
+    }
+    _holdFrom = e.position;
+    _stillTicks = 0;
+  }
+
+  void _onHoldTick(Timer t) {
+    if (++_stillTicks * _holdTick.inMilliseconds < kHoldDwell.inMilliseconds) return;
+    _stillTicks = 0;
+    _switchZoom(true);
   }
 
   void _onPointerUp(PointerEvent e) {
@@ -458,19 +509,12 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
     // that won the gesture) still leaves the tape on a value.
     if (_dragging || _glide.isAnimating) return;
     final grid = _modeGrid;
-    if ((grid.snap(_pos) - _pos).abs() <= grid.step * 0.05) {
-      // Already on a value (give or take the parent's rounding): only the
-      // zoom may need to settle, after a hold.
+    if ((grid.snap(_pos) - _pos).abs() * _pxPerValue < 0.5) {
+      // Already on a value: only the zoom may need to settle, after a hold.
       _onRest();
     } else {
       _release();
     }
-  }
-
-  void _restartHold(Offset at) {
-    _holdFrom = at;
-    _holdTimer?.cancel();
-    _holdTimer = Timer(kHoldDwell, () => _switchZoom(true));
   }
 
   void _cancelHold() {
@@ -532,7 +576,11 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
   }
 
   void _onDragCancel() {
-    if (!_dragging) return;
+    if (!_dragging) {
+      // Another gesture (a page scroll) won the touch: no hold zoom for it.
+      _cancelHold();
+      return;
+    }
     _dragging = false;
     _release();
   }
@@ -554,7 +602,8 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
       scaler: MediaQuery.textScalerOf(context),
     );
 
-    final tape = CustomPaint(
+    final tape = RepaintBoundary(
+      child: CustomPaint(
       painter: _TapePainter(
         position: _pos,
         coarse: scale,
@@ -566,8 +615,9 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
         format: widget.format,
         line: tokens.lineStrong,
         labels: _labels,
+        paints: _paints,
       ),
-    );
+    ));
 
     return Semantics(
       slider: true,
@@ -662,8 +712,17 @@ const double _minorTick = 7;
 /// clear of its ticks.
 const double _labelCentreY = (RulerPickerState._height - _majorTick - 4) / 2;
 
+/// The tape's strokes, kept across frames; the painter sets their colours.
+class _TapePaints {
+  final baseline = Paint()..strokeWidth = 1;
+  final major = Paint()..strokeWidth = 1.5;
+  final minor = Paint()..strokeWidth = 1;
+  final medium = Paint()..strokeWidth = 1.25;
+}
+
 /// Laid-out value labels, keyed by text, centre styling and a quantised
-/// opacity, so the tape does not re-shape text on every frame.
+/// opacity, so the tape does not re-shape text on every frame. The least
+/// recently used labels make way once it is full.
 class _LabelCache {
   final Map<String, TextPainter> _painters = {};
   Color? _text;
@@ -687,9 +746,9 @@ class _LabelCache {
   TextPainter get(String label, {required bool centre, required double opacity}) {
     final a = (opacity.clamp(0.0, 1.0) * _alphaSteps).round();
     final key = '$label|${centre ? 1 : 0}|$a';
-    final hit = _painters[key];
-    if (hit != null) return hit;
-    if (_painters.length >= _limit) clear();
+    final hit = _painters.remove(key);
+    if (hit != null) return _painters[key] = hit; // now the most recent
+    if (_painters.length >= _limit) _painters.remove(_painters.keys.first)!.dispose();
     final color = (centre ? _accent! : _text!).withValues(alpha: a / _alphaSteps);
     return _painters[key] = TextPainter(
       text: TextSpan(
@@ -735,6 +794,7 @@ class _TapePainter extends CustomPainter {
     required this.format,
     required this.line,
     required this.labels,
+    required this.paints,
   }) : generation = labels.generation;
 
   final double position;
@@ -747,6 +807,7 @@ class _TapePainter extends CustomPainter {
   final String Function(double) format;
   final Color line;
   final _LabelCache labels;
+  final _TapePaints paints;
   final int generation;
 
   double _x(double v, Size size) => size.width / 2 + (v - position) * pxPerValue;
@@ -775,20 +836,14 @@ class _TapePainter extends CustomPainter {
     canvas.drawLine(
       Offset(math.max(0, _x(coarse.first - step / 2, size)), base),
       Offset(math.min(size.width, _x(coarse.last + step / 2, size)), base),
-      Paint()
-        ..color = line.withValues(alpha: 0.5)
-        ..strokeWidth = 1,
+      paints.baseline..color = line.withValues(alpha: 0.5),
     );
 
     // Coarse: a major tick on each value, minor ones at fifths between that
     // fade out as the tape zooms in.
-    final major = Paint()
-      ..color = line
-      ..strokeWidth = 1.5;
+    final major = paints.major..color = line;
     final minorAlpha = 0.6 * (fine == null ? 1 : 1 - zoom);
-    final minor = Paint()
-      ..color = line.withValues(alpha: minorAlpha)
-      ..strokeWidth = 1;
+    final minor = paints.minor..color = line.withValues(alpha: minorAlpha);
     final sub = step / 5;
     final k0 = math.max(((lo - coarse.base) / sub).ceil(), -2);
     final k1 = math.min(((hi - coarse.base) / sub).floor(), (coarse.count - 1) * 5 + 2);
@@ -808,9 +863,7 @@ class _TapePainter extends CustomPainter {
     if (fine != null && zoom > 0) {
       f0 = math.max(((lo - fine.base) / fine.step).floor(), 0);
       f1 = math.min(((hi - fine.base) / fine.step).ceil(), fine.count - 1);
-      final medium = Paint()
-        ..color = line.withValues(alpha: 0.8 * zoom)
-        ..strokeWidth = 1.25;
+      final medium = paints.medium..color = line.withValues(alpha: 0.8 * zoom);
       for (var i = f0; i <= f1; i++) {
         final v = fine.valueAt(i);
         if (_isOn(v, coarse)) continue;

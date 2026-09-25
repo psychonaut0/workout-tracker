@@ -52,12 +52,13 @@ Today it rounds to one decimal, which would show 60.25 as "60.3". Storage alread
   - **Out:** the smoothed speed exceeds **~450 dp/s**.
   - Put these as named constants at the top of the file for tuning after device testing.
   - The zoom animates `t` around the current centre value. The centre stays put while the neighbours spread or close.
-- **At rest.** After a snap, `t` settles to 1 if the value is off the coarse grid, else to 0. Grid membership uses a tolerance of 5% of the step, so a converted value like 134.99 lb counts as 135.
+  - The "current mode" (the grid values are reported on and a release snaps to) is the one the zoom is heading for, not `t ≥ 0.5`, so a fast drag from a zoomed rest steps on whole values from its first move.
+- **At rest.** After a snap, `t` settles to 1 if the value is off the coarse grid, else to 0. Grid membership is decided by display equality: a value is on a grid when the nearest grid value formats the same as it (`format(round(v)) == format(v)`). So a converted 220.46 lb (100 kg) reads "220", counts as 220 and rests coarse with the 220 mark centred, while 4.99 kg reads "4.99", not "5", and rests zoomed on its own fine grid. The same display equality decides whether a handed-in value is an external change, so a unit round trip is not one but a typed 60.01 over 60 is.
 - **Grids.** Coarse and fine grids are absolute multiples of their step in the ruler's value space. A value off the fine grid too (60.3 from history or typing) keeps today's anchor behaviour for the fine grid: the grid shifts so the value sits exactly on it. The next coarse move lands on the absolute coarse grid.
 - **Rendering.** Paint the tape with a single `CustomPainter` over the visible range:
   - ticks along the bottom ruled edge (coarse: a major tick per coarse value plus minor subdivisions; fine: a major tick per coarse value, a medium tick per fine value);
   - labels via cached `TextPainter`s.
-  - Coarse labels are always drawn. Fine-only labels fade in with `t`.
+  - Coarse labels are always drawn, except that a coarse label off an anchored fine grid (a fine grid shifted onto an odd handed-in value) fades out with `1 − t`, so it can't collide with the fine labels. Fine-only labels fade in with `t`.
   - Keep today's look: labels scale and fade with distance from the centre, the accent colour and bold weight at the centre, the fixed accent centre marker rising from the ruled edge, and the edge fade `ShaderMask`.
 - **Unchanged API.**
   - `value`, `step` (now the coarse step), `format`, `onChanged`, `min`, `max`, `itemExtent`, `onTapValue`, `semanticLabel`, and the new optional `fineStep`.

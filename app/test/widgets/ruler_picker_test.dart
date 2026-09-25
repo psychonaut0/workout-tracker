@@ -145,6 +145,18 @@ void main() {
       expect(changes, [123.5]);
     });
 
+    testWidgets('a handed-in value a hundredth off is taken, not swallowed', (tester) async {
+      await tester.pumpWidget(ruler(value: 60, step: 0.5));
+      await tester.pumpWidget(ruler(value: 60.01, step: 0.5));
+      await tester.pumpAndSettle();
+      expect(changes, isEmpty);
+      expect(state(tester).position, 60.01);
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-RulerPicker.defaultItemExtent, 0),
+          const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(changes, [60.51]);
+    });
+
     testWidgets('tapping the centre value asks for typed entry', (tester) async {
       await tester.pumpWidget(ruler());
       await tester.tap(find.byKey(const Key('ruler-centre')));
@@ -168,24 +180,44 @@ void main() {
 
   group('RulerPicker zoom', () {
     late List<double> changes;
-    setUp(() => changes = []);
+    late int taps;
+    setUp(() {
+      changes = [];
+      taps = 0;
+    });
 
     String fmt(double v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
+    // The app's display rules: kg up to two decimals, lb whole pounds.
+    String kg(double v) => v.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+    String lb(double v) => v.round().toString();
 
-    Widget ruler({double value = 100, double? fineStep = 0.25}) => wrapL10n(Center(
+    Widget bare({double value = 100, double step = 1, double? fineStep = 0.25,
+            String Function(double)? format}) =>
+        RulerPicker(
+          value: value,
+          step: step,
+          fineStep: fineStep,
+          max: 500,
+          format: format ?? fmt,
+          semanticLabel: 'Weight',
+          onChanged: changes.add,
+          onTapValue: () => taps++,
+        );
+
+    Widget ruler({double value = 100, double step = 1, double? fineStep = 0.25,
+            String Function(double)? format}) =>
+        wrapL10n(Center(
           child: SizedBox(
             width: 320,
-            child: RulerPicker(
-              value: value,
-              step: 1,
-              fineStep: fineStep,
-              max: 500,
-              format: fmt,
-              semanticLabel: 'Weight',
-              onChanged: changes.add,
-            ),
+            child: bare(value: value, step: step, fineStep: fineStep, format: format),
           ),
         ));
+
+    Future<void> fastDrag(WidgetTester tester, double dx) async {
+      await tester.timedDrag(find.byType(RulerPicker), Offset(dx, 0),
+          const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+    }
 
     RulerPickerState state(WidgetTester tester) =>
         tester.state<RulerPickerState>(find.byType(RulerPicker));
@@ -291,10 +323,9 @@ void main() {
         (tester) async {
       await tester.pumpWidget(ruler(value: 60.25));
       expect(state(tester).zoom, 1);
-      await tester.timedDrag(find.byType(RulerPicker), const Offset(-300, 0),
-          const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
-      expect(whole(changes.last), isTrue, reason: '$changes');
+      await fastDrag(tester, -300);
+      // Nothing behind the direction of travel when the grid switches.
+      expect(changes, [61, 62, 63, 64, 65, 66, 67]);
       expect(state(tester).position, changes.last);
       expect(state(tester).zoom, 0);
     });
@@ -340,8 +371,12 @@ void main() {
       await tester.pumpWidget(ruler());
       final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
       await tester.pump(kHoldDwell + const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(state(tester).zoom, allOf(greaterThan(0.5), lessThan(1.0)), reason: 'mid-zoom');
       RulerPicker.settleAll();
       expect(state(tester).zoom, 0);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 0, reason: 'the zoom must not resume after settling');
       await gesture.up();
       await tester.pumpAndSettle();
       expect(changes, isEmpty);
@@ -375,6 +410,100 @@ void main() {
       expect(state(tester).zoom, 0);
       expect(state(tester).position, changes.last);
       expect(whole(changes.last), isTrue, reason: '$changes');
+    });
+
+    testWidgets('a value just off a step keeps its own reading and rests zoomed', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(ruler(value: 4.99, format: kg));
+      expect(state(tester).zoom, 1);
+      expect(state(tester).position, 4.99);
+      expect(tester.getSemantics(find.bySemanticsLabel('Weight')).value, '4.99');
+      handle.dispose();
+      await fastDrag(tester, -300);
+      expect(changes.first, 5);
+    });
+
+    testWidgets('a value just off a step drags down to the step below', (tester) async {
+      await tester.pumpWidget(ruler(value: 4.99, format: kg));
+      await fastDrag(tester, 300);
+      expect(changes.first, 4);
+    });
+
+    testWidgets('a converted value that reads as a step rests coarse on it', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(ruler(value: 220.46, step: 5, fineStep: 1, format: lb)); // 100 kg
+      expect(state(tester).zoom, 0);
+      expect(state(tester).position, 220, reason: 'the 220 mark sits under the centre');
+      expect(tester.getSemantics(find.bySemanticsLabel('Weight')).value, '220');
+      handle.dispose();
+      await fastDrag(tester, -300);
+      expect(changes.first, 225);
+    });
+
+    testWidgets('a converted value that reads as a step drags down to the step below',
+        (tester) async {
+      await tester.pumpWidget(ruler(value: 220.46, step: 5, fineStep: 1, format: lb));
+      await fastDrag(tester, 300);
+      expect(changes.first, 215);
+    });
+
+    testWidgets('a tap mid-glide rests on the value shown and opens typed entry', (tester) async {
+      await tester.pumpWidget(ruler(value: 60.25));
+      await tester.fling(find.byType(RulerPicker), const Offset(-150, 0), 3000);
+      await tester.pump(const Duration(milliseconds: 16));
+      final reported = changes.length;
+      final shown = changes.isEmpty ? 60.25 : changes.last;
+      await tester.tap(find.byKey(const Key('ruler-centre')));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      expect(changes.length, reported, reason: 'nothing reported after the tap: $changes');
+      expect(state(tester).position, shown);
+    });
+
+    testWidgets('a page scroll that starts on the tape neither zooms nor moves it', (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(wrapL10n(SingleChildScrollView(
+        controller: scroll,
+        child: Column(children: [
+          const SizedBox(height: 100),
+          SizedBox(width: 320, child: bare()),
+          const SizedBox(height: 2000),
+        ]),
+      )));
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      var t = Duration.zero;
+      for (var i = 0; i < 8; i++) {
+        t += const Duration(milliseconds: 16);
+        await gesture.moveBy(const Offset(1.5, -6), timeStamp: t);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pump(const Duration(milliseconds: 400)); // a pause, finger down
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 0, reason: 'a held page scroll must not zoom the tape');
+      await gesture.moveBy(const Offset(0, -20), timeStamp: t + const Duration(milliseconds: 420));
+      await gesture.up(timeStamp: t + const Duration(milliseconds: 440));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0), reason: 'the page scrolled');
+      expect(state(tester).zoom, 0);
+      expect(changes, isEmpty);
+    });
+
+    testWidgets('a handed-in value mid-drag takes over the tape', (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await gesture.moveBy(const Offset(-kTouchSlop - 2, 0), timeStamp: const Duration(milliseconds: 16));
+      await gesture.moveBy(const Offset(-72, 0), timeStamp: const Duration(milliseconds: 32));
+      await tester.pump();
+      expect(changes, [101]);
+      await tester.pumpWidget(ruler(value: 80.5));
+      await gesture.moveBy(const Offset(-72, 0), timeStamp: const Duration(milliseconds: 48));
+      await tester.pump(const Duration(milliseconds: 400));
+      await gesture.up(timeStamp: const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      expect(changes, [101], reason: 'nothing reported after the hand-in');
+      expect(state(tester).position, 80.5);
+      expect(state(tester).zoom, 1, reason: '80.5 rests zoomed');
     });
   });
 }
