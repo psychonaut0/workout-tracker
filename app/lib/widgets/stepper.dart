@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
@@ -32,6 +33,7 @@ class WStepper extends StatefulWidget {
     this.max,
     this.emptyValue,
     this.allowDecimal = true,
+    this.semanticLabel,
   });
 
   final double value;
@@ -71,6 +73,11 @@ class WStepper extends StatefulWidget {
   /// When false the field requests an integer keypad and refuses a decimal
   /// separator.
   final bool allowDecimal;
+
+  /// The field this stepper controls, spoken by screen readers as "Decrease
+  /// {semanticLabel}" / "Increase {semanticLabel}". When null, a generic
+  /// "Decrease"/"Increase" label is used instead.
+  final String? semanticLabel;
 
   @override
   State<WStepper> createState() => _WStepperState();
@@ -282,6 +289,7 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
 
     final buttonDecoration = BoxDecoration(
       color: tokens.surface3,
@@ -293,17 +301,35 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
       required IconData icon,
       required int dir,
     }) {
-      return GestureDetector(
-        key: key,
-        // Stop tap from propagating to parent (e.g. accordion header).
-        behavior: HitTestBehavior.opaque,
+      return Semantics(
+        button: true,
+        label: dir < 0
+            ? (widget.semanticLabel == null
+                ? l.a11yDecreaseGeneric
+                : l.a11yDecrease(widget.semanticLabel!))
+            : (widget.semanticLabel == null
+                ? l.a11yIncreaseGeneric
+                : l.a11yIncrease(widget.semanticLabel!)),
+        excludeSemantics: true,
         onTap: () => _step(dir),
-        child: Container(
-          width: 25,
-          height: 34,
-          decoration: buttonDecoration,
-          alignment: Alignment.center,
-          child: Icon(icon, size: 16, color: tokens.text),
+        child: GestureDetector(
+          key: key,
+          // Stop tap from propagating to parent (e.g. accordion header).
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _step(dir),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Container(
+                width: 25,
+                height: 34,
+                decoration: buttonDecoration,
+                alignment: Alignment.center,
+                child: Icon(icon, size: 16, color: tokens.text),
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -312,7 +338,6 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
       mainAxisSize: MainAxisSize.max,
       children: [
         btn(key: const Key('stepper-dec'), icon: Icons.remove, dir: -1),
-        const SizedBox(width: 4),
         Expanded(
           child: Center(
             child: _editing
@@ -371,22 +396,24 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
                           child: child,
                         ),
                       ),
-                      child: Text(
-                        widget.format(_internalValue),
-                        key: ValueKey(widget.format(_internalValue)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: WorkoutType.mono(
-                          size: 15,
-                          weight: FontWeight.w700,
-                          color: tokens.text,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          widget.format(_internalValue),
+                          key: ValueKey(widget.format(_internalValue)),
+                          maxLines: 1,
+                          overflow: TextOverflow.visible,
+                          style: WorkoutType.mono(
+                            size: 15,
+                            weight: FontWeight.w700,
+                            color: tokens.text,
+                          ),
                         ),
                       ),
                     ),
                   ),
           ),
         ),
-        const SizedBox(width: 4),
         btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1),
       ],
     );

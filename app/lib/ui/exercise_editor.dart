@@ -403,6 +403,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
               ),
               Toggle(
                 value: _compound,
+                semanticLabel: l.exerciseEditorCompound,
                 onChanged: (v) {
                   setState(() {
                     _compound = v;
@@ -497,6 +498,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             editable: true,
             formatForEdit: (v) => fmtPlain(v),
             min: 0,
+            semanticLabel: l.exerciseEditorStartWeight,
           ),
         ),
 
@@ -528,6 +530,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   allowDecimal: false,
                   min: 1,
                   max: 99,
+                  semanticLabel: l.dayEditorRepLow,
                 ),
               ),
             ),
@@ -547,6 +550,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   allowDecimal: false,
                   min: _repLow.toDouble(),
                   max: 99,
+                  semanticLabel: l.dayEditorRepHigh,
                 ),
               ),
             ),
@@ -570,6 +574,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   allowDecimal: false,
                   min: 1,
                   max: 99,
+                  semanticLabel: l.dayEditorWorkingSets,
                 ),
               ),
             ),
@@ -588,6 +593,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   allowDecimal: false,
                   min: 0,
                   max: 99,
+                  semanticLabel: l.dayEditorWarmups,
                 ),
               ),
             ),
@@ -611,6 +617,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
             min: 0,
             emptyValue: 0,
             formatForEdit: (v) => v == 0 ? '' : v.round().toString(),
+            semanticLabel: l.exerciseEditorRest,
           ),
         ),
 

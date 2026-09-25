@@ -314,6 +314,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
                 // Minus button
                 _RoundButton(
                   icon: WIcons.minus,
+                  semanticLabel: l.a11yDecrease(l.bodyweightTitle),
                   onTap: () => _bump(-1),
                 ),
                 const SizedBox(width: 22),
@@ -407,6 +408,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
                 // Plus button
                 _RoundButton(
                   icon: WIcons.plus,
+                  semanticLabel: l.a11yIncrease(l.bodyweightTitle),
                   onTap: () => _bump(1),
                 ),
               ],
@@ -447,26 +449,34 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
 class _RoundButton extends StatelessWidget {
   const _RoundButton({
     required this.icon,
+    required this.semanticLabel,
     required this.onTap,
   });
 
   final IconData icon;
+  final String semanticLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      excludeSemantics: true,
       onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: t.surface3,
-          border: Border.all(color: t.lineStrong),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: t.surface3,
+            border: Border.all(color: t.lineStrong),
+          ),
+          child: Icon(icon, size: 22, color: t.text),
         ),
-        child: Icon(icon, size: 22, color: t.text),
       ),
     );
   }

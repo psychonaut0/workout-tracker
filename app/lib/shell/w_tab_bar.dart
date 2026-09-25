@@ -170,27 +170,34 @@ class _FabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final l = AppLocalizations.of(context);
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: l.splitStartWorkout,
+      excludeSemantics: true,
       onTap: onStart,
-      child: PressableScale(
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: t.accent,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: t.accent.withValues(alpha: 0.45),
-                blurRadius: 16,
-                spreadRadius: -2,
-                offset: const Offset(0, 8),
-              ),
-            ],
+      child: GestureDetector(
+        onTap: onStart,
+        child: PressableScale(
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: t.accent,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: t.accent.withValues(alpha: 0.45),
+                  blurRadius: 16,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Icon(WIcons.bolt, size: 28, color: t.accentInk),
           ),
-          alignment: Alignment.center,
-          child: Icon(WIcons.bolt, size: 28, color: t.accentInk),
         ),
       ),
     );

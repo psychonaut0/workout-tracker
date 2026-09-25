@@ -675,20 +675,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const EdgeInsets.fromLTRB(16, 4, 16, 12),
                 child: Row(
                   children: [
-                    GestureDetector(
+                    Semantics(
+                      button: true,
+                      label: l.commonBack,
+                      excludeSemantics: true,
                       onTap: widget.onClose,
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: tokens.line),
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                          color: tokens.surface,
-                        ),
-                        child: Icon(
-                          WIcons.back,
-                          size: 18,
-                          color: tokens.dim,
+                      child: GestureDetector(
+                        onTap: widget.onClose,
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Center(
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: tokens.line),
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.pill),
+                                color: tokens.surface,
+                              ),
+                              child: Icon(
+                                WIcons.back,
+                                size: 18,
+                                color: tokens.dim,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -770,11 +783,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onSelect: settings.setMode,
                       ),
                     ),
-                    _Row(
-                      icon: WIcons.target,
-                      title: l.profileAccent,
-                      sub: l.profileAccentSub,
-                      right: _buildAccentSwatches(settings, tokens),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Row(
+                          icon: WIcons.target,
+                          title: l.profileAccent,
+                          sub: l.profileAccentSub,
+                          right: null,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                          child: _buildAccentSwatches(settings, tokens),
+                        ),
+                      ],
                     ),
                     _Row(
                       icon: WIcons.gear,
@@ -794,7 +816,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileCompoundRest,
                       sub: l.profileCompoundRestSub,
                       right: SizedBox(
-                        width: 120,
+                        width: 144,
                         child: WStepper(
                           value: settings.restCompoundSeconds.toDouble(),
                           step: 15,
@@ -805,6 +827,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           allowDecimal: false,
                           min: 0,
                           formatForEdit: (v) => v.round().toString(),
+                          semanticLabel: l.profileCompoundRest,
                         ),
                       ),
                     ),
@@ -813,7 +836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileIsolationRest,
                       sub: l.profileIsolationRestSub,
                       right: SizedBox(
-                        width: 120,
+                        width: 144,
                         child: WStepper(
                           value: settings.restIsolationSeconds.toDouble(),
                           step: 15,
@@ -824,6 +847,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           allowDecimal: false,
                           min: 0,
                           formatForEdit: (v) => v.round().toString(),
+                          semanticLabel: l.profileIsolationRest,
                         ),
                       ),
                     ),
@@ -942,6 +966,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: l.updatesAutoCheck,
                         right: Toggle(
                           value: settings.autoCheckUpdates,
+                          semanticLabel: l.updatesAutoCheck,
                           onChanged: (v) => context
                               .read<SettingsService>()
                               .setAutoCheckUpdates(v),
@@ -1026,37 +1051,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onChanged: (_) => setState(() {}),
                 )
               else
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: l.profileEditName,
+                  excludeSemantics: true,
                   onTap: () => setState(() => _editingName = true),
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          settings.profileName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WorkoutType.display(
-                            size: 23,
-                            weight: FontWeight.w700,
-                            color: tokens.text,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _editingName = true),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              settings.profileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: WorkoutType.display(
+                                size: 23,
+                                weight: FontWeight.w700,
+                                color: tokens.text,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Icon(WIcons.edit, size: 15, color: tokens.faint),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Icon(WIcons.edit, size: 15, color: tokens.faint),
-                    ],
+                    ),
                   ),
                 ),
               if (_editingName) ...[
                 const SizedBox(height: 6),
                 GestureDetector(
                   onTap: () => _submitName(settings),
-                  child: Text(
-                    l.profileSaveName,
-                    style: WorkoutType.mono(
-                      size: 11,
-                      weight: FontWeight.w600,
-                      color: tokens.accent,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        l.profileSaveName,
+                        style: WorkoutType.mono(
+                          size: 11,
+                          weight: FontWeight.w600,
+                          color: tokens.accent,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1076,33 +1116,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   Widget _buildAccentSwatches(SettingsService settings, WorkoutTokens tokens) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: accents.map((color) {
+    final l = AppLocalizations.of(context);
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: accents.asMap().entries.map((entry) {
+        final n = entry.key + 1;
+        final color = entry.value;
         final isSelected = settings.accent == color;
-        return Padding(
-          padding: const EdgeInsets.only(left: 7),
+        return Semantics(
+          button: true,
+          selected: isSelected,
+          label: l.profileAccentOption(n),
+          excludeSemantics: true,
+          onTap: () => settings.setAccent(color),
           child: GestureDetector(
             onTap: () => settings.setAccent(color),
-            child: Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color,
-                border: Border.all(
-                  color: isSelected ? tokens.text : Colors.transparent,
-                  width: 2,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                    border: Border.all(
+                      color: isSelected ? tokens.text : Colors.transparent,
+                      width: 2,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: tokens.bg,
+                              spreadRadius: 2,
+                              blurRadius: 0,
+                            ),
+                          ]
+                        : null,
+                  ),
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: tokens.bg,
-                          spreadRadius: 2,
-                          blurRadius: 0,
-                        ),
-                      ]
-                    : null,
               ),
             ),
           ),

@@ -96,6 +96,25 @@
   "sessionAddWarmupSet": "Aufwärmsatz hinzufügen",
   "sessionSetRemoved": "Satz entfernt",
   "commonUndo": "Rückgängig",
+  "a11yDecrease": "{label} verringern",
+  "@a11yDecrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yIncrease": "{label} erhöhen",
+  "@a11yIncrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yDecreaseGeneric": "Verringern",
+  "a11yIncreaseGeneric": "Erhöhen",
+  "commonBack": "Zurück",
   "sessionMinimize": "Minimieren",
   "sessionWeight": "Gewicht",
   "sessionReps": "Wiederholungen",
@@ -141,6 +160,8 @@
   "dayEditorSaveChanges": "Änderungen speichern",
   "dayEditorCreateDay": "Trainingstag erstellen",
   "dayEditorDeleteButton": "Tag löschen",
+  "a11yReorderExercise": "{name} verschieben",
+  "dayEditorRemoveExercise": "{name} entfernen",
   "exerciseEditorCantDeleteTitle": "Löschen nicht möglich",
   "exerciseEditorActiveWorkoutMessage": "Beende oder verwirf zuerst dein laufendes Training.",
   "exerciseEditorBlockedByHistory": "{count, plural, =1{Diese Übung wird in 1 protokollierten Satz verwendet. Lösche zuerst diese Einheit.} other{Diese Übung wird in {count} protokollierten Sätzen verwendet. Lösche zuerst diese Einheiten.}}",
@@ -194,6 +215,7 @@
   "historyDeleteSession": "Training löschen",
   "historyDeleteSetTitle": "Satz löschen?",
   "historyDeleteSetMessage": "Dadurch wird dieser Satz dauerhaft entfernt.",
+  "historyDeleteSet": "Satz löschen",
   "historyResumeWorkout": "Training fortsetzen",
   "historyResumeBlockedTitle": "Training läuft",
   "historyResumeBlockedMessage": "Beende oder verwirf dein laufendes Training, bevor du ein anderes fortsetzt.",
@@ -236,6 +258,7 @@
   "profileTitle": "Profil",
   "profileNamePlaceholder": "Dein Name",
   "profileSaveName": "Speichern",
+  "profileEditName": "Namen bearbeiten",
   "profileTrainingSince": "Training seit März 2026 · 4-Tage-Split",
   "profileStatSessions": "Trainings",
   "profileStatPrs": "PRs",
@@ -254,6 +277,14 @@
   "profileThemeLight": "Hell",
   "profileAccent": "Akzent",
   "profileAccentSub": "Highlight-Farbe der App",
+  "profileAccentOption": "Akzentfarbe {n}",
+  "@profileAccentOption": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "profileGroupRest": "Pause",
   "profileCompoundRest": "Pause Grundübungen",
   "profileCompoundRestSub": "Standard zwischen Grundübungssätzen",

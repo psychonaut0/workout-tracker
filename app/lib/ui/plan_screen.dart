@@ -193,19 +193,32 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final l = AppLocalizations.of(context);
+    return Semantics(
+      button: true,
+      label: l.commonBack,
+      excludeSemantics: true,
       onTap: onBack,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: tokens.line),
-          color: tokens.surface,
-        ),
-        child: Transform.rotate(
-          angle: 3.14159, // 180° = point left
-          child: Icon(WIcons.chevron, size: 18, color: tokens.dim),
+      child: GestureDetector(
+        onTap: onBack,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: tokens.line),
+                color: tokens.surface,
+              ),
+              child: Transform.rotate(
+                angle: 3.14159, // 180° = point left
+                child: Icon(WIcons.chevron, size: 18, color: tokens.dim),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -293,33 +306,39 @@ class _SegBtn extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: PressableScale(
-          child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          height: 36,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(36 * 0.6),
-            color: active ? tokens.surface3 : Colors.transparent,
-            border: Border.all(color: active ? tokens.lineStrong : tokens.line),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: tokens.lineStrong,
-                      blurRadius: 0,
-                      spreadRadius: 0,
-                    ),
-                  ]
-                : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: WorkoutType.mono(
-              size: 12.5,
-              weight: FontWeight.w700,
-              color: active ? tokens.text : tokens.faint,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(36 * 0.6),
+                  color: active ? tokens.surface3 : Colors.transparent,
+                  border: Border.all(
+                      color: active ? tokens.lineStrong : tokens.line),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                            color: tokens.lineStrong,
+                            blurRadius: 0,
+                            spreadRadius: 0,
+                          ),
+                        ]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: WorkoutType.mono(
+                    size: 12.5,
+                    weight: FontWeight.w700,
+                    color: active ? tokens.text : tokens.faint,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
         ),
       ),
     );

@@ -1,0 +1,121 @@
+import 'dart:ui' show Tristate;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/shell/w_tab_bar.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
+import 'package:workout_tracker/widgets/delete_button.dart';
+import 'package:workout_tracker/widgets/plan_form.dart';
+import 'package:workout_tracker/widgets/progress_widgets.dart';
+import 'package:workout_tracker/widgets/stepper.dart';
+
+import '../support/l10n_harness.dart';
+
+void main() {
+  testWidgets('ChipSelect chip is at least 48 tall', (tester) async {
+    await tester.pumpWidget(wrapL10n(ChipSelect<int>(
+      items: const [0, 1, 2],
+      selected: 0,
+      onSelect: (_) {},
+      labelOf: (i) => 'Item $i',
+    )));
+
+    final size = tester.getSize(find.text('Item 0'));
+    // The chip's hit area is its ConstrainedBox ancestor, not the Text itself
+    // — measure the tappable GestureDetector instead.
+    final gd = find.ancestor(
+      of: find.text('Item 0'),
+      matching: find.byType(GestureDetector),
+    );
+    final hitSize = tester.getSize(gd.first);
+    expect(hitSize.height, greaterThanOrEqualTo(48));
+    expect(size.height, lessThan(48)); // visual pill stays small
+  });
+
+  testWidgets("Toggle's hit area is >= 48x48 and reports toggled",
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(Toggle(
+      value: true,
+      onChanged: (_) {},
+      semanticLabel: 'Auto-check updates',
+    )));
+
+    final gdFinder = find.byType(GestureDetector);
+    final hitSize = tester.getSize(gdFinder);
+    expect(hitSize.width, greaterThanOrEqualTo(48));
+    expect(hitSize.height, greaterThanOrEqualTo(48));
+
+    final semantics = tester.getSemantics(find.byType(Toggle));
+    expect(semantics.flagsCollection.isToggled, Tristate.isTrue);
+  });
+
+  testWidgets("Toggle's visual pill stays 50x30 despite the larger hit area",
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(Toggle(
+      value: true,
+      onChanged: (_) {},
+    )));
+
+    final pill = find.byType(AnimatedContainer);
+    expect(tester.getSize(pill), const Size(50, 30));
+  });
+
+  testWidgets('MetricTabs segments are at least 48 tall', (tester) async {
+    await tester.pumpWidget(wrapL10n(SizedBox(
+      width: 360,
+      child: MetricTabs(selected: 'top', onSelect: (_) {}),
+    )));
+
+    final segment = find.byType(GestureDetector).first;
+    expect(tester.getSize(segment).height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('WDeleteButton is at least 48 tall', (tester) async {
+    await tester.pumpWidget(wrapL10n(Builder(builder: (context) {
+      return WDeleteButton(
+        tokens: context.tokens,
+        label: 'Delete',
+        onTap: () {},
+      );
+    })));
+
+    expect(tester.getSize(find.byType(WDeleteButton)).height,
+        greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('tab bar FAB has the "Start workout" semantics label',
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(WTabBar(
+      currentIndex: 0,
+      onTab: (_) {},
+      onStart: () {},
+    )));
+
+    expect(find.bySemanticsLabel('Start workout'), findsOneWidget);
+  });
+
+  testWidgets(
+      'the stepper + and the Toggle expose a screen-reader tap action',
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(Column(
+      children: [
+        WStepper(
+          value: 10,
+          step: 1,
+          format: (v) => v.round().toString(),
+          onChanged: (_) {},
+        ),
+        Toggle(value: true, onChanged: (_) {}),
+      ],
+    )));
+
+    expect(
+      tester.getSemantics(find.byKey(const Key('stepper-inc'))),
+      matchesSemantics(hasTapAction: true, isButton: true),
+    );
+    expect(
+      tester.getSemantics(find.byType(Toggle)),
+      matchesSemantics(hasTapAction: true, hasToggledState: true, isToggled: true),
+    );
+  });
+}

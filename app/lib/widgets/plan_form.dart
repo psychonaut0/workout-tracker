@@ -135,22 +135,28 @@ class ChipSelect<T> extends StatelessWidget {
         final on = item == selected;
         return GestureDetector(
           onTap: () => onSelect(item),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-              color: on ? tokens.accent : tokens.surface,
-              border: Border.all(
-                color: on ? Colors.transparent : tokens.lineStrong,
-              ),
-            ),
-            child: Text(
-              labelOf(item),
-              style: WorkoutType.body(
-                size: 13,
-                weight: FontWeight.w600,
-                color: on ? tokens.accentInk : tokens.dim,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  color: on ? tokens.accent : tokens.surface,
+                  border: Border.all(
+                    color: on ? Colors.transparent : tokens.lineStrong,
+                  ),
+                ),
+                child: Text(
+                  labelOf(item),
+                  style: WorkoutType.body(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: on ? tokens.accentInk : tokens.dim,
+                  ),
+                ),
               ),
             ),
           ),
@@ -168,40 +174,57 @@ class Toggle extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.semanticLabel,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
 
+  /// Spoken by screen readers alongside the toggled state. Left null omits
+  /// the label (only the toggled state is announced).
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return GestureDetector(
+    return Semantics(
+      toggled: value,
+      label: semanticLabel,
+      excludeSemantics: true,
       onTap: () => onChanged(!value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 50,
-        height: 30,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          color: value ? tokens.accent : tokens.surface3,
-        ),
-        child: Stack(
-          children: [
-            AnimatedPositioned(
+      child: GestureDetector(
+        onTap: () => onChanged(!value),
+        child: SizedBox(
+          width: 56,
+          height: 48,
+          child: Center(
+            child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              top: 3,
-              left: value ? 23 : 3,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: value ? tokens.accentInk : tokens.dim,
-                ),
+              width: 50,
+              height: 30,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                color: value ? tokens.accent : tokens.surface3,
+              ),
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 150),
+                    top: 3,
+                    left: value ? 23 : 3,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: value ? tokens.accentInk : tokens.dim,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

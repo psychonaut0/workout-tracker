@@ -187,6 +187,13 @@ class UnitSwap extends StatelessWidget {
       duration: Motion.of(context, Motion.fast),
       switchInCurve: Motion.curve,
       switchOutCurve: Motion.curve,
+      // Passthrough keeps the parent's constraints: the default Stack loosens
+      // them, so a card under Expanded shrank to its content.
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.center,
+        fit: StackFit.passthrough,
+        children: [...previous, ?current],
+      ),
       child: KeyedSubtree(key: ValueKey(unitKey), child: child),
     );
   }

@@ -219,6 +219,25 @@
   "sessionAddWarmupSet": "Add warm-up",
   "sessionSetRemoved": "Set removed",
   "commonUndo": "Undo",
+  "a11yDecrease": "Decrease {label}",
+  "@a11yDecrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yIncrease": "Increase {label}",
+  "@a11yIncrease": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yDecreaseGeneric": "Decrease",
+  "a11yIncreaseGeneric": "Increase",
+  "commonBack": "Back",
   "sessionMinimize": "Minimize",
   "sessionWeight": "Weight",
   "sessionReps": "Reps",
@@ -292,6 +311,22 @@
   "dayEditorSaveChanges": "Save changes",
   "dayEditorCreateDay": "Create training day",
   "dayEditorDeleteButton": "Delete day",
+  "a11yReorderExercise": "Reorder {name}",
+  "@a11yReorderExercise": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dayEditorRemoveExercise": "Remove {name}",
+  "@dayEditorRemoveExercise": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "exerciseEditorCantDeleteTitle": "Can't delete",
   "exerciseEditorActiveWorkoutMessage": "Finish or discard your active workout first.",
   "exerciseEditorBlockedByHistory": "{count, plural, =1{This exercise is used in 1 logged set. Delete that session first.} other{This exercise is used in {count} logged sets. Delete those sessions first.}}",
@@ -408,6 +443,7 @@
   "historyDeleteSession": "Delete session",
   "historyDeleteSetTitle": "Delete set?",
   "historyDeleteSetMessage": "This permanently removes this set.",
+  "historyDeleteSet": "Delete set",
   "historyResumeWorkout": "Resume workout",
   "historyResumeBlockedTitle": "Workout in progress",
   "historyResumeBlockedMessage": "Finish or discard your current workout before resuming another.",
@@ -499,6 +535,7 @@
   "profileTitle": "Profile",
   "profileNamePlaceholder": "Your name",
   "profileSaveName": "Save",
+  "profileEditName": "Edit name",
   "profileTrainingSince": "Training since Mar 2026 · 4-day split",
   "profileStatSessions": "Sessions",
   "profileStatPrs": "PRs",
@@ -517,6 +554,14 @@
   "profileThemeLight": "Light",
   "profileAccent": "Accent",
   "profileAccentSub": "App highlight color",
+  "profileAccentOption": "Accent colour {n}",
+  "@profileAccentOption": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "profileGroupRest": "Rest",
   "profileCompoundRest": "Compound rest",
   "profileCompoundRestSub": "Default between compound sets",
