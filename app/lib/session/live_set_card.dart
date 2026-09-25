@@ -7,11 +7,9 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
-import '../util/number_input.dart';
-import '../widgets/number_entry_sheet.dart';
 import '../widgets/rir_picker.dart';
-import '../widgets/ruler_picker.dart';
 import 'active_session_controller.dart';
+import 'set_values_editor.dart';
 
 /// The focused set of the workout: weight and reps ruler pickers (a tap on
 /// the centre value opens typed entry), the last-session reference, and —
@@ -77,38 +75,18 @@ class LiveSetCard extends StatelessWidget {
                   color: tokens.accent,
                   letterSpacing: 0.08 * 10.5))),
           const SizedBox(height: 10),
-          inset(Text('${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}', style: caption())),
-          RulerPicker(
-            key: const Key('live-weight'),
-            value: set.weightKg,
-            // A fixed fine step — the ruler is fast enough that plate-sized
-            // jumps only get in the way. In lb it is exactly one pound, so the
-            // whole-pound labels stay evenly spaced.
-            step: unit.unit == Unit.lb ? UnitService.toKg(1, Unit.lb) : 0.5,
-            max: 500,
-            format: (v) => unit.fmtWt(v),
-            semanticLabel: '${l.sessionWeight}, ${unit.uLabel}',
-            onChanged: (v) {
+          SetValuesEditor(
+            weightKg: set.weightKg,
+            reps: set.reps,
+            unit: unit,
+            onWeight: (v) {
               set.weightKg = v;
               onChanged();
             },
-            onTapValue: () => _typeWeight(context, l),
-          ),
-          const SizedBox(height: 12),
-          inset(Text(l.sessionColReps, style: caption())),
-          RulerPicker(
-            key: const Key('live-reps'),
-            value: set.reps.toDouble(),
-            step: 1,
-            max: 50,
-            itemExtent: 56,
-            format: (v) => v.toInt().toString(),
-            semanticLabel: l.sessionReps,
-            onChanged: (v) {
-              set.reps = v.toInt();
+            onReps: (v) {
+              set.reps = v;
               onChanged();
             },
-            onTapValue: () => _typeReps(context, l),
           ),
           if (set.done && !set.isWarmup) ...[
             const SizedBox(height: 12),
@@ -157,32 +135,5 @@ class LiveSetCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _typeWeight(BuildContext context, AppLocalizations l) async {
-    final v = await showNumberEntrySheet(
-      context,
-      title: '${l.sessionColWeight} · ${unit.uLabel.toUpperCase()}',
-      initialText: unit.fmtWt(set.weightKg),
-      allowDecimal: true,
-      parse: (text) => parseNumberInput(text,
-          min: 0, parseDisplay: (d) => UnitService.toKg(d, unit.unit)),
-    );
-    if (v == null || v == set.weightKg) return;
-    set.weightKg = v;
-    onChanged();
-  }
-
-  Future<void> _typeReps(BuildContext context, AppLocalizations l) async {
-    final v = await showNumberEntrySheet(
-      context,
-      title: l.sessionColReps,
-      initialText: '${set.reps}',
-      allowDecimal: false,
-      parse: (text) => parseNumberInput(text, min: 0),
-    );
-    if (v == null || v.toInt() == set.reps) return;
-    set.reps = v.toInt();
-    onChanged();
   }
 }
