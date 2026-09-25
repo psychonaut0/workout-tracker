@@ -319,6 +319,25 @@ void main() {
       expect(state(tester).zoom, 0);
     });
 
+    testWidgets('a moderate speed-up zooms out; a gentle zoomed drag stays zoomed',
+        (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      var t = await slide(tester, gesture, Duration.zero, steps: 40, dx: -1.5);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 1);
+      // ~200 dp/s: still a fine adjustment.
+      t = await slide(tester, gesture, t, steps: 20, dx: -3.2);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 1);
+      // ~310 dp/s: an ordinary move, back to whole steps.
+      t = await slide(tester, gesture, t, steps: 12, dx: -5);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 0);
+      await gesture.up(timeStamp: t);
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('a fractional value rests zoomed; a fast drag from it lands on the coarse grid',
         (tester) async {
       await tester.pumpWidget(ruler(value: 60.25));

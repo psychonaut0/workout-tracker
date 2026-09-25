@@ -48,8 +48,8 @@ Today it rounds to one decimal, which would show 60.25 as "60.3". Storage alread
   - Under reduced motion, snap immediately.
 - **Reporting.** `onChanged` fires once per grid value of the current mode that crosses the centre, during the drag and the glide. It never fires for a value handed in by the parent, and never twice in a row for the same value. It is followed by `HapticFeedback.selectionClick()`, as today.
 - **Zoom triggers** (only when `fineStep` is set):
-  - **In:** while dragging, the smoothed drag speed stays below **~120 dp/s** for **~200 ms**, or the pointer is held down with less than 4 dp of movement for **~300 ms**.
-  - **Out:** the smoothed speed exceeds **~450 dp/s**.
+  - **In:** while dragging, the smoothed drag speed stays below **~120 dp/s** for **~200 ms**, or the pointer is held down with less than 4 dp of movement for **~450 ms** (tuned up from 300 after the phone test).
+  - **Out:** the smoothed speed exceeds **~250 dp/s** (tuned down from 450 after the phone test, so an ordinary move leaves the zoom mid-drag).
   - Put these as named constants at the top of the file for tuning after device testing.
   - The zoom animates `t` around the current centre value. The centre stays put while the neighbours spread or close.
   - The "current mode" (the grid values are reported on and a release snaps to) is the one the zoom is heading for, not `t ≥ 0.5`, so a fast drag from a zoomed rest steps on whole values from its first move.

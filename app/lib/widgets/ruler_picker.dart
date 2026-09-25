@@ -32,11 +32,11 @@ const double kZoomInSpeed = 120;
 const Duration kZoomInDwell = Duration(milliseconds: 200);
 
 /// A finger held within [kHoldSlop] dp for this long zooms in.
-const Duration kHoldDwell = Duration(milliseconds: 300);
+const Duration kHoldDwell = Duration(milliseconds: 450);
 const double kHoldSlop = 4;
 
 /// A drag faster than this many dp/s zooms back out.
-const double kZoomOutSpeed = 450;
+const double kZoomOutSpeed = 250;
 
 /// The least on-screen distance between fine values, wide enough that
 /// centred labels like "100.25" keep clear of each other.
