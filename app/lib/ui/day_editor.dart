@@ -797,7 +797,7 @@ class _AddExerciseButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 44,
+        height: 48,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.radius * 0.6),
           color: Colors.transparent,

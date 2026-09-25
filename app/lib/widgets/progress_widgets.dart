@@ -309,7 +309,7 @@ class _MetricSegment extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 34,
+        height: 48,
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(9),

@@ -110,6 +110,7 @@
   },
   "a11yDecreaseGeneric": "Reducir",
   "a11yIncreaseGeneric": "Aumentar",
+  "commonBack": "Atrás",
   "sessionMinimize": "Minimizar",
   "sessionWeight": "Peso",
   "sessionReps": "Repeticiones",
@@ -250,6 +251,7 @@
   "profileTitle": "Perfil",
   "profileNamePlaceholder": "Tu nombre",
   "profileSaveName": "Guardar",
+  "profileEditName": "Editar nombre",
   "profileTrainingSince": "Entrenando desde mar 2026 · split de 4 días",
   "profileStatSessions": "Entrenamientos",
   "profileStatPrs": "PR",
@@ -268,6 +270,14 @@
   "profileThemeLight": "Claro",
   "profileAccent": "Acento",
   "profileAccentSub": "Color de resaltado de la app",
+  "profileAccentOption": "Color de acento {n}",
+  "@profileAccentOption": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "profileGroupRest": "Descanso",
   "profileCompoundRest": "Descanso compuestos",
   "profileCompoundRestSub": "Predeterminado entre series compuestas",

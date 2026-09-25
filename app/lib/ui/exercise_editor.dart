@@ -403,6 +403,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
               ),
               Toggle(
                 value: _compound,
+                semanticLabel: l.exerciseEditorCompound,
                 onChanged: (v) {
                   setState(() {
                     _compound = v;

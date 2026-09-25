@@ -23,7 +23,7 @@ class WDeleteButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        height: 46,
+        height: 48,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

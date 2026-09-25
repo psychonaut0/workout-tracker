@@ -237,6 +237,7 @@
   },
   "a11yDecreaseGeneric": "Decrease",
   "a11yIncreaseGeneric": "Increase",
+  "commonBack": "Back",
   "sessionMinimize": "Minimize",
   "sessionWeight": "Weight",
   "sessionReps": "Reps",
@@ -517,6 +518,7 @@
   "profileTitle": "Profile",
   "profileNamePlaceholder": "Your name",
   "profileSaveName": "Save",
+  "profileEditName": "Edit name",
   "profileTrainingSince": "Training since Mar 2026 · 4-day split",
   "profileStatSessions": "Sessions",
   "profileStatPrs": "PRs",
@@ -535,6 +537,14 @@
   "profileThemeLight": "Light",
   "profileAccent": "Accent",
   "profileAccentSub": "App highlight color",
+  "profileAccentOption": "Accent colour {n}",
+  "@profileAccentOption": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "profileGroupRest": "Rest",
   "profileCompoundRest": "Compound rest",
   "profileCompoundRestSub": "Default between compound sets",

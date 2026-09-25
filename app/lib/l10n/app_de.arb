@@ -110,6 +110,7 @@
   },
   "a11yDecreaseGeneric": "Verringern",
   "a11yIncreaseGeneric": "Erhöhen",
+  "commonBack": "Zurück",
   "sessionMinimize": "Minimieren",
   "sessionWeight": "Gewicht",
   "sessionReps": "Wiederholungen",
@@ -250,6 +251,7 @@
   "profileTitle": "Profil",
   "profileNamePlaceholder": "Dein Name",
   "profileSaveName": "Speichern",
+  "profileEditName": "Namen bearbeiten",
   "profileTrainingSince": "Training seit März 2026 · 4-Tage-Split",
   "profileStatSessions": "Trainings",
   "profileStatPrs": "PRs",
@@ -268,6 +270,14 @@
   "profileThemeLight": "Hell",
   "profileAccent": "Akzent",
   "profileAccentSub": "Highlight-Farbe der App",
+  "profileAccentOption": "Akzentfarbe {n}",
+  "@profileAccentOption": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "profileGroupRest": "Pause",
   "profileCompoundRest": "Pause Grundübungen",
   "profileCompoundRestSub": "Standard zwischen Grundübungssätzen",
