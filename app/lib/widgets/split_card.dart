@@ -297,6 +297,16 @@ class _SplitCardState extends State<SplitCard> {
   late PageController _pageController;
   late int _currentPage;
 
+  /// The page a programmatic [_goTo] is currently driving the pager toward,
+  /// or null when the pager isn't being driven (idle, or mid-swipe).
+  ///
+  /// While set: `onPageChanged` swallows reports for every intermediate page
+  /// the animation crosses (only the target page gets reported), and
+  /// `_onStart` treats this as the "current" page so a tap that lands mid
+  /// animation launches the destination day, not whatever page the pager
+  /// happened to be passing through.
+  int? _driveTarget;
+
   @override
   void initState() {
     super.initState();
@@ -308,6 +318,11 @@ class _SplitCardState extends State<SplitCard> {
   void didUpdateWidget(SplitCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final sel = widget.selectedIndex;
+    // `sel != _currentPage` breaks the parent round-trip: a swipe already
+    // reports the new page via onSelectedChanged, the parent's setState
+    // feeds it straight back as `selectedIndex`, and by the time this widget
+    // rebuilds `_currentPage` already matches `sel` — re-driving here would
+    // needlessly re-animate the pager back to the page it just settled on.
     if (sel != null && sel != oldWidget.selectedIndex && sel != _currentPage) {
       _goTo(sel);
     }
@@ -325,18 +340,32 @@ class _SplitCardState extends State<SplitCard> {
 
   void _goTo(int page) {
     final target = page.clamp(0, _totalSlides - 1);
-    _pageController.animateToPage(
-      target,
-      duration: Motion.of(context, Motion.slow),
-      curve: Motion.curve,
-    );
+    final duration = Motion.of(context, Motion.slow);
+    _driveTarget = target;
+    if (duration == Duration.zero) {
+      // A synchronous jumpToPage here would fire onPageChanged during THIS
+      // build (didUpdateWidget runs mid-build), which calls the parent's
+      // setState mid-build too. Defer to a post-frame callback instead.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) return;
+        _pageController.jumpToPage(target);
+        if (_driveTarget == target) _driveTarget = null;
+      });
+      return;
+    }
+    _pageController
+        .animateToPage(target, duration: duration, curve: Motion.curve)
+        .then((_) {
+      if (_driveTarget == target) _driveTarget = null;
+    });
   }
 
   void _onStart() {
-    if (_isCustom) {
+    final page = _driveTarget ?? _currentPage;
+    if (page >= widget.days.length) {
       widget.onStart(null);
     } else {
-      widget.onStart(widget.days[_currentPage].day);
+      widget.onStart(widget.days[page].day);
     }
   }
 
@@ -392,6 +421,15 @@ class _SplitCardState extends State<SplitCard> {
                           itemCount: _totalSlides,
                           onPageChanged: (page) {
                             setState(() => _currentPage = page);
+                            // While a programmatic _goTo is driving the
+                            // pager, PageView reports every intermediate
+                            // page the animation crosses — swallow those so
+                            // the strip/parent only ever hear about the
+                            // final target.
+                            if (_driveTarget != null &&
+                                page != _driveTarget) {
+                              return;
+                            }
                             widget.onSelectedChanged?.call(page);
                           },
                           itemBuilder: (context, i) {
