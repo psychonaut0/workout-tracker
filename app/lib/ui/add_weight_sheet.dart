@@ -314,7 +314,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
                 // Minus button
                 _RoundButton(
                   icon: WIcons.minus,
-                  semanticLabel: l.a11yDecrease(l.sessionWeight),
+                  semanticLabel: l.a11yDecrease(l.bodyweightTitle),
                   onTap: () => _bump(-1),
                 ),
                 const SizedBox(width: 22),
@@ -408,7 +408,7 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
                 // Plus button
                 _RoundButton(
                   icon: WIcons.plus,
-                  semanticLabel: l.a11yIncrease(l.sessionWeight),
+                  semanticLabel: l.a11yIncrease(l.bodyweightTitle),
                   onTap: () => _bump(1),
                 ),
               ],

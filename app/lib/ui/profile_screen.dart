@@ -782,15 +782,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onSelect: settings.setMode,
                       ),
                     ),
-                    _Row(
-                      icon: WIcons.target,
-                      title: l.profileAccent,
-                      sub: l.profileAccentSub,
-                      right: null,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                      child: _buildAccentSwatches(settings, tokens),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Row(
+                          icon: WIcons.target,
+                          title: l.profileAccent,
+                          sub: l.profileAccentSub,
+                          right: null,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                          child: _buildAccentSwatches(settings, tokens),
+                        ),
+                      ],
                     ),
                     _Row(
                       icon: WIcons.gear,
@@ -960,6 +965,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: l.updatesAutoCheck,
                         right: Toggle(
                           value: settings.autoCheckUpdates,
+                          semanticLabel: l.updatesAutoCheck,
                           onChanged: (v) => context
                               .read<SettingsService>()
                               .setAutoCheckUpdates(v),
