@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -22,6 +23,27 @@ const double kFlingDeadZone = 300;
 
 /// The longest glide after a fling.
 const Duration kMaxGlide = Duration(milliseconds: 1200);
+
+// The zoom into the fine step (only when a ruler has one). The in and out
+// speeds differ so the mode does not flicker at the boundary.
+
+/// A drag slower than this many dp/s, for [kZoomInDwell], zooms in.
+const double kZoomInSpeed = 120;
+const Duration kZoomInDwell = Duration(milliseconds: 200);
+
+/// A finger held within [kHoldSlop] dp for this long zooms in.
+const Duration kHoldDwell = Duration(milliseconds: 300);
+const double kHoldSlop = 4;
+
+/// A drag faster than this many dp/s zooms back out.
+const double kZoomOutSpeed = 450;
+
+/// The least on-screen distance between fine values, wide enough that
+/// centred labels like "100.25" keep clear of each other.
+const double kFineExtent = 88;
+
+/// Time constant, in seconds, of the drag-speed smoothing.
+const double _speedSmoothing = 0.06;
 
 /// The value grid behind a [RulerPicker]: `base + i * step` for
 /// `i in [0, count)`, anchored so [anchor] is always exactly on it. A value
@@ -71,6 +93,10 @@ class RulerScale {
 /// value the parent handed in, so an external change (typed entry, undo)
 /// re-centres the tape without echoing back. Tapping the centre value calls
 /// [onTapValue] (typed entry).
+///
+/// With a [fineStep], a slow drag or a still finger zooms the tape into the
+/// fine step around the centre value, and a fast drag zooms back out; a
+/// release lands on the grid of the zoom on show.
 class RulerPicker extends StatefulWidget {
   const RulerPicker({
     super.key,
@@ -105,7 +131,8 @@ class RulerPicker extends StatefulWidget {
   /// The distance between neighbouring values on the tape.
   final double step;
 
-  /// A finer step for precise adjustments; not used yet.
+  /// A finer step the tape zooms into on a slow drag or a hold, and rests
+  /// on while the value is off the [step] grid. Null: no zoom.
   final double? fineStep;
   final String Function(double) format;
   final ValueChanged<double> onChanged;
@@ -124,8 +151,14 @@ class RulerPicker extends StatefulWidget {
 }
 
 @visibleForTesting
-class RulerPickerState extends State<RulerPicker> with SingleTickerProviderStateMixin {
+class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin {
+  /// The coarse grid: absolute multiples of [RulerPicker.step] when the
+  /// picker can zoom, else anchored on the handed-in value.
   late RulerScale scale;
+
+  /// The fine grid, when the picker can zoom: absolute multiples of the fine
+  /// step, or anchored on a handed-in value that is off them.
+  RulerScale? _fine;
 
   /// The last value this picker reported or was handed; a rebuild carrying
   /// it is not an external change.
@@ -137,9 +170,32 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
   /// Drives the glide after a release (and the screen-reader nudges).
   late final AnimationController _glide;
 
+  /// The grid a running glide lands on; it reports on that grid even if
+  /// the zoom changes under it.
+  RulerScale? _glideGrid;
+
+  /// The zoom, 0 = coarse to 1 = fine.
+  late final AnimationController _zoom;
+
+  /// Where the zoom is heading: true once a slow drag or a hold asked for
+  /// the fine step, or the tape rests on a value off the coarse grid.
+  bool _wantFine = false;
+
   /// True from the start of a horizontal drag until its end; cleared early
   /// when [settle] halts the tape under the finger.
   bool _dragging = false;
+
+  // Drag speed, smoothed over the drag's own event timestamps.
+  double? _speed;
+  Duration? _lastStamp;
+  double _unsampledPx = 0;
+  Duration? _slowSince;
+
+  // The hold detector: fires when the finger stays within [kHoldSlop] of
+  // [_holdFrom] for [kHoldDwell].
+  Timer? _holdTimer;
+  int? _holdPointer;
+  Offset _holdFrom = Offset.zero;
 
   final _labels = _LabelCache();
 
@@ -149,59 +205,120 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
   @visibleForTesting
   double get position => _pos;
 
-  double get _pxPerValue => widget.itemExtent / scale.step;
+  /// The zoom, 0 = coarse to 1 = fine.
+  @visibleForTesting
+  double get zoom => _zoom.value;
+
+  /// The fine step, when it is usable: positive and finer than the step.
+  double? get _fineStep {
+    final f = widget.fineStep;
+    return f != null && f > 0 && f < scale.step ? f : null;
+  }
+
+  double get _fineExtent => math.max(widget.itemExtent, kFineExtent);
+
+  double get _pxPerValue {
+    final coarse = widget.itemExtent / scale.step;
+    final fine = _fine;
+    if (fine == null) return coarse;
+    return coarse + (_fineExtent / fine.step - coarse) * _zoom.value;
+  }
+
+  /// The grid of the current mode: fine from halfway through the zoom.
+  RulerScale get _modeGrid => _fine != null && _zoom.value >= 0.5 ? _fine! : scale;
+
+  /// The grid values are reported on: a glide's own, else the mode's.
+  RulerScale get _reportGrid => _glideGrid ?? _modeGrid;
 
   @override
   void initState() {
     super.initState();
-    _current = widget.value;
-    _pos = widget.value;
-    scale = _scaleFor(widget.value);
     _glide = AnimationController.unbounded(vsync: this)
       ..addListener(_onGlideTick)
       ..addStatusListener((s) {
         if (s == AnimationStatus.completed) _onRest();
       });
+    _adopt(widget.value);
+    _zoom = AnimationController(vsync: this, value: _wantFine ? 1 : 0)
+      ..addListener(_onZoomTick);
     PaintingBinding.instance.systemFonts.addListener(_onFontsChanged);
     RulerPicker._mounted.add(this);
+  }
+
+  /// Takes [v] as the value under the centre, with grids fitted around it
+  /// and the zoom it rests at (set by the caller).
+  void _adopt(double v) {
+    _current = v;
+    _pos = v;
+    final fineStep = widget.fineStep;
+    final step = widget.step > 0 ? widget.step : 1.0;
+    final zooms = fineStep != null && fineStep > 0 && fineStep < step;
+    // A zooming tape keeps its coarse grid on whole steps (an off-grid value
+    // rests on the fine grid instead); a plain one anchors on the value.
+    scale = _scaleFor(zooms ? _roundTo(v, step) : v);
+    _fine = zooms ? _fineFor(v, fineStep) : null;
+    _wantFine = zooms && !_onGrid(v, step);
   }
 
   RulerScale _scaleFor(double anchor) =>
       RulerScale(anchor: anchor, step: widget.step, min: widget.min, max: widget.max);
 
+  RulerScale _fineFor(double v, double fineStep) => RulerScale(
+      anchor: _onGrid(v, fineStep) ? _roundTo(v, fineStep) : v,
+      step: fineStep,
+      min: widget.min,
+      max: widget.max);
+
+  static double _roundTo(double v, double step) =>
+      clampRound2((v / step).round() * step, min: double.negativeInfinity);
+
+  /// Whether [v] is on the absolute grid of [step], within 5% of a step (so
+  /// a converted 134.99 lb counts as 135).
+  static bool _onGrid(double v, double step) {
+    final r = v / step;
+    return (r - r.round()).abs() <= 0.05;
+  }
+
   /// Whether [v] is the value the picker already holds, give or take the
   /// floating-point noise of a unit round trip in the parent.
-  bool _same(double v) => (v - _current).abs() <= scale.step * 0.02;
+  bool _same(double v) => (v - _current).abs() <= (_fine ?? scale).step * 0.02;
 
-  /// Halts a glide on the value last reported; see [RulerPicker.settleAll].
-  /// Synchronous, and reports nothing.
+  /// The zoom a tape resting on [v] shows: fine when [v] is off the coarse
+  /// grid, so the centre always sits on a labelled value.
+  bool _restsFine(double v) => _fine != null && !_onGrid(v, scale.step);
+
+  /// Halts a glide and any zoom on the value last reported; see
+  /// [RulerPicker.settleAll]. Synchronous, and reports nothing.
   void settle() {
     if (!mounted) return;
-    _glide.stop();
+    _stopGlide();
     _dragging = false;
-    if (_pos == _current) return;
+    _cancelHold();
+    _wantFine = _restsFine(_current);
+    _zoom
+      ..stop()
+      ..value = _wantFine ? 1 : 0;
     setState(() => _pos = _current);
   }
 
   @override
   void didUpdateWidget(RulerPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final stepChanged = widget.step != oldWidget.step;
+    final stepChanged = widget.step != oldWidget.step || widget.fineStep != oldWidget.fineStep;
     if (!stepChanged && _same(widget.value)) return;
-    _glide.stop();
+    _stopGlide();
     _dragging = false;
-    _current = widget.value;
-    if (stepChanged || scale.snap(widget.value) != widget.value) {
-      scale = _scaleFor(widget.value);
-    }
-    _pos = widget.value;
+    _adopt(widget.value);
+    _zoomTo(_wantFine);
   }
 
   @override
   void dispose() {
     RulerPicker._mounted.remove(this);
     PaintingBinding.instance.systemFonts.removeListener(_onFontsChanged);
+    _cancelHold();
     _glide.dispose();
+    _zoom.dispose();
     _labels.dispose();
     super.dispose();
   }
@@ -217,37 +334,83 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
   /// one reported — and every value in between, in order, when one frame
   /// carried the tape past several.
   void _reportCentre() {
-    final to = scale.indexOf(_pos);
-    if (scale.valueAt(to) == _current) return;
-    final from = scale.indexOf(_current);
-    final dir = to > from ? 1 : -1;
+    final grid = _reportGrid;
+    final to = grid.indexOf(_pos);
+    final target = grid.valueAt(to);
+    if (target == _current) return;
+    final up = target > _current;
+    // Start at the first grid value past the last reported one; that one may
+    // sit off this grid (a value from the other zoom, or the parent's).
+    var i = grid.indexOf(_current);
+    while (i != to && (up ? grid.valueAt(i) <= _current : grid.valueAt(i) >= _current)) {
+      i += up ? 1 : -1;
+    }
     HapticFeedback.selectionClick();
-    // from == to when the last value sat just off this grid (floating-point
-    // noise from the parent): then only the grid value itself is new.
-    for (var i = from == to ? to : from + dir; ; i += dir) {
-      _current = scale.valueAt(i);
+    for (;; i += up ? 1 : -1) {
+      _current = grid.valueAt(i);
       widget.onChanged(_current);
       if (i == to) break;
     }
   }
 
   void _moveTo(double p) {
-    setState(() => _pos = p.clamp(scale.first, scale.last));
+    final grid = _reportGrid;
+    setState(() => _pos = p.clamp(grid.first, grid.last));
     _reportCentre();
   }
 
   void _onGlideTick() => _moveTo(_glide.value);
 
-  /// The tape came to rest after a glide.
-  void _onRest() {}
+  void _onZoomTick() => setState(() {});
 
-  /// Moves the tape to [target], a grid value, easing out from the release
-  /// speed [pxPerSecond] (positive = up the tape) when it is a fling.
-  void _glideTo(double target, {double pxPerSecond = 0}) {
+  void _stopGlide() {
     _glide.stop();
+    _glideGrid = null;
+  }
+
+  /// The tape came to rest: settle the zoom by the value it rests on.
+  void _onRest() {
+    _glideGrid = null;
+    final fineStep = _fineStep;
+    if (fineStep != null && _onGrid(_pos, fineStep)) {
+      // Back on the plain fine grid: drop any anchor a handed-in value set.
+      _fine = _fineFor(_pos, fineStep);
+    }
+    _zoomTo(_restsFine(_pos));
+  }
+
+  /// Animates the zoom towards fine or coarse.
+  void _zoomTo(bool fine) {
+    _wantFine = fine && _fine != null;
+    final target = _wantFine ? 1.0 : 0.0;
+    if (_zoom.value == target) {
+      _zoom.stop();
+      return;
+    }
+    final duration = Motion.of(context, Motion.fast);
+    if (duration == Duration.zero) {
+      _zoom.value = target;
+    } else {
+      _zoom.animateTo(target, duration: duration, curve: Motion.curve);
+    }
+  }
+
+  /// A mode change the finger asked for, marked with a light haptic.
+  void _switchZoom(bool fine) {
+    if (_fine == null || fine == _wantFine) return;
+    HapticFeedback.lightImpact();
+    _slowSince = null;
+    _zoomTo(fine);
+  }
+
+  /// Moves the tape to [target] on [grid], easing out from the release speed
+  /// [pxPerSecond] (positive = up the tape) when it is a fling.
+  void _glideTo(double target, RulerScale grid, {double pxPerSecond = 0}) {
+    _stopGlide();
     final distancePx = (target - _pos) * _pxPerValue;
     var duration = Motion.of(context, Motion.base);
     if (duration == Duration.zero || distancePx.abs() < 0.01) {
+      _glideGrid = grid;
       _moveTo(target);
       _onRest();
       return;
@@ -260,61 +423,131 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
       duration = Duration(
           milliseconds: ms.clamp(duration.inMilliseconds.toDouble(), kMaxGlide.inMilliseconds.toDouble()).round());
     }
+    _glideGrid = grid;
     _glide.value = _pos;
     _glide.animateTo(target, duration: duration, curve: Motion.curve);
   }
 
-  void _onPointerDown(PointerDownEvent e) {
-    // A finger on the tape catches a glide where it is.
-    if (_glide.isAnimating) _glide.stop();
-  }
-
-  void _onPointerUp(PointerEvent e) {
-    // A touch that never became a drag (a tap, or a vertical scroll that won
-    // the gesture) still leaves the tape on a value.
-    if (_dragging || _glide.isAnimating) return;
-    final target = scale.snap(_pos);
-    if (target != _pos) _glideTo(target);
-  }
-
-  void _onDragStart(DragStartDetails d) {
-    _glide.stop();
-    _dragging = true;
-  }
-
-  void _onDragUpdate(DragUpdateDetails d) {
-    if (!_dragging) return;
-    // A leftward swipe moves up the tape.
-    _moveTo(_pos - d.primaryDelta! / _pxPerValue);
-  }
-
-  void _onDragEnd(DragEndDetails d) {
-    if (!_dragging) return;
-    _dragging = false;
-    final pxPerSecond = -(d.primaryVelocity ?? 0);
+  /// Snaps to the current mode's grid, flinging on at [pxPerSecond].
+  void _release({double pxPerSecond = 0}) {
+    final grid = _modeGrid;
     var projectedPx = 0.0;
     if (pxPerSecond.abs() > kFlingDeadZone) {
       final excess = pxPerSecond.sign * (pxPerSecond.abs() - kFlingDeadZone);
       projectedPx = FrictionSimulation(kFlingDrag, 0, excess).finalX;
     }
-    _glideTo(scale.snap(_pos + projectedPx / _pxPerValue), pxPerSecond: pxPerSecond);
+    _glideTo(grid.snap(_pos + projectedPx / _pxPerValue), grid, pxPerSecond: pxPerSecond);
+  }
+
+  void _onPointerDown(PointerDownEvent e) {
+    // A finger on the tape catches a glide where it is.
+    if (_glide.isAnimating) _stopGlide();
+    if (_fine == null || _holdPointer != null) return;
+    _holdPointer = e.pointer;
+    _restartHold(e.position);
+  }
+
+  void _onPointerMove(PointerMoveEvent e) {
+    if (e.pointer != _holdPointer) return;
+    if ((e.position - _holdFrom).distance >= kHoldSlop) _restartHold(e.position);
+  }
+
+  void _onPointerUp(PointerEvent e) {
+    if (e.pointer == _holdPointer) _cancelHold();
+    // A touch that never became a drag (a tap, a hold, or a vertical scroll
+    // that won the gesture) still leaves the tape on a value.
+    if (_dragging || _glide.isAnimating) return;
+    final grid = _modeGrid;
+    if ((grid.snap(_pos) - _pos).abs() <= grid.step * 0.05) {
+      // Already on a value (give or take the parent's rounding): only the
+      // zoom may need to settle, after a hold.
+      _onRest();
+    } else {
+      _release();
+    }
+  }
+
+  void _restartHold(Offset at) {
+    _holdFrom = at;
+    _holdTimer?.cancel();
+    _holdTimer = Timer(kHoldDwell, () => _switchZoom(true));
+  }
+
+  void _cancelHold() {
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    _holdPointer = null;
+  }
+
+  void _onDragStart(DragStartDetails d) {
+    _stopGlide();
+    _dragging = true;
+    _speed = null;
+    _lastStamp = d.sourceTimeStamp;
+    _unsampledPx = 0;
+    _slowSince = null;
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    if (!_dragging) return;
+    final dx = d.primaryDelta!;
+    // A leftward swipe moves up the tape.
+    _moveTo(_pos - dx / _pxPerValue);
+    _trackSpeed(dx, d.sourceTimeStamp);
+  }
+
+  /// Smooths the drag speed over the events' own timestamps (an exponential
+  /// average with a [_speedSmoothing] time constant) and zooms on it: in
+  /// after [kZoomInDwell] below [kZoomInSpeed], out above [kZoomOutSpeed].
+  void _trackSpeed(double dx, Duration? stamp) {
+    if (_fine == null || stamp == null) return;
+    _unsampledPx += dx.abs();
+    final last = _lastStamp;
+    if (last == null || stamp <= last) {
+      _lastStamp ??= stamp;
+      return; // no time has passed: fold this move into the next sample
+    }
+    final dt = (stamp - last).inMicroseconds / 1e6;
+    final sample = _unsampledPx / dt;
+    _unsampledPx = 0;
+    _lastStamp = stamp;
+    final prev = _speed;
+    final speed = _speed = prev == null
+        ? sample
+        : prev + (sample - prev) * (1 - math.exp(-dt / _speedSmoothing));
+    if (_wantFine) {
+      if (speed > kZoomOutSpeed) _switchZoom(false);
+    } else if (speed < kZoomInSpeed) {
+      final since = _slowSince ??= stamp;
+      if (stamp - since >= kZoomInDwell) _switchZoom(true);
+    } else {
+      _slowSince = null;
+    }
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    if (!_dragging) return;
+    _dragging = false;
+    _release(pxPerSecond: -(d.primaryVelocity ?? 0));
   }
 
   void _onDragCancel() {
     if (!_dragging) return;
     _dragging = false;
-    _glideTo(scale.snap(_pos));
+    _release();
   }
 
   void _nudge(int delta) {
-    _glideTo(scale.valueAt(scale.indexOf(_current) + delta));
+    final grid = _modeGrid;
+    _glideTo(grid.valueAt(grid.indexOf(_current) + delta), grid);
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final extent = widget.itemExtent;
-    final i = scale.indexOf(_current);
+    final grid = _modeGrid;
+    final i = grid.indexOf(_current);
     _labels.configure(
       text: tokens.text,
       accent: tokens.accent,
@@ -324,9 +557,12 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
     final tape = CustomPaint(
       painter: _TapePainter(
         position: _pos,
-        scale: scale,
+        coarse: scale,
+        fine: _fine,
+        zoom: _zoom.value,
         pxPerValue: _pxPerValue,
         extent: extent,
+        fineExtent: _fineExtent,
         format: widget.format,
         line: tokens.lineStrong,
         labels: _labels,
@@ -337,14 +573,15 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
       slider: true,
       label: widget.semanticLabel,
       value: widget.format(_current),
-      increasedValue: widget.format(scale.valueAt(i + 1)),
-      decreasedValue: widget.format(scale.valueAt(i - 1)),
+      increasedValue: widget.format(grid.valueAt(i + 1)),
+      decreasedValue: widget.format(grid.valueAt(i - 1)),
       onIncrease: () => _nudge(1),
       onDecrease: () => _nudge(-1),
       onTap: widget.onTapValue,
       child: ExcludeSemantics(
         child: Listener(
           onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
           onPointerUp: _onPointerUp,
           onPointerCancel: _onPointerUp,
           child: GestureDetector(
@@ -418,6 +655,7 @@ class RulerPickerState extends State<RulerPicker> with SingleTickerProviderState
 }
 
 const double _majorTick = 14;
+const double _mediumTick = 10;
 const double _minorTick = 7;
 
 /// Where label centres sit: midway down the space above the ruled edge,
@@ -479,25 +717,33 @@ class _LabelCache {
   void dispose() => clear();
 }
 
-/// The whole tape in one pass: the ruled edge along the bottom (a hairline
-/// baseline, a major tick per value and four minor ones between, so the
-/// scale reads evenly) and the value labels above it. A label is full size
-/// and accent-coloured at the centre, smaller and fainter with distance.
+/// The whole tape in one pass: the ruled edge along the bottom and the value
+/// labels above it. Zoomed out, the edge has a major tick per value and four
+/// minor ones between; zoomed in, a major tick per coarse value and a medium
+/// one per fine value, the fine ticks and labels fading in with the zoom. A
+/// label is full size and accent-coloured at the centre, smaller and fainter
+/// with distance, measured in steps of the grid on show.
 class _TapePainter extends CustomPainter {
   _TapePainter({
     required this.position,
-    required this.scale,
+    required this.coarse,
+    required this.fine,
+    required this.zoom,
     required this.pxPerValue,
     required this.extent,
+    required this.fineExtent,
     required this.format,
     required this.line,
     required this.labels,
   }) : generation = labels.generation;
 
   final double position;
-  final RulerScale scale;
+  final RulerScale coarse;
+  final RulerScale? fine;
+  final double zoom;
   final double pxPerValue;
   final double extent;
+  final double fineExtent;
   final String Function(double) format;
   final Color line;
   final _LabelCache labels;
@@ -505,36 +751,51 @@ class _TapePainter extends CustomPainter {
 
   double _x(double v, Size size) => size.width / 2 + (v - position) * pxPerValue;
 
+  /// Whether [v] is also a value of [grid] (to within 1% of its step).
+  static bool _isOn(double v, RulerScale grid) {
+    final r = (v - grid.base) / grid.step;
+    return (r - r.round()).abs() < 0.01;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    final step = scale.step;
+    final step = coarse.step;
     final base = size.height - 0.5;
     final halfSpan = size.width / 2 / pxPerValue + step;
-    final lo = math.max(position - halfSpan, scale.first - step / 2);
-    final hi = math.min(position + halfSpan, scale.last + step / 2);
+    final lo = math.max(position - halfSpan, coarse.first - step / 2);
+    final hi = math.min(position + halfSpan, coarse.last + step / 2);
+    final fine = this.fine;
+    // Fine labels come in over the second part of the zoom, once there is
+    // room between them.
+    final fineFade = fine == null ? 0.0 : Curves.easeIn.transform(((zoom - 0.3) / 0.7).clamp(0.0, 1.0));
+    // The spacing of one step of the grid on show, for the label falloff.
+    final slot = extent + (fineExtent - extent) * (fine == null ? 0 : zoom);
 
     // The baseline spans the tape, half a slot past each end value.
     canvas.drawLine(
-      Offset(math.max(0, _x(scale.first - step / 2, size)), base),
-      Offset(math.min(size.width, _x(scale.last + step / 2, size)), base),
+      Offset(math.max(0, _x(coarse.first - step / 2, size)), base),
+      Offset(math.min(size.width, _x(coarse.last + step / 2, size)), base),
       Paint()
         ..color = line.withValues(alpha: 0.5)
         ..strokeWidth = 1,
     );
 
-    // Five ticks per value: a major one on it, minor ones between.
+    // Coarse: a major tick on each value, minor ones at fifths between that
+    // fade out as the tape zooms in.
     final major = Paint()
       ..color = line
       ..strokeWidth = 1.5;
+    final minorAlpha = 0.6 * (fine == null ? 1 : 1 - zoom);
     final minor = Paint()
-      ..color = line.withValues(alpha: 0.6)
+      ..color = line.withValues(alpha: minorAlpha)
       ..strokeWidth = 1;
     final sub = step / 5;
-    final k0 = math.max(((lo - scale.base) / sub).ceil(), -2);
-    final k1 = math.min(((hi - scale.base) / sub).floor(), (scale.count - 1) * 5 + 2);
+    final k0 = math.max(((lo - coarse.base) / sub).ceil(), -2);
+    final k1 = math.min(((hi - coarse.base) / sub).floor(), (coarse.count - 1) * 5 + 2);
     for (var k = k0; k <= k1; k++) {
-      final x = _x(scale.base + k * sub, size);
       final isMajor = k % 5 == 0;
+      if (!isMajor && minorAlpha <= 0) continue;
+      final x = _x(coarse.base + k * sub, size);
       canvas.drawLine(
         Offset(x, base),
         Offset(x, base - (isMajor ? _majorTick : _minorTick)),
@@ -542,22 +803,51 @@ class _TapePainter extends CustomPainter {
       );
     }
 
-    // Labels.
-    final i0 = math.max(((lo - scale.base) / step).floor(), 0);
-    final i1 = math.min(((hi - scale.base) / step).ceil(), scale.count - 1);
+    // Fine: a medium tick per fine value between the coarse ones.
+    var f0 = 0, f1 = -1;
+    if (fine != null && zoom > 0) {
+      f0 = math.max(((lo - fine.base) / fine.step).floor(), 0);
+      f1 = math.min(((hi - fine.base) / fine.step).ceil(), fine.count - 1);
+      final medium = Paint()
+        ..color = line.withValues(alpha: 0.8 * zoom)
+        ..strokeWidth = 1.25;
+      for (var i = f0; i <= f1; i++) {
+        final v = fine.valueAt(i);
+        if (_isOn(v, coarse)) continue;
+        final x = _x(v, size);
+        canvas.drawLine(Offset(x, base), Offset(x, base - _mediumTick), medium);
+      }
+    }
+
+    // Coarse labels; one off the fine grid (a fine grid anchored on an odd
+    // handed-in value) gives way to the fine labels as the tape zooms in.
+    final i0 = math.max(((lo - coarse.base) / step).floor(), 0);
+    final i1 = math.min(((hi - coarse.base) / step).ceil(), coarse.count - 1);
     for (var i = i0; i <= i1; i++) {
-      final v = scale.valueAt(i);
+      final v = coarse.valueAt(i);
+      final fade = fine == null || _isOn(v, fine) ? 1.0 : 1 - zoom;
       final x = _x(v, size);
-      _label(canvas, x, format(v), (x - size.width / 2).abs() / extent);
+      _label(canvas, x, format(v), (x - size.width / 2).abs() / slot, fade);
+    }
+
+    // Fine-only labels.
+    if (fine != null && fineFade > 0) {
+      for (var i = f0; i <= f1; i++) {
+        final v = fine.valueAt(i);
+        if (_isOn(v, coarse)) continue;
+        final x = _x(v, size);
+        _label(canvas, x, format(v), (x - size.width / 2).abs() / slot, fineFade);
+      }
     }
   }
 
-  void _label(Canvas canvas, double x, String text, double distance) {
+  void _label(Canvas canvas, double x, String text, double distance, double fade) {
     final d = distance.clamp(0.0, 3.0);
     final centre = d < 0.5;
     // A gentle falloff: 1.0 at the centre, 0.72 one step away, 0.56 at three.
     final size = d <= 1 ? 1 - 0.28 * d : 0.72 - 0.08 * (d - 1);
-    final opacity = (1 - 0.26 * d).clamp(0.22, 1.0);
+    final opacity = (1 - 0.26 * d).clamp(0.22, 1.0) * fade;
+    if (opacity < 0.01) return;
     final tp = labels.get(text, centre: centre, opacity: opacity);
     canvas
       ..save()
@@ -570,8 +860,10 @@ class _TapePainter extends CustomPainter {
   @override
   bool shouldRepaint(_TapePainter old) =>
       old.position != position ||
+      old.zoom != zoom ||
       old.pxPerValue != pxPerValue ||
-      old.scale != scale ||
+      old.coarse != coarse ||
+      old.fine != fine ||
       old.line != line ||
       old.format != format ||
       old.generation != generation;

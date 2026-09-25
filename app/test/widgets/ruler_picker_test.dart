@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -162,6 +163,218 @@ void main() {
       node.owner!.performAction(node.id, SemanticsAction.tap);
       expect(taps, 1, reason: 'typed entry must be reachable with a screen reader');
       handle.dispose();
+    });
+  });
+
+  group('RulerPicker zoom', () {
+    late List<double> changes;
+    setUp(() => changes = []);
+
+    String fmt(double v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
+
+    Widget ruler({double value = 100, double? fineStep = 0.25}) => wrapL10n(Center(
+          child: SizedBox(
+            width: 320,
+            child: RulerPicker(
+              value: value,
+              step: 1,
+              fineStep: fineStep,
+              max: 500,
+              format: fmt,
+              semanticLabel: 'Weight',
+              onChanged: changes.add,
+            ),
+          ),
+        ));
+
+    RulerPickerState state(WidgetTester tester) =>
+        tester.state<RulerPickerState>(find.byType(RulerPicker));
+    bool whole(double v) => v == v.roundToDouble();
+    bool quarter(double v) => (v * 4) == (v * 4).roundToDouble();
+
+    /// Drags [steps] moves of [dx] each, one every 16 ms of the fake clock,
+    /// continuing [gesture] from [from].
+    Future<Duration> slide(WidgetTester tester, TestGesture gesture, Duration from,
+        {required int steps, required double dx}) async {
+      var t = from;
+      for (var i = 0; i < steps; i++) {
+        t += const Duration(milliseconds: 16);
+        await gesture.moveBy(Offset(dx, 0), timeStamp: t);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      return t;
+    }
+
+    testWidgets('a fast swipe moves in coarse steps only', (tester) async {
+      await tester.pumpWidget(ruler());
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-300, 0),
+          const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(changes, isNotEmpty);
+      expect(changes.every(whole), isTrue, reason: '$changes');
+      expect(state(tester).zoom, 0);
+      expect(state(tester).position, changes.last);
+    });
+
+    testWidgets('a slow drag zooms in and lands on a fine value', (tester) async {
+      await tester.pumpWidget(ruler());
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-150, 0),
+          const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      final last = changes.last;
+      expect(quarter(last), isTrue, reason: '$changes');
+      expect(whole(last), isFalse, reason: '$changes');
+      expect(state(tester).position, last);
+      expect(state(tester).zoom, 1, reason: 'a fractional value rests zoomed');
+    });
+
+    testWidgets('a hold then a small move steps by the fine step', (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await tester.pump(kHoldDwell + const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 200)); // zoom animation
+      expect(state(tester).zoom, 1);
+      // Past the touch slop, then exactly one fine slot.
+      await gesture.moveBy(const Offset(-kTouchSlop - 2, 0), timeStamp: const Duration(milliseconds: 600));
+      await gesture.moveBy(const Offset(-kFineExtent, 0), timeStamp: const Duration(milliseconds: 1400));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up(timeStamp: const Duration(milliseconds: 2400));
+      await tester.pumpAndSettle();
+      expect(changes, [100.25]);
+      expect(state(tester).zoom, 1);
+    });
+
+    testWidgets('a hold released in place zooms back out without reporting', (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await tester.pump(kHoldDwell + const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 1);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(changes, isEmpty);
+      expect(state(tester).zoom, 0);
+    });
+
+    testWidgets('a zoomed drag that lands on a whole value rests coarse', (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await tester.pump(kHoldDwell + const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveBy(const Offset(-kTouchSlop - 2, 0), timeStamp: const Duration(milliseconds: 600));
+      await gesture.moveBy(const Offset(-4 * kFineExtent, 0), timeStamp: const Duration(milliseconds: 3000));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up(timeStamp: const Duration(milliseconds: 4000));
+      await tester.pumpAndSettle();
+      expect(changes, [100.25, 100.5, 100.75, 101]);
+      expect(state(tester).zoom, 0);
+    });
+
+    testWidgets('speeding up mid-drag zooms back out', (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      // ~94 dp/s: slow enough to zoom in.
+      var t = await slide(tester, gesture, Duration.zero, steps: 40, dx: -1.5);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 1);
+      // ~1250 dp/s.
+      t = await slide(tester, gesture, t, steps: 6, dx: -20);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state(tester).zoom, 0);
+      await gesture.up(timeStamp: t);
+      await tester.pumpAndSettle();
+      expect(whole(changes.last), isTrue, reason: '$changes');
+      expect(state(tester).zoom, 0);
+    });
+
+    testWidgets('a fractional value rests zoomed; a fast drag from it lands on the coarse grid',
+        (tester) async {
+      await tester.pumpWidget(ruler(value: 60.25));
+      expect(state(tester).zoom, 1);
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-300, 0),
+          const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(whole(changes.last), isTrue, reason: '$changes');
+      expect(state(tester).position, changes.last);
+      expect(state(tester).zoom, 0);
+    });
+
+    testWidgets('an on-grid value rests coarse, and handed-in values set the zoom', (tester) async {
+      await tester.pumpWidget(ruler(value: 60));
+      expect(state(tester).zoom, 0);
+      await tester.pumpWidget(ruler(value: 60.5));
+      await tester.pumpAndSettle();
+      expect(state(tester).zoom, 1);
+      expect(state(tester).position, 60.5);
+      await tester.pumpWidget(ruler(value: 61));
+      await tester.pumpAndSettle();
+      expect(state(tester).zoom, 0);
+      expect(changes, isEmpty);
+    });
+
+    testWidgets('a value off both grids keeps its own fine grid', (tester) async {
+      await tester.pumpWidget(ruler(value: 60.3));
+      expect(state(tester).zoom, 1);
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await gesture.moveBy(const Offset(-kTouchSlop - 2, 0), timeStamp: const Duration(milliseconds: 100));
+      await gesture.moveBy(const Offset(-kFineExtent, 0), timeStamp: const Duration(milliseconds: 1100));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up(timeStamp: const Duration(milliseconds: 2100));
+      await tester.pumpAndSettle();
+      expect(changes, [60.55]);
+    });
+
+    testWidgets('screen-reader steps are fine while resting zoomed', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(ruler(value: 60.25));
+      final node = tester.getSemantics(find.bySemanticsLabel('Weight'));
+      expect(node.increasedValue, '60.5');
+      expect(node.decreasedValue, '60');
+      node.owner!.performAction(node.id, SemanticsAction.increase);
+      await tester.pumpAndSettle();
+      expect(changes, [60.5]);
+      handle.dispose();
+    });
+
+    testWidgets('settleAll during a zoom rests on the last value at its zoom', (tester) async {
+      await tester.pumpWidget(ruler());
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await tester.pump(kHoldDwell + const Duration(milliseconds: 20));
+      RulerPicker.settleAll();
+      expect(state(tester).zoom, 0);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(changes, isEmpty);
+    });
+
+    testWidgets('no zoom without a fine step', (tester) async {
+      await tester.pumpWidget(ruler(fineStep: null));
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-150, 0),
+          const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(state(tester).zoom, 0);
+      expect(changes, [101, 102]);
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(RulerPicker)));
+      await tester.pump(const Duration(seconds: 1));
+      expect(state(tester).zoom, 0);
+      await gesture.up();
+    });
+
+    testWidgets('under reduced motion the zoom and glide jump without animating', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures.allOn;
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await tester.pumpWidget(ruler());
+      await tester.timedDrag(find.byType(RulerPicker), const Offset(-150, 0),
+          const Duration(seconds: 2));
+      await tester.pump();
+      expect(state(tester).zoom, 1);
+      expect(state(tester).position, changes.last);
+      await tester.fling(find.byType(RulerPicker), const Offset(-150, 0), 3000);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(state(tester).zoom, 0);
+      expect(state(tester).position, changes.last);
+      expect(whole(changes.last), isTrue, reason: '$changes');
     });
   });
 }
