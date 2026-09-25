@@ -104,13 +104,15 @@ void main() {
             onLog: () => setState(() => c.logLiveSet()), onFinish: () {}),
       ]),
     )));
+    // ~180 dp/s: comfortably above the 120 dp/s zoom-in threshold and below
+    // the 300 dp/s fling dead zone, so it stays a plain 2-step coarse swipe.
     await tester.timedDrag(find.byKey(const Key('live-weight')),
-        const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
+        const Offset(-2 * RulerPicker.defaultItemExtent, 0), const Duration(milliseconds: 800));
     await tester.pumpAndSettle();
-    expect(find.text('Log set 1 · 141kg × 6'), findsOneWidget);
+    expect(find.text('Log set 1 · 142kg × 6'), findsOneWidget);
     await tester.tap(find.byKey(const Key('log-set-bar')));
     await tester.pump();
-    expect(s.weightKg, 141);
+    expect(s.weightKg, 142);
     expect(s.done, isTrue);
   });
 

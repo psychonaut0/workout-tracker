@@ -49,25 +49,37 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('swiping the weight ruler moves in fixed 0.5 kg steps, not the plate step',
+  // The weight ruler's coarse step: fast and short enough to stay well above
+  // the 120 dp/s zoom-in threshold and below the 300 dp/s fling dead zone.
+  Future<void> coarseSwipeWeight(WidgetTester tester, int steps) async {
+    await tester.timedDrag(find.byKey(const Key('live-weight')),
+        Offset(-steps * RulerPicker.defaultItemExtent, 0), Duration(milliseconds: 400 * steps.abs()));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('swiping the weight ruler moves in whole-kilo steps, not the plate step',
       (tester) async {
     final s = _s(); // the exercise's plate step is 2.5 kg
     await tester.pumpWidget(host(card(s)));
-    await swipe(tester, const Key('live-weight'), 2);
-    expect(s.weightKg, 141);
+    await coarseSwipeWeight(tester, 2);
+    expect(s.weightKg, 142);
     expect(changes, greaterThanOrEqualTo(1));
   });
 
-  testWidgets('in lb the weight ruler steps one pound at a time', (tester) async {
+  testWidgets('in lb the weight ruler steps five pounds at a time', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final lb = UnitService()..setUnit(Unit.lb);
-    final s = SetState(id: 's', weightKg: 100, reps: 6, rir: 1, isWarmup: false, done: false);
+    // Start exactly on the coarse lb grid (220 lb), so the ruler rests
+    // coarse and a single-step swipe is unambiguous.
+    final s = SetState(
+        id: 's', weightKg: UnitService.toKg(220, Unit.lb), reps: 6, rir: 1,
+        isWarmup: false, done: false);
     await tester.pumpWidget(host(LiveSetCard(
         set: s, exercise: _ex, workIndex: 1, lastTop: null, unit: lb,
         onChanged: () => changes++, onMarkNotDone: () {})));
-    await swipe(tester, const Key('live-weight'), -1);
-    expect(s.weightKg, closeTo(100 - 0.45359, 0.01));
-    expect(lb.fmtWt(s.weightKg), '219'); // 220 lb → 219 lb
+    await coarseSwipeWeight(tester, -1);
+    expect(s.weightKg, closeTo(UnitService.toKg(220 - 5, Unit.lb), 0.01));
+    expect(lb.fmtWt(s.weightKg), '215'); // 220 lb → 215 lb
   });
 
   testWidgets('swiping the reps ruler right lowers reps', (tester) async {

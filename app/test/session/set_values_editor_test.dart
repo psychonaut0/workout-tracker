@@ -29,17 +29,46 @@ void main() {
   Widget host(Widget child) =>
       wrapL10n(SingleChildScrollView(child: SizedBox(width: 260, child: child)));
 
-  Future<void> swipe(WidgetTester tester, Key ruler, int steps) async {
-    await tester.timedDrag(find.byKey(ruler),
-        Offset(-steps * RulerPicker.defaultItemExtent, 0), const Duration(seconds: 1));
+  // A coarse drag: each step's worth of distance covered at ~180 dp/s, safely
+  // between the 120 dp/s zoom-in threshold and the 300 dp/s fling dead zone,
+  // so it neither zooms in nor overshoots on release.
+  Future<void> coarseSwipe(WidgetTester tester, Key ruler, int steps) async {
+    await tester.timedDrag(find.byKey(ruler), Offset(-steps * RulerPicker.defaultItemExtent, 0),
+        Duration(milliseconds: 400 * steps));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a weight swipe calls onWeight with the stepped value', (tester) async {
-    await tester.pumpWidget(host(editor()));
-    await swipe(tester, const Key('live-weight'), 2);
-    expect(lastWeight, 141);
+  testWidgets('a coarse weight swipe in kg reports the whole-kilo value', (tester) async {
+    await tester.pumpWidget(host(editor(weightKg: 60)));
+    await coarseSwipe(tester, const Key('live-weight'), 2);
+    expect(lastWeight, 62);
     expect(weightCalls, greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('a coarse weight swipe in lb reports the kg of the stepped pound value',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final lb = UnitService()..setUnit(Unit.lb);
+    // 135 lb in kg, so the ruler's display value starts exactly on 135 lb.
+    final startKg = UnitService.toKg(135, Unit.lb);
+    await tester.pumpWidget(host(editor(weightKg: startKg, unit: lb)));
+    await coarseSwipe(tester, const Key('live-weight'), 1);
+    expect(lastWeight, closeTo(UnitService.toKg(140, Unit.lb), 0.01));
+  });
+
+  testWidgets('a slow drag in kg zooms in and reports a quarter-kilo value', (tester) async {
+    await tester.pumpWidget(host(editor(weightKg: 60)));
+    // 75 dp/s: below kZoomInSpeed (120) for well over kZoomInDwell (200ms),
+    // so the tape zooms into the 0.25 kg fine step before it finishes. It
+    // lands on the fine neighbour reached in the drag's direction (up the
+    // tape), not necessarily the very first one.
+    await tester.timedDrag(
+        find.byKey(const Key('live-weight')), const Offset(-150, 0), const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    final v = lastWeight!;
+    expect(v, greaterThan(60));
+    expect(v, lessThanOrEqualTo(61));
+    expect((v * 4).roundToDouble() / 4, closeTo(v, 1e-9), reason: 'not on a quarter-kilo value: $v');
   });
 
   testWidgets('typed entry calls onWeight with the typed value', (tester) async {
