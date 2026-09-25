@@ -10,20 +10,8 @@
   "commonOk": "OK",
   "editorSaveFailed": "Couldn't save",
   "todayGreeting": "Ready to train",
-  "todayRestDay": "Rest day",
   "todayThisWeek": "This week",
   "todayBodyweight": "Bodyweight",
-  "todaySetsPerWeek": "Sets / wk",
-  "todayMusclesCount": "{count, plural, =1{1 muscle} other{{count} muscles}}",
-  "@todayMusclesCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "todayPrsPerWeek": "PRs / wk",
-  "todayNewTopSets": "new top sets",
   "todayRecentPrs": "Recent PRs",
   "todayNoPrsYet": "No PRs yet this cycle",
   "todayWeeklyVolume": "Weekly volume",
