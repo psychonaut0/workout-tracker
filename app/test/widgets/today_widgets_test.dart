@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/theme/icons.dart';
 import 'package:workout_tracker/widgets/week_strip.dart';
@@ -58,12 +59,66 @@ void main() {
       );
     });
 
-    testWidgets('strips spaces from day names', (tester) async {
+    testWidgets('keeps spaces in day names', (tester) async {
       await pumpWithTheme(tester, const WeekStrip(days: days));
 
-      // 'Upper A' → 'UpperA'; original spaced form should not appear.
-      expect(find.text('UpperA'), findsOneWidget);
-      expect(find.text('Upper A'), findsNothing);
+      expect(find.text('Upper A'), findsOneWidget);
+    });
+
+    testWidgets('without onSelect it behaves as before: no Custom chip, nothing tappable',
+        (tester) async {
+      await pumpWithTheme(tester, const WeekStrip(days: days));
+      expect(find.bySemanticsLabel('Custom'), findsNothing);
+    });
+
+    testWidgets('tapping a chip selects that day; the Custom chip selects past the end',
+        (tester) async {
+      final picked = <int>[];
+      await pumpWithTheme(tester, WeekStrip(days: days, selectedIndex: 0, onSelect: picked.add));
+      await tester.tap(find.text('Upper B'));
+      await tester.tap(find.bySemanticsLabel('Custom'));
+      expect(picked, [2, days.length]);
+      expect(tester.getSize(find.byKey(const ValueKey('week-chip-2'))).height,
+          greaterThanOrEqualTo(48));
+      expect(tester.getSize(find.byKey(const ValueKey('week-chip-custom'))).width,
+          greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('the selected chip is filled; NEXT stays on the rotation day', (tester) async {
+      await pumpWithTheme(tester, WeekStrip(days: days, selectedIndex: 2, onSelect: (_) {}));
+      final tokens = tester.element(find.byType(WeekStrip)).tokens;
+      BoxDecoration deco(int i) => tester
+          .widget<Container>(find.descendant(
+              of: find.byKey(ValueKey('week-chip-$i')), matching: find.byType(Container)).first)
+          .decoration! as BoxDecoration;
+      expect(deco(2).color, tokens.accent);
+      expect(deco(0).color, tokens.surface);
+      expect(find.text('NEXT'), findsOneWidget); // on Upper A (isNext), not selected
+    });
+
+    testWidgets('six days fit a narrow phone at large text (Italian)', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const six = [
+        (name: 'Upper A', weekday: 0, isNext: true, done: false),
+        (name: 'Lower A', weekday: 1, isNext: false, done: true),
+        (name: 'Upper B', weekday: 2, isNext: false, done: false),
+        (name: 'Lower B', weekday: 3, isNext: false, done: false),
+        (name: 'Arms', weekday: 4, isNext: false, done: false),
+        (name: 'Conditioning', weekday: 5, isNext: false, done: false),
+      ];
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(size: Size(320, 800), textScaler: TextScaler.linear(1.3)),
+        child: wrapL10n(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: WeekStrip(days: six, selectedIndex: 0, onSelect: (_) {}),
+          ),
+          locale: const Locale('it'),
+        ),
+      ));
+      expect(tester.takeException(), isNull);
     });
   });
 
