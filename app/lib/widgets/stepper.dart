@@ -311,6 +311,7 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
                 ? l.a11yIncreaseGeneric
                 : l.a11yIncrease(widget.semanticLabel!)),
         excludeSemantics: true,
+        onTap: () => _step(dir),
         child: GestureDetector(
           key: key,
           // Stop tap from propagating to parent (e.g. accordion header).

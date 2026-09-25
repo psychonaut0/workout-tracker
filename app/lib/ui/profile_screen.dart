@@ -679,6 +679,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       button: true,
                       label: l.commonBack,
                       excludeSemantics: true,
+                      onTap: widget.onClose,
                       child: GestureDetector(
                         onTap: widget.onClose,
                         child: SizedBox(
@@ -815,7 +816,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileCompoundRest,
                       sub: l.profileCompoundRestSub,
                       right: SizedBox(
-                        width: 168,
+                        width: 144,
                         child: WStepper(
                           value: settings.restCompoundSeconds.toDouble(),
                           step: 15,
@@ -835,7 +836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileIsolationRest,
                       sub: l.profileIsolationRestSub,
                       right: SizedBox(
-                        width: 168,
+                        width: 144,
                         child: WStepper(
                           value: settings.restIsolationSeconds.toDouble(),
                           step: 15,
@@ -1050,32 +1051,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onChanged: (_) => setState(() {}),
                 )
               else
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: l.profileEditName,
+                  excludeSemantics: true,
                   onTap: () => setState(() => _editingName = true),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            settings.profileName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: WorkoutType.display(
-                              size: 23,
-                              weight: FontWeight.w700,
-                              color: tokens.text,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _editingName = true),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              settings.profileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: WorkoutType.display(
+                                size: 23,
+                                weight: FontWeight.w700,
+                                color: tokens.text,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Semantics(
-                          button: true,
-                          label: l.profileEditName,
-                          excludeSemantics: true,
-                          child: Icon(WIcons.edit, size: 15, color: tokens.faint),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Icon(WIcons.edit, size: 15, color: tokens.faint),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1127,6 +1129,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           selected: isSelected,
           label: l.profileAccentOption(n),
           excludeSemantics: true,
+          onTap: () => settings.setAccent(color),
           child: GestureDetector(
             onTap: () => settings.setAccent(color),
             child: SizedBox(

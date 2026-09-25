@@ -464,6 +464,7 @@ class _RoundButton extends StatelessWidget {
       button: true,
       label: semanticLabel,
       excludeSemantics: true,
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: Container(

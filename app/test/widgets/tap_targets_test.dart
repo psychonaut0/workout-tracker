@@ -7,6 +7,7 @@ import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/widgets/delete_button.dart';
 import 'package:workout_tracker/widgets/plan_form.dart';
 import 'package:workout_tracker/widgets/progress_widgets.dart';
+import 'package:workout_tracker/widgets/stepper.dart';
 
 import '../support/l10n_harness.dart';
 
@@ -48,6 +49,17 @@ void main() {
     expect(semantics.flagsCollection.isToggled, Tristate.isTrue);
   });
 
+  testWidgets("Toggle's visual pill stays 50x30 despite the larger hit area",
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(Toggle(
+      value: true,
+      onChanged: (_) {},
+    )));
+
+    final pill = find.byType(AnimatedContainer);
+    expect(tester.getSize(pill), const Size(50, 30));
+  });
+
   testWidgets('MetricTabs segments are at least 48 tall', (tester) async {
     await tester.pumpWidget(wrapL10n(SizedBox(
       width: 360,
@@ -80,5 +92,30 @@ void main() {
     )));
 
     expect(find.bySemanticsLabel('Start workout'), findsOneWidget);
+  });
+
+  testWidgets(
+      'the stepper + and the Toggle expose a screen-reader tap action',
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(Column(
+      children: [
+        WStepper(
+          value: 10,
+          step: 1,
+          format: (v) => v.round().toString(),
+          onChanged: (_) {},
+        ),
+        Toggle(value: true, onChanged: (_) {}),
+      ],
+    )));
+
+    expect(
+      tester.getSemantics(find.byKey(const Key('stepper-inc'))),
+      matchesSemantics(hasTapAction: true, isButton: true),
+    );
+    expect(
+      tester.getSemantics(find.byType(Toggle)),
+      matchesSemantics(hasTapAction: true, hasToggledState: true, isToggled: true),
+    );
   });
 }

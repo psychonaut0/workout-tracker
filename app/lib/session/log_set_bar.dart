@@ -78,6 +78,7 @@ class LogSetBar extends StatelessWidget {
             button: true,
             label: label,
             excludeSemantics: true,
+            onTap: _tap,
             child: GestureDetector(
               key: const Key('log-set-bar'),
               behavior: HitTestBehavior.opaque,

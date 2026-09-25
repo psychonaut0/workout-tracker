@@ -176,6 +176,7 @@ class _FabButton extends StatelessWidget {
       button: true,
       label: l.splitStartWorkout,
       excludeSemantics: true,
+      onTap: onStart,
       child: GestureDetector(
         onTap: onStart,
         child: PressableScale(

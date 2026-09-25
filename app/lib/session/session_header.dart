@@ -81,6 +81,7 @@ class SessionHeader extends StatelessWidget {
           button: true,
           label: label,
           excludeSemantics: true,
+          onTap: onTap,
           child: GestureDetector(
             key: key,
             behavior: HitTestBehavior.opaque,

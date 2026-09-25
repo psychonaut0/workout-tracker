@@ -198,6 +198,7 @@ class _BackButton extends StatelessWidget {
       button: true,
       label: l.commonBack,
       excludeSemantics: true,
+      onTap: onBack,
       child: GestureDetector(
         onTap: onBack,
         child: SizedBox(
