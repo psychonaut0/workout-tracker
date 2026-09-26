@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -173,6 +174,30 @@ func TestRefresh_RejectsReuse(t *testing.T) {
 	h.Refresh(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status: got %d, want 401", rec.Code)
+	}
+}
+
+func TestRefresh_RejectsUnknownOrExpiredToken(t *testing.T) {
+	h := newHandler(t, &fakeUsers{}, &fakeRefresh{rotateErr: auth.ErrInvalidRefreshToken})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/refresh",
+		strings.NewReader(`{"refresh_token":"expired"}`))
+	h.Refresh(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status: got %d, want 401", rec.Code)
+	}
+}
+
+// A failed lookup (database down) says nothing about the token: answering
+// 401 would make the client treat a live session as expired.
+func TestRefresh_StoreFailureIsServerError(t *testing.T) {
+	h := newHandler(t, &fakeUsers{}, &fakeRefresh{rotateErr: errors.New("connection refused")})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/refresh",
+		strings.NewReader(`{"refresh_token":"live"}`))
+	h.Refresh(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status: got %d, want 500", rec.Code)
 	}
 }
 
