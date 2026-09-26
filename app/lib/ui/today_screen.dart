@@ -587,21 +587,17 @@ class _TodayScreenState extends State<TodayScreen> {
             final volRows = volSnap.data ?? [];
             final targetList = targetSnap.data ?? [];
 
-            // Build a lookup: muscle → targetSets
             final targetMap = {
               for (final t in targetList) t.muscle: t.targetSets,
             };
-
-            // LEFT-merge volume with targets; coalesce missing target to sets
-            // so VolumeBars never sees null and goalless muscles show on-target.
-            final rows = volRows.map((v) {
-              final target = targetMap[v.muscle] ?? v.sets;
-              return (
-                muscle: localizedMuscle(context, v.muscle),
-                sets: v.sets,
-                target: target,
-              );
-            }).toList();
+            final rows = [
+              for (final r in weeklyVolumeRows(volRows, targetMap))
+                (
+                  muscle: localizedMuscle(context, r.muscle),
+                  sets: r.sets,
+                  target: r.target,
+                ),
+            ];
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
