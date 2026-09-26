@@ -162,4 +162,20 @@ void main() {
     expect(await auth.refresh(), isNull);
     expect(auth.sessionExpired.value, isFalse);
   });
+
+  group('sameAccount', () {
+    test('ignores case and surrounding whitespace', () {
+      expect(sameAccount('Me@Example.com', ' me@example.com '), isTrue);
+    });
+    test('different emails differ', () {
+      expect(sameAccount('me@example.com', 'you@example.com'), isFalse);
+    });
+    test('an unknown previous account never matches', () {
+      expect(sameAccount(null, 'me@example.com'), isFalse);
+      expect(sameAccount(null, null), isFalse);
+    });
+    test('a missing new email does not match', () {
+      expect(sameAccount('me@example.com', null), isFalse);
+    });
+  });
 }

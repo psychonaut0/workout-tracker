@@ -9,6 +9,14 @@ import 'package:http/http.dart' as http;
 /// Set from SettingsService at startup before openDatabase/connectSync.
 String apiBaseUrl = 'http://localhost:8080';
 
+/// Whether [next] signs in to the same account as [previous]. The server
+/// trims and lowercases emails, so this does too. An unknown [previous]
+/// never matches.
+bool sameAccount(String? previous, String? next) {
+  if (previous == null || next == null) return false;
+  return previous.trim().toLowerCase() == next.trim().toLowerCase();
+}
+
 /// Holds and persists the auth tokens, and knows how to login / refresh /
 /// logout against the Go API. The PowerSync connector reads from this:
 /// - the ACCESS token is used for /sync/upload and /auth/powersync-token

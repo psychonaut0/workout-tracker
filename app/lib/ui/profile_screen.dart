@@ -485,23 +485,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// resumes syncing with everything on this device, and the week of
   /// workouts logged while sync was down uploads. A different account goes
   /// through the usual keep/discard choice.
+  ///
+  /// The old sync loop stops first: once login stores another account's
+  /// tokens, a loop still retrying would upload this device's queue into that
+  /// account while the keep/discard dialog is open. Backing out of the login
+  /// screen restores sync as it was.
   Future<void> _signInAgain(SettingsService settings) async {
     final previousEmail = widget.auth.email;
     final navigator = Navigator.of(context);
+    final wasSyncing = settings.syncEnabled;
+    await db.disconnect();
+    await settings.setSyncEnabled(false);
+    var loggedIn = false;
     await navigator.push(MaterialPageRoute(
       builder: (_) => LoginScreen(
         auth: widget.auth,
         initialEmail: previousEmail,
         onLoggedIn: () async {
-          if (widget.auth.email == previousEmail) {
+          loggedIn = true;
+          if (sameAccount(previousEmail, widget.auth.email)) {
+            await settings.setSyncEnabled(true);
             await connectSync(widget.auth);
             navigator.pop();
           } else {
+            // Cancelling the choice stays local, disconnected.
             await _reconcileAndConnect(navigator, settings);
           }
         },
       ),
     ));
+    if (!loggedIn && wasSyncing) {
+      await settings.setSyncEnabled(true);
+      await connectSync(widget.auth);
+    }
     if (mounted) setState(() {});
   }
 
