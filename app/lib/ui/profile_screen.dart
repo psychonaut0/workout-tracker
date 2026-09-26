@@ -580,7 +580,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirmed = await showWConfirm(
       context,
       title: l.profileSignOutTitle,
-      message: pending > 0 || widget.auth.sessionExpired.value
+      // Only unsynced changes are lost by signing out; with none pending,
+      // even an expired session signs out harmlessly.
+      message: pending > 0
           ? l.profileSignOutUnsyncedMessage(pending)
           : l.profileSignOutMessage,
       confirmLabel: l.profileSignOut,
