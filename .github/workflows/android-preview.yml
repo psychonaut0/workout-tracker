@@ -1,0 +1,63 @@
+name: android-preview
+
+# Builds a release-signed APK from a preview/** branch and uploads it as a
+# run artifact — no tag, no GitHub Release. Used to put an unmerged branch on
+# a phone without losing its data (same signing key as real releases).
+#
+# PREVIEW_BUILD_NUMBER must be >= the installed versionCode and <= the next
+# android-release run number, or the install (or the next OTA update) is
+# rejected as a downgrade.
+
+on:
+  push:
+    branches: ['preview/**']
+
+env:
+  PREVIEW_BUILD_NUMBER: '34'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+
+      - name: Decode keystore + write key.properties
+        working-directory: app/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > app/reps-release.jks
+          cat > key.properties <<PROPS
+          storeFile=reps-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+
+      - name: Build signed release APK
+        working-directory: app
+        run: |
+          flutter pub get
+          NAME=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
+          flutter build apk --release \
+            --build-name="$NAME" \
+            --build-number="$PREVIEW_BUILD_NUMBER"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reps-preview-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
