@@ -115,4 +115,51 @@ void main() {
     await auth.refresh();
     expect(refreshCalls, 2);
   });
+
+  test('a rejected refresh marks the session expired and stops re-sending the dead token',
+      () async {
+    var refreshCalls = 0;
+    final auth = AuthStore(
+      client: MockClient((req) async {
+        if (req.url.path == '/auth/login') {
+          return http.Response(
+            jsonEncode({'access_token': 'A1', 'refresh_token': 'R1'}),
+            200,
+          );
+        }
+        refreshCalls++;
+        return http.Response('revoked', 401);
+      }),
+    );
+    await auth.login('me@example.com', 'devpassword');
+    expect(auth.sessionExpired.value, isFalse);
+
+    expect(await auth.refresh(), isNull);
+    expect(auth.sessionExpired.value, isTrue);
+    expect(await auth.refresh(), isNull);
+    expect(await auth.ensureAccessToken(), isNull);
+    expect(refreshCalls, 1);
+
+    // Signing in again clears it.
+    await auth.login('me@example.com', 'devpassword');
+    expect(auth.sessionExpired.value, isFalse);
+    expect(await auth.ensureAccessToken(), 'A1');
+  });
+
+  test('a server error on refresh is transient, not an expired session', () async {
+    final auth = AuthStore(
+      client: MockClient((req) async {
+        if (req.url.path == '/auth/login') {
+          return http.Response(
+            jsonEncode({'access_token': 'A1', 'refresh_token': 'R1'}),
+            200,
+          );
+        }
+        return http.Response('down', 502);
+      }),
+    );
+    await auth.login('me@example.com', 'devpassword');
+    expect(await auth.refresh(), isNull);
+    expect(auth.sessionExpired.value, isFalse);
+  });
 }

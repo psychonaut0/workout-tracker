@@ -5,9 +5,17 @@ import '../l10n/app_localizations.dart';
 
 /// Sign-in / registration against the configured sync server.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.auth, required this.onLoggedIn});
+  const LoginScreen({
+    super.key,
+    required this.auth,
+    required this.onLoggedIn,
+    this.initialEmail,
+  });
 
   final AuthStore auth;
+
+  /// Pre-fills the email field (signing in again after a session expired).
+  final String? initialEmail;
   final Future<void> Function() onLoggedIn;
 
   @override
@@ -15,7 +23,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
+  late final _email = TextEditingController(text: widget.initialEmail);
   final _password = TextEditingController();
   bool _busy = false;
   bool _registering = false;

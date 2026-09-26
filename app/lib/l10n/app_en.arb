@@ -598,6 +598,8 @@
   "loginHaveAccount": "Have an account? Sign in",
   "syncSyncing": "Syncing…",
   "syncError": "Sync error",
+  "syncSessionExpired": "Session expired",
+  "profileSessionExpiredSub": "Sign in again to resume sync. Your data stays on this device.",
   "syncOffline": "Offline",
   "syncSynced": "Synced",
   "syncSyncedAt": "Synced · {time}",

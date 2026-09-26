@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' show SyncStatus;
@@ -471,7 +472,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Persist the URL only now that login succeeded.
           await settings.setServerUrl(url);
           apiBaseUrl = url;
+          await _reconcileAndConnect(navigator, settings);
+        },
+      ),
+    ));
 
+    if (mounted) setState(() {});
+  }
+
+  /// Signing in again after the server ended the session (see
+  /// [AuthStore.sessionExpired]). Only the tokens change: the same account
+  /// resumes syncing with everything on this device, and the week of
+  /// workouts logged while sync was down uploads. A different account goes
+  /// through the usual keep/discard choice.
+  Future<void> _signInAgain(SettingsService settings) async {
+    final previousEmail = widget.auth.email;
+    final navigator = Navigator.of(context);
+    await navigator.push(MaterialPageRoute(
+      builder: (_) => LoginScreen(
+        auth: widget.auth,
+        initialEmail: previousEmail,
+        onLoggedIn: () async {
+          if (widget.auth.email == previousEmail) {
+            await connectSync(widget.auth);
+            navigator.pop();
+          } else {
+            await _reconcileAndConnect(navigator, settings);
+          }
+        },
+      ),
+    ));
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _reconcileAndConnect(
+      NavigatorState navigator, SettingsService settings) async {
           // Reconcile local data before enabling sync. If anything exists on
           // this device (a session's user_id, or any exercise), ask whether to
           // keep it (merge) or use the account's data (discard local).
@@ -511,11 +546,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           await settings.setSyncEnabled(true);
           await connectSync(widget.auth);
           navigator.pop();
-        },
-      ),
-    ));
-
-    if (mounted) setState(() {});
   }
 
   // ── Sign-out flow ─────────────────────────────────────────────────────────
@@ -863,7 +893,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileSyncServer,
                       sub: settings.serverUrl,
                       right: signedIn && settings.syncEnabled
-                          ? const _SyncStatusRight()
+                          ? _SyncStatusRight(expired: widget.auth.sessionExpired)
                           : Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -981,10 +1011,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _Group(
                     label: l.profileGroupAccount,
                     children: [
-                      _Row(
-                        icon: WIcons.user,
-                        title: l.profileSignedIn,
-                        sub: widget.auth.email ?? '–',
+                      ValueListenableBuilder<bool>(
+                        valueListenable: widget.auth.sessionExpired,
+                        builder: (context, expired, _) => expired
+                            ? _Row(
+                                icon: WIcons.user,
+                                title: l.syncSessionExpired,
+                                sub: l.profileSessionExpiredSub,
+                                right: Icon(WIcons.chevron,
+                                    size: 16, color: tokens.faint),
+                                onTap: () => _signInAgain(settings),
+                              )
+                            : _Row(
+                                icon: WIcons.user,
+                                title: l.profileSignedIn,
+                                sub: widget.auth.email ?? '–',
+                              ),
                       ),
                       _Row(
                         icon: WIcons.logout,
@@ -1168,13 +1210,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 /// Live sync status: dot + label driven by the PowerSync status stream.
 class _SyncStatusRight extends StatelessWidget {
-  const _SyncStatusRight();
+  const _SyncStatusRight({required this.expired});
+
+  /// The session ended server-side: say so rather than a generic error.
+  final ValueListenable<bool> expired;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final l = AppLocalizations.of(context);
-    return StreamBuilder<SyncStatus>(
+    return ValueListenableBuilder<bool>(
+      valueListenable: expired,
+      builder: (context, isExpired, _) => StreamBuilder<SyncStatus>(
       stream: db.statusStream,
       initialData: db.currentStatus,
       builder: (context, snap) {
@@ -1192,10 +1239,15 @@ class _SyncStatusRight extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _SyncDot(color: color, pulsing: state == SyncDotState.syncing),
+            _SyncDot(
+              color: isExpired ? tokens.danger : color,
+              pulsing: !isExpired && state == SyncDotState.syncing,
+            ),
             const SizedBox(width: 6),
             Text(
-              _syncLabel(l, state, s?.lastSyncedAt),
+              isExpired
+                  ? l.syncSessionExpired
+                  : _syncLabel(l, state, s?.lastSyncedAt),
               style: WorkoutType.mono(
                 size: 11,
                 weight: FontWeight.w600,
@@ -1205,6 +1257,7 @@ class _SyncStatusRight extends StatelessWidget {
           ],
         );
       },
+      ),
     );
   }
 

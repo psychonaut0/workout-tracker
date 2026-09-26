@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -31,6 +32,11 @@ class AuthStore {
 
   String? get accessToken => _accessToken;
 
+  /// True once the server rejected the refresh token (expired, or revoked by
+  /// its reuse detection). Sync cannot resume until the user signs in again;
+  /// the local data is untouched. Cleared by a successful login/register.
+  final ValueNotifier<bool> sessionExpired = ValueNotifier(false);
+
   /// The email used to log in, persisted across app restarts.
   String? get email => _email;
 
@@ -56,6 +62,7 @@ class AuthStore {
     _email = email;
     await _persistTokens(jsonDecode(res.body) as Map<String, dynamic>);
     await _storage.write(key: _kEmail, value: email);
+    sessionExpired.value = false;
   }
 
   /// POST /auth/register. On 200 behaves like login (tokens + email persisted).
@@ -72,6 +79,7 @@ class AuthStore {
     _email = email;
     await _persistTokens(jsonDecode(res.body) as Map<String, dynamic>);
     await _storage.write(key: _kEmail, value: email);
+    sessionExpired.value = false;
   }
 
   /// POST /auth/refresh — rotates both tokens. Returns the fresh access token,
@@ -81,9 +89,13 @@ class AuthStore {
   /// both hit a 401 when the access token expires) share one request. Sending
   /// the same refresh token twice trips the server's reuse detection, which
   /// revokes the whole token family and silently ends sync.
-  Future<String?> refresh() => _refreshing ??= _refresh().whenComplete(() {
-        _refreshing = null;
-      });
+  Future<String?> refresh() {
+    // A dead token stays dead: don't keep presenting it.
+    if (sessionExpired.value) return Future.value(null);
+    return _refreshing ??= _refresh().whenComplete(() {
+      _refreshing = null;
+    });
+  }
 
   Future<String?>? _refreshing;
 
@@ -95,6 +107,7 @@ class AuthStore {
       headers: {'content-type': 'application/json'},
       body: jsonEncode({'refresh_token': rt}),
     );
+    if (res.statusCode == 401) sessionExpired.value = true;
     if (res.statusCode != 200) return null;
     await _persistTokens(jsonDecode(res.body) as Map<String, dynamic>);
     return _accessToken;
@@ -103,6 +116,7 @@ class AuthStore {
   /// A valid access token, refreshing once if we have none. Returns null if we
   /// cannot obtain one (caller treats this as logged-out).
   Future<String?> ensureAccessToken() async {
+    if (sessionExpired.value) return null;
     if (_accessToken != null) return _accessToken;
     return refresh();
   }

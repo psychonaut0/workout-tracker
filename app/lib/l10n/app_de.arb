@@ -321,6 +321,8 @@
   "loginHaveAccount": "Schon ein Konto? Anmelden",
   "syncSyncing": "Synchronisiert…",
   "syncError": "Sync-Fehler",
+  "syncSessionExpired": "Sitzung abgelaufen",
+  "profileSessionExpiredSub": "Melde dich erneut an, um die Synchronisierung fortzusetzen. Deine Daten bleiben auf dem Gerät.",
   "syncOffline": "Offline",
   "syncSynced": "Synchronisiert",
   "syncSyncedAt": "Synchronisiert · {time}",
