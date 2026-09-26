@@ -137,7 +137,10 @@ class ChipSelect<T> extends StatelessWidget {
           onTap: () => onSelect(item),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
+            // widthFactor keeps the chip its own width: a plain Center fills
+            // the Wrap's full width and stacks every chip on its own row.
             child: Center(
+              widthFactor: 1,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
                 padding:
