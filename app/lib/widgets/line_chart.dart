@@ -35,6 +35,81 @@ List<double> dateFractions(List<String> isoDates) {
   ];
 }
 
+/// Where the chart's month labels go, as fractions of the x axis: the first
+/// month at the first point, each later month at its 1st day on the date
+/// scale (see [dateFractions]). A label closer than [minGap] (a fraction of
+/// the width) to the previous one is dropped. Falls back to the first point
+/// of each month when the dates can't be placed on a time scale.
+List<({int month, double fraction})> monthLabelPositions(
+  List<String> isoDates, {
+  double minGap = 0.12,
+}) {
+  final fractions = dateFractions(isoDates);
+  final days = [
+    for (final d in isoDates)
+      if (DateTime.tryParse(d) case final p?) DateTime.utc(p.year, p.month, p.day)
+  ];
+  final out = <({int month, double fraction})>[];
+  void add(int month, double f) {
+    if (out.isNotEmpty && f - out.last.fraction < minGap) return;
+    out.add((month: month, fraction: f));
+  }
+
+  if (days.length != isoDates.length || days.length < 2) {
+    var last = -1;
+    for (var i = 0; i < isoDates.length; i++) {
+      final m = isoDates[i].length >= 7 ? int.tryParse(isoDates[i].substring(5, 7)) : null;
+      if (m != null && m != last) {
+        last = m;
+        add(m, fractions[i]);
+      }
+    }
+    return out;
+  }
+  final first = days.reduce((a, b) => a.isBefore(b) ? a : b);
+  final lastDay = days.reduce((a, b) => a.isAfter(b) ? a : b);
+  final span = lastDay.difference(first).inHours;
+  add(first.month, 0);
+  if (span == 0) return out;
+  var m = DateTime.utc(first.year, first.month + 1);
+  while (!m.isAfter(lastDay)) {
+    add(m.month, m.difference(first).inHours / span);
+    m = DateTime.utc(m.year, m.month + 1);
+  }
+  return out;
+}
+
+/// The y axis's gridline values: round steps (1, 2, 2.5 or 5 × 10ⁿ) about
+/// [target] of them apart, covering [lo]..[hi]. [label] shows only as many
+/// decimals as the step needs, so neighbouring labels never read the same.
+({List<double> values, String Function(double) label}) yAxisTicks(
+  double lo,
+  double hi, {
+  int target = 4,
+}) {
+  if (!(hi > lo)) {
+    lo -= 0.5;
+    hi += 0.5;
+  }
+  final raw = (hi - lo) / target;
+  final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+  final nice = [1.0, 2.0, 2.5, 5.0, 10.0].firstWhere((m) => m * mag >= raw - 1e-12);
+  final step = nice * mag;
+  final start = (lo / step + 1e-9).floor();
+  final end = (hi / step - 1e-9).ceil();
+  final decimals = step >= 1
+      ? 0
+      : (-(math.log(step) / math.ln10).floor()) + (nice == 2.5 ? 1 : 0);
+  double snap(int k) => double.parse((k * step).toStringAsFixed(decimals + 2));
+  return (
+    values: [for (var k = start; k <= end; k++) snap(k)],
+    label: (v) {
+      final t = v.toStringAsFixed(decimals);
+      return t.contains('.') ? t.replaceAll(RegExp(r'\.?0+$'), '') : t;
+    },
+  );
+}
+
 /// Where to put the chart's last-point value label so it never covers the
 /// line: right of [point] if it fits, else left. When [previous] is given,
 /// place the chip on the vertical side opposite the incoming segment direction
@@ -187,27 +262,28 @@ class _LineChartPainter extends CustomPainter {
     final span = math.max(hi - lo, 4.0);
     lo -= span * 0.18;
     hi += span * 0.22;
+    // Snap the padded domain out to round gridlines.
+    final axis = yAxisTicks(lo, hi);
+    lo = axis.values.first;
+    hi = axis.values.last;
 
     final fractions = dateFractions([for (final s in series) s.date]);
     double xAt(int i) => _padL + fractions[i] * iw;
     double yAt(double v) => _padT + ih - ((v - lo) / (hi - lo)) * ih;
 
-    // ── 5 gridlines + left y labels ───────────────────────────────────────────
-    // ticks=4 produces 5 lines (i = 0..4), matching ui.jsx grid (ticks+1 items)
-    const ticks = 4;
+    // ── gridlines + left y labels, on round values ───────────────────────────
     final gridPaint = Paint()
       ..color = faint.withValues(alpha: 0.18)
       ..strokeWidth = 1;
 
-    for (var i = 0; i <= ticks; i++) {
-      final gv = lo + ((hi - lo) / ticks) * i;
+    for (final gv in axis.values) {
       final gy = yAt(gv);
 
       canvas.drawLine(Offset(_padL, gy), Offset(W - _padR, gy), gridPaint);
 
       _paintText(
         canvas,
-        text: '${gv.round()}',
+        text: axis.label(gv),
         x: _padL - 7,
         y: gy + 3.5,
         rightAlign: true,
@@ -285,31 +361,26 @@ class _LineChartPainter extends CustomPainter {
       }
     }
 
-    // ── month x-labels at month boundaries ────────────────────────────────────
-    // Mirrors ui.jsx: track lastM, emit label on first point of each new month.
-    var lastM = -1;
-    for (var i = 0; i < n; i++) {
-      final dateStr = series[i].date;
-      // Parse month from ISO date string (yyyy-MM-dd); avoid DateTime.parse for
-      // performance and to match the ui.jsx `new Date(s.date+'T00:00:00')` approach.
-      final m = dateStr.length >= 7 ? int.tryParse(dateStr.substring(5, 7)) : null;
-      if (m != null && m != lastM) {
-        lastM = m;
-        final monthLabel = DateFormat.MMM(localeName).format(DateTime(2024, m));
-        _paintText(
-          canvas,
-          text: monthLabel,
-          x: xAt(i),
-          y: H - 8,
-          rightAlign: false,
-          centreAlign: true,
-          style: TextStyle(
-            fontFamily: 'JetBrainsMono',
-            fontSize: 9,
-            color: faint,
-          ),
-        );
-      }
+    // ── month x-labels ────────────────────────────────────────────────────────
+    // The first month is labelled at the first point; later months at their
+    // 1st on the time axis (so a late-August and an early-September point
+    // don't stack their labels), skipping any that would crowd a neighbour.
+    final xLabelStyle = TextStyle(
+      fontFamily: 'JetBrainsMono',
+      fontSize: 9,
+      color: faint,
+    );
+    for (final m in monthLabelPositions([for (final s in series) s.date])) {
+      final x = _padL + m.fraction * iw;
+      _paintText(
+        canvas,
+        text: DateFormat.MMM(localeName).format(DateTime(2024, m.month)),
+        x: x,
+        y: H - 8,
+        rightAlign: false,
+        centreAlign: true,
+        style: xLabelStyle,
+      );
     }
 
     // ── last point: r9 accent@0.16 halo + r4.5 dot + floating value label ─────
