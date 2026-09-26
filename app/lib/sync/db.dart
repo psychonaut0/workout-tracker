@@ -46,3 +46,16 @@ Future<void> connectSync(AuthStore auth) async {
 Future<void> disconnectAndClear() async {
   await db.disconnectAndClear();
 }
+
+/// How many local changes are still waiting to upload. They exist only on
+/// this device until they sync, so anything that wipes local data loses them.
+/// A database without the upload queue counts as none pending.
+Future<int> pendingUploadCount([PowerSyncDatabase? database]) async {
+  try {
+    final row = await (database ?? db)
+        .getOptional('SELECT COUNT(*) AS n FROM ps_crud');
+    return (row?['n'] as int?) ?? 0;
+  } catch (_) {
+    return 0;
+  }
+}

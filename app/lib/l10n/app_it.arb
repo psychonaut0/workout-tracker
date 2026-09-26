@@ -308,6 +308,8 @@
   "profileReconcileKeep": "Tieni i miei dati",
   "profileSignOutTitle": "Uscire?",
   "profileSignOutMessage": "Dovrai accedere di nuovo per accedere ai tuoi dati.",
+  "profileReconcileUnsyncedWarning": "{count} modifiche agli allenamenti su questo dispositivo non sono ancora sincronizzate e verrebbero eliminate.",
+  "profileSignOutUnsyncedMessage": "{count} modifiche su questo dispositivo non sono sincronizzate. Uscendo verranno eliminate. Usa \"Accedi di nuovo\" per conservarle.",
   "onboardingWelcome": "Benvenuto",
   "onboardingIntro": "Come vuoi iniziare? Puoi cambiare tutto in seguito.",
   "onboardingAddStarter": "Aggiungi esercizi iniziali",

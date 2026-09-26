@@ -308,6 +308,8 @@
   "profileReconcileKeep": "Meine Daten behalten",
   "profileSignOutTitle": "Abmelden?",
   "profileSignOutMessage": "Du musst dich erneut anmelden, um auf deine Daten zuzugreifen.",
+  "profileReconcileUnsyncedWarning": "{count} Trainingsänderungen auf diesem Gerät sind noch nicht synchronisiert und würden gelöscht.",
+  "profileSignOutUnsyncedMessage": "{count} Änderungen auf diesem Gerät sind nicht synchronisiert. Beim Abmelden werden sie gelöscht. Nutze stattdessen „Erneut anmelden“, um sie zu behalten.",
   "onboardingWelcome": "Willkommen",
   "onboardingIntro": "Wie möchtest du starten? Du kannst alles später ändern.",
   "onboardingAddStarter": "Startübungen hinzufügen",

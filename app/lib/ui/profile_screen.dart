@@ -531,6 +531,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               (await db.getOptional('SELECT 1 FROM exercises LIMIT 1')) != null;
 
           if (hasLocal) {
+            // Unsynced changes exist only here: discarding deletes them.
+            final pending = await pendingUploadCount();
             // The captured NavigatorState outlives the async gaps; guard its
             // context before using it so we don't trip
             // use_build_context_synchronously.
@@ -539,7 +541,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final choice = await showWDialog<_ReconcileChoice>(
               navigator.context,
               title: l.profileReconcileTitle,
-              message: l.profileReconcileMessage,
+              message: pending > 0
+                  ? '${l.profileReconcileMessage}\n\n'
+                      '${l.profileReconcileUnsyncedWarning(pending)}'
+                  : l.profileReconcileMessage,
               actions: [
                 WDialogAction(
                   label: l.profileReconcileUseAccount,
@@ -567,11 +572,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Sign-out flow ─────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
+    // Signing out wipes local data, so changes that never uploaded (or can't,
+    // with the session expired) would be lost.
+    final pending = await pendingUploadCount();
+    if (!mounted) return;
     final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
       title: l.profileSignOutTitle,
-      message: l.profileSignOutMessage,
+      message: pending > 0 || widget.auth.sessionExpired.value
+          ? l.profileSignOutUnsyncedMessage(pending)
+          : l.profileSignOutMessage,
       confirmLabel: l.profileSignOut,
     );
 

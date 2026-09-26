@@ -308,6 +308,8 @@
   "profileReconcileKeep": "Conservar mis datos",
   "profileSignOutTitle": "¿Cerrar sesión?",
   "profileSignOutMessage": "Tendrás que iniciar sesión de nuevo para acceder a tus datos.",
+  "profileReconcileUnsyncedWarning": "{count} cambios de entrenamiento en este dispositivo aún no se han sincronizado y se eliminarían.",
+  "profileSignOutUnsyncedMessage": "{count} cambios en este dispositivo no se han sincronizado. Cerrar sesión los elimina. Usa \"Vuelve a iniciar sesión\" para conservarlos.",
   "onboardingWelcome": "Bienvenido",
   "onboardingIntro": "¿Cómo quieres empezar? Puedes cambiar todo más tarde.",
   "onboardingAddStarter": "Añadir ejercicios iniciales",
