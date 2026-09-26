@@ -50,6 +50,15 @@ void main() {
       ]);
     });
 
+    test('ties order by muscle name, whatever order they arrive in', () {
+      final rows = weeklyVolumeRows(
+        [(muscle: 'quads', sets: 6), (muscle: 'back', sets: 6), (muscle: 'abs', sets: 9)],
+        {'triceps': 8, 'calves': 8, 'biceps': 10},
+      );
+      expect(rows.map((r) => r.muscle).toList(),
+          ['abs', 'back', 'quads', 'biceps', 'calves', 'triceps']);
+    });
+
     test('a trained muscle without a target counts as on target; zero targets are skipped', () {
       final rows = weeklyVolumeRows(
         [(muscle: 'forearms', sets: 4)],

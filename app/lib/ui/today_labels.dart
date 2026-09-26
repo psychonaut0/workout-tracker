@@ -25,19 +25,27 @@ String setsVsLastWeek(AppLocalizations l, int thisWeek, int lastWeek) {
 /// Weekly volume rows: every muscle trained this week, plus every muscle
 /// with a target and no sets yet (shown as 0 of its target, which is the
 /// row most worth seeing). A muscle trained without a target counts as on
-/// target. Trained muscles keep their order (most sets first); untrained
-/// targets follow, largest target first.
+/// target. Trained muscles come first, most sets first; untrained targets
+/// follow, largest target first. Ties order by muscle name so the rows don't
+/// shuffle between rebuilds.
 List<({String muscle, int sets, int target})> weeklyVolumeRows(
   List<({String muscle, int sets})> volume,
   Map<String, int> targets,
 ) {
   final trained = {for (final v in volume) v.muscle};
+  final sortedVolume = [...volume]..sort((a, b) {
+      final c = b.sets.compareTo(a.sets);
+      return c != 0 ? c : a.muscle.compareTo(b.muscle);
+    });
   final untrained = targets.entries
       .where((t) => t.value > 0 && !trained.contains(t.key))
       .toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
+    ..sort((a, b) {
+      final c = b.value.compareTo(a.value);
+      return c != 0 ? c : a.key.compareTo(b.key);
+    });
   return [
-    for (final v in volume)
+    for (final v in sortedVolume)
       (muscle: v.muscle, sets: v.sets, target: targets[v.muscle] ?? v.sets),
     for (final t in untrained) (muscle: t.key, sets: 0, target: t.value),
   ];
