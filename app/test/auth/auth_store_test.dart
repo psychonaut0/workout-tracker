@@ -81,4 +81,38 @@ void main() {
     expect(token, 'A1');
     expect(calls, callsAfterLogin); // no extra round-trip when cached
   });
+
+  test('concurrent refreshes share one request, so a refresh token is never sent twice',
+      () async {
+    var refreshCalls = 0;
+    final auth = AuthStore(
+      client: MockClient((req) async {
+        if (req.url.path == '/auth/login') {
+          return http.Response(
+            jsonEncode({'access_token': 'A1', 'refresh_token': 'R1'}),
+            200,
+          );
+        }
+        refreshCalls++;
+        // The server revokes the whole family when a used token comes back.
+        final body = jsonDecode(req.body) as Map<String, dynamic>;
+        if (body['refresh_token'] != 'R1') return http.Response('reused', 401);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        return http.Response(
+          jsonEncode({'access_token': 'A2', 'refresh_token': 'R2'}),
+          200,
+        );
+      }),
+    );
+    await auth.login('me@example.com', 'devpassword');
+
+    // The upload loop and the sync stream both hit a 401 at once.
+    final results = await Future.wait([auth.refresh(), auth.refresh()]);
+
+    expect(refreshCalls, 1);
+    expect(results, ['A2', 'A2']);
+    // A later refresh sends the rotated token, not the consumed one.
+    await auth.refresh();
+    expect(refreshCalls, 2);
+  });
 }

@@ -76,7 +76,18 @@ class AuthStore {
 
   /// POST /auth/refresh — rotates both tokens. Returns the fresh access token,
   /// or null if the refresh token is invalid/expired (caller should log out).
-  Future<String?> refresh() async {
+  ///
+  /// Single-flight: concurrent callers (the upload loop and the sync stream
+  /// both hit a 401 when the access token expires) share one request. Sending
+  /// the same refresh token twice trips the server's reuse detection, which
+  /// revokes the whole token family and silently ends sync.
+  Future<String?> refresh() => _refreshing ??= _refresh().whenComplete(() {
+        _refreshing = null;
+      });
+
+  Future<String?>? _refreshing;
+
+  Future<String?> _refresh() async {
     final rt = _refreshToken;
     if (rt == null) return null;
     final res = await _http.post(
