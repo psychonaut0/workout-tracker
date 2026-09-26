@@ -32,6 +32,28 @@ void main() {
     expect(size.height, lessThan(48)); // visual pill stays small
   });
 
+  testWidgets('ChipSelect chips share a row and hug their label', (tester) async {
+    await tester.pumpWidget(wrapL10n(Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: 400,
+        child: ChipSelect<int>(
+          items: const [0, 1, 2],
+          selected: 0,
+          onSelect: (_) {},
+          labelOf: (i) => 'D$i',
+        ),
+      ),
+    )));
+    Finder chip(int i) => find
+        .ancestor(of: find.text('D$i'), matching: find.byType(GestureDetector))
+        .first;
+    // Stacked full-width chips was a shipped regression.
+    expect(tester.getTopLeft(chip(1)).dy, tester.getTopLeft(chip(0)).dy);
+    expect(tester.getTopLeft(chip(2)).dy, tester.getTopLeft(chip(0)).dy);
+    expect(tester.getSize(chip(0)).width, lessThan(200));
+  });
+
   testWidgets("Toggle's hit area is >= 48x48 and reports toggled",
       (tester) async {
     await tester.pumpWidget(wrapL10n(Toggle(

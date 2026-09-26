@@ -274,7 +274,7 @@ class _DayEditorState extends State<DayEditor> {
     final isOwned = _editId != null;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomNavInset),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomNavInset(context)),
       children: [
         // ── Day name ──────────────────────────────────────────────────────
         Field(

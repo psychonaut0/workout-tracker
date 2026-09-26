@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' show SyncStatus;
@@ -471,7 +472,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Persist the URL only now that login succeeded.
           await settings.setServerUrl(url);
           apiBaseUrl = url;
+          await _reconcileAndConnect(navigator, settings);
+        },
+      ),
+    ));
 
+    if (mounted) setState(() {});
+  }
+
+  /// Signing in again after the server ended the session (see
+  /// [AuthStore.sessionExpired]). Only the tokens change: the same account
+  /// resumes syncing with everything on this device, and the week of
+  /// workouts logged while sync was down uploads. A different account goes
+  /// through the usual keep/discard choice.
+  ///
+  /// The old sync loop stops first: once login stores another account's
+  /// tokens, a loop still retrying would upload this device's queue into that
+  /// account while the keep/discard dialog is open. Backing out of the login
+  /// screen restores sync as it was.
+  Future<void> _signInAgain(SettingsService settings) async {
+    final previousEmail = widget.auth.email;
+    final navigator = Navigator.of(context);
+    final wasSyncing = settings.syncEnabled;
+    await db.disconnect();
+    await settings.setSyncEnabled(false);
+    var loggedIn = false;
+    await navigator.push(MaterialPageRoute(
+      builder: (_) => LoginScreen(
+        auth: widget.auth,
+        initialEmail: previousEmail,
+        onLoggedIn: () async {
+          loggedIn = true;
+          if (sameAccount(previousEmail, widget.auth.email)) {
+            await settings.setSyncEnabled(true);
+            await connectSync(widget.auth);
+            navigator.pop();
+          } else {
+            // Cancelling the choice stays local, disconnected.
+            await _reconcileAndConnect(navigator, settings);
+          }
+        },
+      ),
+    ));
+    if (!loggedIn && wasSyncing) {
+      await settings.setSyncEnabled(true);
+      await connectSync(widget.auth);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _reconcileAndConnect(
+      NavigatorState navigator, SettingsService settings) async {
           // Reconcile local data before enabling sync. If anything exists on
           // this device (a session's user_id, or any exercise), ask whether to
           // keep it (merge) or use the account's data (discard local).
@@ -480,6 +531,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               (await db.getOptional('SELECT 1 FROM exercises LIMIT 1')) != null;
 
           if (hasLocal) {
+            // Unsynced changes exist only here: discarding deletes them.
+            final pending = await pendingUploadCount();
             // The captured NavigatorState outlives the async gaps; guard its
             // context before using it so we don't trip
             // use_build_context_synchronously.
@@ -488,7 +541,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final choice = await showWDialog<_ReconcileChoice>(
               navigator.context,
               title: l.profileReconcileTitle,
-              message: l.profileReconcileMessage,
+              message: pending > 0
+                  ? '${l.profileReconcileMessage}\n\n'
+                      '${l.profileReconcileUnsyncedWarning(pending)}'
+                  : l.profileReconcileMessage,
               actions: [
                 WDialogAction(
                   label: l.profileReconcileUseAccount,
@@ -511,21 +567,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           await settings.setSyncEnabled(true);
           await connectSync(widget.auth);
           navigator.pop();
-        },
-      ),
-    ));
-
-    if (mounted) setState(() {});
   }
 
   // ── Sign-out flow ─────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
+    // Signing out wipes local data, so changes that never uploaded (or can't,
+    // with the session expired) would be lost.
+    final pending = await pendingUploadCount();
+    if (!mounted) return;
     final l = AppLocalizations.of(context);
     final confirmed = await showWConfirm(
       context,
       title: l.profileSignOutTitle,
-      message: l.profileSignOutMessage,
+      // Only unsynced changes are lost by signing out; with none pending,
+      // even an expired session signs out harmlessly.
+      message: pending > 0
+          ? l.profileSignOutUnsyncedMessage(pending)
+          : l.profileSignOutMessage,
       confirmLabel: l.profileSignOut,
     );
 
@@ -863,7 +922,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: l.profileSyncServer,
                       sub: settings.serverUrl,
                       right: signedIn && settings.syncEnabled
-                          ? const _SyncStatusRight()
+                          ? _SyncStatusRight(expired: widget.auth.sessionExpired)
                           : Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -981,10 +1040,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _Group(
                     label: l.profileGroupAccount,
                     children: [
-                      _Row(
-                        icon: WIcons.user,
-                        title: l.profileSignedIn,
-                        sub: widget.auth.email ?? '–',
+                      ValueListenableBuilder<bool>(
+                        valueListenable: widget.auth.sessionExpired,
+                        builder: (context, expired, _) => expired
+                            ? _Row(
+                                icon: WIcons.user,
+                                title: l.syncSessionExpired,
+                                sub: l.profileSessionExpiredSub,
+                                right: Icon(WIcons.chevron,
+                                    size: 16, color: tokens.faint),
+                                onTap: () => _signInAgain(settings),
+                              )
+                            : _Row(
+                                icon: WIcons.user,
+                                title: l.profileSignedIn,
+                                sub: widget.auth.email ?? '–',
+                              ),
                       ),
                       _Row(
                         icon: WIcons.logout,
@@ -1168,13 +1239,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 /// Live sync status: dot + label driven by the PowerSync status stream.
 class _SyncStatusRight extends StatelessWidget {
-  const _SyncStatusRight();
+  const _SyncStatusRight({required this.expired});
+
+  /// The session ended server-side: say so rather than a generic error.
+  final ValueListenable<bool> expired;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final l = AppLocalizations.of(context);
-    return StreamBuilder<SyncStatus>(
+    return ValueListenableBuilder<bool>(
+      valueListenable: expired,
+      builder: (context, isExpired, _) => StreamBuilder<SyncStatus>(
       stream: db.statusStream,
       initialData: db.currentStatus,
       builder: (context, snap) {
@@ -1192,10 +1268,15 @@ class _SyncStatusRight extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _SyncDot(color: color, pulsing: state == SyncDotState.syncing),
+            _SyncDot(
+              color: isExpired ? tokens.danger : color,
+              pulsing: !isExpired && state == SyncDotState.syncing,
+            ),
             const SizedBox(width: 6),
             Text(
-              _syncLabel(l, state, s?.lastSyncedAt),
+              isExpired
+                  ? l.syncSessionExpired
+                  : _syncLabel(l, state, s?.lastSyncedAt),
               style: WorkoutType.mono(
                 size: 11,
                 weight: FontWeight.w600,
@@ -1205,6 +1286,7 @@ class _SyncStatusRight extends StatelessWidget {
           ],
         );
       },
+      ),
     );
   }
 

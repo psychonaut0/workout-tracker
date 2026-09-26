@@ -130,4 +130,76 @@ void main() {
       }
     });
   });
+
+  group('yAxisTicks', () {
+    test('a flat series gets distinct, round labels', () {
+      final t = yAxisTicks(99.28, 100.88);
+      final labels = t.values.map(t.label).toList();
+      expect(labels.toSet().length, labels.length, reason: '$labels');
+      expect(labels, ['99', '99.5', '100', '100.5', '101']);
+    });
+
+    test('volume-sized values land on round steps covering the data', () {
+      final t = yAxisTicks(2083, 2993);
+      expect(t.values, [2000, 2250, 2500, 2750, 3000]);
+      expect(t.values.first, lessThanOrEqualTo(2083));
+      expect(t.values.last, greaterThanOrEqualTo(2993));
+    });
+
+    test('small ranges keep whole-number labels when the step is whole', () {
+      final t = yAxisTicks(4.3, 9.1);
+      expect(t.values, [4, 6, 8, 10]);
+      expect(t.values.map(t.label).toList(), ['4', '6', '8', '10']);
+    });
+
+    test('a 2.5 step labels its half values', () {
+      final t = yAxisTicks(76.88, 85.63);
+      expect(t.values.map(t.label).toList(),
+          ['75', '77.5', '80', '82.5', '85', '87.5']);
+    });
+
+    test('a 25 step keeps whole-number labels', () {
+      final t = yAxisTicks(210, 300);
+      expect(t.values.map(t.label).toList(), ['200', '225', '250', '275', '300']);
+    });
+
+    test('a 0.25 step shows two decimals where needed', () {
+      final t = yAxisTicks(1.1, 1.95);
+      expect(t.values.map(t.label).toList(), ['1', '1.25', '1.5', '1.75', '2']);
+    });
+
+    test('degenerate input still yields at least two ticks', () {
+      final t = yAxisTicks(5, 5);
+      expect(t.values.length, greaterThanOrEqualTo(2));
+    });
+  });
+
+  group('paddedYRange', () {
+    test('all-positive data near zero never pads below zero', () {
+      final r = paddedYRange([0, 1, 2]);
+      expect(r.lo, 0);
+      expect(r.hi, greaterThan(2));
+    });
+
+    test('data with negatives still pads below its minimum', () {
+      final r = paddedYRange([-3, 1, 2]);
+      expect(r.lo, lessThan(-3));
+    });
+  });
+
+  group('monthLabelPositions', () {
+    test('later months sit at their 1st on the time axis', () {
+      final m = monthLabelPositions(['2026-06-01', '2026-08-28', '2026-09-03', '2026-09-30']);
+      expect(m.map((e) => e.month).toList(), [6, 7, 8, 9]);
+      expect(m.first.fraction, 0);
+      // Sep 1 is 92 of 121 days in.
+      expect(m.last.fraction, closeTo(92 / 121, 1e-9));
+    });
+
+    test('a label that would crowd the previous one is dropped', () {
+      final m = monthLabelPositions(['2026-06-28', '2026-07-02', '2026-09-30']);
+      // Jul 1 is 3 of 94 days after the first point: too close to "Jun".
+      expect(m.map((e) => e.month).toList(), [6, 8, 9]);
+    });
+  });
 }

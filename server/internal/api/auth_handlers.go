@@ -125,7 +125,13 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 	userID, newRefresh, err := h.cfg.Refresh.Rotate(r.Context(), req.RefreshToken)
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, "invalid refresh token")
+		// Only a token that is genuinely invalid or reused is a 401: the client
+		// treats that as the session ending. A failed lookup is transient.
+		if errors.Is(err, auth.ErrInvalidRefreshToken) || errors.Is(err, auth.ErrRefreshReused) {
+			writeJSONError(w, http.StatusUnauthorized, "invalid refresh token")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "could not rotate refresh token")
 		return
 	}
 	access, err := h.cfg.Signer.Sign(userID, h.cfg.APIAudience, h.cfg.AccessTTL)

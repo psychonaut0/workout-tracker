@@ -9,6 +9,7 @@ import '../data/day_template_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../main.dart' show appNavigatorKey;
+import '../theme/app_theme.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
 import '../ui/history_screen.dart';
@@ -184,6 +185,20 @@ class _AppShellState extends State<AppShell> {
                   const HistoryScreen(),
                   PlanScreen(key: _planKey),
                 ],
+              ),
+            ),
+            // An opaque strip under the status bar, so scrolled content
+            // doesn't run behind the clock and icons.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: MediaQuery.paddingOf(context).top,
+              child: IgnorePointer(
+                child: ColoredBox(
+                  key: const Key('status-bar-scrim'),
+                  color: context.tokens.bg,
+                ),
               ),
             ),
             // Workout-in-progress indicator: compact, top-right, on every tab

@@ -42,7 +42,7 @@ class _SplitTabState extends State<SplitTab> {
         final days = snap.data ?? [];
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomNavInset),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomNavInset(context)),
           children: [
             // Header count
             Padding(
