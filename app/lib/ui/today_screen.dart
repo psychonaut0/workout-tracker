@@ -262,7 +262,7 @@ class _TodayScreenState extends State<TodayScreen> {
         left: 16,
         right: 16,
         top: 8 + MediaQuery.paddingOf(context).top,
-        bottom: kBottomNavInset,
+        bottom: bottomNavInset(context),
       ),
       children: [
         // ── 1. Greeting header ────────────────────────────────────────────────

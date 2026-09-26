@@ -161,7 +161,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     // ── Build ────────────────────────────────────────────────────────────────
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, 8 + MediaQuery.paddingOf(context).top, 16, kBottomNavInset),
+      padding: EdgeInsets.fromLTRB(16, 8 + MediaQuery.paddingOf(context).top, 16, bottomNavInset(context)),
       children: [
         // Header
         _Header(sessionCount: sessions.length, tokens: tokens),

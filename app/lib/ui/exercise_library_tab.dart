@@ -68,7 +68,7 @@ class _LibraryTabState extends State<LibraryTab> {
         final ordered = orderedMuscles(groups.keys);
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomNavInset),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomNavInset(context)),
           children: [
             // Pinned 'New exercise' accent button.
             _NewExerciseButton(

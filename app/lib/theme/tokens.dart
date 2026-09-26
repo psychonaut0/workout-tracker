@@ -21,7 +21,13 @@ abstract final class AppSpacing {
 
 /// Bottom inset for scrollable pages so trailing content (e.g. delete buttons)
 /// clears the straddling center FAB (~99px reach) + tab bar with a gap.
+/// The tab bar also grows by the system navigation inset, so pages use
+/// [bottomNavInset], which adds it.
 const double kBottomNavInset = 112;
+
+/// [kBottomNavInset] plus the system navigation inset under the tab bar.
+double bottomNavInset(BuildContext context) =>
+    kBottomNavInset + MediaQuery.viewPaddingOf(context).bottom;
 
 // ── color tokens (ThemeExtension) ────────────────────────────────────────────
 class WorkoutTokens extends ThemeExtension<WorkoutTokens> {
