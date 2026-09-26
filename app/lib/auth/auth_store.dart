@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -23,9 +24,16 @@ bool sameAccount(String? previous, String? next) {
 /// - the PowerSync token (minted via /auth/powersync-token) is what
 ///   fetchCredentials() returns to the sync service.
 class AuthStore {
-  AuthStore({FlutterSecureStorage? storage, http.Client? client})
-      : _storage = storage ?? const FlutterSecureStorage(),
+  AuthStore({
+    FlutterSecureStorage? storage,
+    http.Client? client,
+    this.refreshTimeout = const Duration(seconds: 20),
+  })  : _storage = storage ?? const FlutterSecureStorage(),
         _http = client ?? http.Client();
+
+  /// How long a refresh may hang before it fails as a transient error. A
+  /// stuck request would otherwise hold the single-flight slot forever.
+  final Duration refreshTimeout;
 
   static const _kAccess = 'access_token';
   static const _kRefresh = 'refresh_token';
@@ -92,6 +100,8 @@ class AuthStore {
 
   /// POST /auth/refresh — rotates both tokens. Returns the fresh access token,
   /// or null if the refresh token is invalid/expired (caller should log out).
+  /// A request that hangs past [refreshTimeout] throws a [TimeoutException],
+  /// which callers treat as transient.
   ///
   /// Single-flight: concurrent callers (the upload loop and the sync stream
   /// both hit a 401 when the access token expires) share one request. Sending
@@ -110,11 +120,16 @@ class AuthStore {
   Future<String?> _refresh() async {
     final rt = _refreshToken;
     if (rt == null) return null;
-    final res = await _http.post(
-      Uri.parse('$apiBaseUrl/auth/refresh'),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({'refresh_token': rt}),
-    );
+    final res = await _http
+        .post(
+          Uri.parse('$apiBaseUrl/auth/refresh'),
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'refresh_token': rt}),
+        )
+        .timeout(refreshTimeout);
+    // A login or logout while the request was out replaced the token it
+    // presented: its answer no longer describes this session.
+    if (_refreshToken != rt) return _accessToken;
     if (res.statusCode == 401) sessionExpired.value = true;
     if (res.statusCode != 200) return null;
     await _persistTokens(jsonDecode(res.body) as Map<String, dynamic>);

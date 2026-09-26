@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -161,6 +162,83 @@ void main() {
     await auth.login('me@example.com', 'devpassword');
     expect(await auth.refresh(), isNull);
     expect(auth.sessionExpired.value, isFalse);
+  });
+  test('a refresh that never answers times out without expiring the session',
+      () async {
+    final auth = AuthStore(
+      refreshTimeout: const Duration(milliseconds: 20),
+      client: MockClient((req) async {
+        if (req.url.path == '/auth/login') {
+          return http.Response(
+            jsonEncode({'access_token': 'A1', 'refresh_token': 'R1'}),
+            200,
+          );
+        }
+        return Completer<http.Response>().future; // never completes
+      }),
+    );
+    await auth.login('me@example.com', 'devpassword');
+
+    await expectLater(auth.refresh(), throwsA(isA<TimeoutException>()));
+    expect(auth.sessionExpired.value, isFalse);
+  });
+
+  test('a stale refresh answering after a new login changes nothing',
+      () async {
+    final refreshReply = Completer<http.Response>();
+    var logins = 0;
+    final auth = AuthStore(
+      client: MockClient((req) async {
+        if (req.url.path == '/auth/login') {
+          logins++;
+          return http.Response(
+            jsonEncode({'access_token': 'A$logins', 'refresh_token': 'R$logins'}),
+            200,
+          );
+        }
+        return refreshReply.future;
+      }),
+    );
+    await auth.login('me@example.com', 'devpassword');
+
+    final stale = auth.refresh();
+    await auth.login('other@example.com', 'devpassword');
+    refreshReply.complete(http.Response('revoked', 401));
+
+    expect(await stale, 'A2');
+    expect(auth.sessionExpired.value, isFalse);
+    expect(auth.accessToken, 'A2');
+    expect(await auth.load(), isTrue);
+    expect(auth.accessToken, 'A2');
+  });
+
+  test('a stale refresh succeeding after a logout does not restore tokens',
+      () async {
+    final refreshReply = Completer<http.Response>();
+    final auth = AuthStore(
+      client: MockClient((req) async {
+        if (req.url.path == '/auth/login') {
+          return http.Response(
+            jsonEncode({'access_token': 'A1', 'refresh_token': 'R1'}),
+            200,
+          );
+        }
+        if (req.url.path == '/auth/logout') return http.Response('', 204);
+        return refreshReply.future;
+      }),
+    );
+    await auth.login('me@example.com', 'devpassword');
+
+    final stale = auth.refresh();
+    await auth.logout();
+    refreshReply.complete(http.Response(
+      jsonEncode({'access_token': 'A2', 'refresh_token': 'R2'}),
+      200,
+    ));
+
+    expect(await stale, isNull);
+    expect(auth.accessToken, isNull);
+    expect(await auth.load(), isFalse);
   });
 
   group('sameAccount', () {
