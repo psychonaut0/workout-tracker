@@ -152,9 +152,38 @@ void main() {
       expect(t.values.map(t.label).toList(), ['4', '6', '8', '10']);
     });
 
+    test('a 2.5 step labels its half values', () {
+      final t = yAxisTicks(76.88, 85.63);
+      expect(t.values.map(t.label).toList(),
+          ['75', '77.5', '80', '82.5', '85', '87.5']);
+    });
+
+    test('a 25 step keeps whole-number labels', () {
+      final t = yAxisTicks(210, 300);
+      expect(t.values.map(t.label).toList(), ['200', '225', '250', '275', '300']);
+    });
+
+    test('a 0.25 step shows two decimals where needed', () {
+      final t = yAxisTicks(1.1, 1.95);
+      expect(t.values.map(t.label).toList(), ['1', '1.25', '1.5', '1.75', '2']);
+    });
+
     test('degenerate input still yields at least two ticks', () {
       final t = yAxisTicks(5, 5);
       expect(t.values.length, greaterThanOrEqualTo(2));
+    });
+  });
+
+  group('paddedYRange', () {
+    test('all-positive data near zero never pads below zero', () {
+      final r = paddedYRange([0, 1, 2]);
+      expect(r.lo, 0);
+      expect(r.hi, greaterThan(2));
+    });
+
+    test('data with negatives still pads below its minimum', () {
+      final r = paddedYRange([-3, 1, 2]);
+      expect(r.lo, lessThan(-3));
     });
   });
 

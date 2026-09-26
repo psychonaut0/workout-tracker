@@ -79,6 +79,18 @@ List<({int month, double fraction})> monthLabelPositions(
   return out;
 }
 
+/// The chart's y domain before snapping to gridlines: the data's range plus
+/// headroom. Data that never goes negative is never padded below zero, so no
+/// negative gridline appears under it.
+({double lo, double hi}) paddedYRange(List<double> values) {
+  final min = values.reduce(math.min);
+  final max = values.reduce(math.max);
+  final span = math.max(max - min, 4.0);
+  var lo = min - span * 0.18;
+  if (min >= 0) lo = math.max(lo, 0);
+  return (lo: lo, hi: max + span * 0.22);
+}
+
 /// The y axis's gridline values: round steps (1, 2, 2.5 or 5 × 10ⁿ) about
 /// [target] of them apart, covering [lo]..[hi]. [label] shows only as many
 /// decimals as the step needs, so neighbouring labels never read the same.
@@ -97,9 +109,10 @@ List<({int month, double fraction})> monthLabelPositions(
   final step = nice * mag;
   final start = (lo / step + 1e-9).floor();
   final end = (hi / step - 1e-9).ceil();
-  final decimals = step >= 1
-      ? 0
-      : (-(math.log(step) / math.ln10).floor()) + (nice == 2.5 ? 1 : 0);
+  // A 2.5 step needs one digit more than its magnitude (77.5, 0.25); the
+  // label trims the ones it doesn't use (250.0 reads 250).
+  final decimals = math.max(0, -(math.log(step) / math.ln10).floor()) +
+      (nice == 2.5 ? 1 : 0);
   double snap(int k) => double.parse((k * step).toStringAsFixed(decimals + 2));
   return (
     values: [for (var k = start; k <= end; k++) snap(k)],
@@ -256,16 +269,11 @@ class _LineChartPainter extends CustomPainter {
     final n = series.length;
 
     // ── y-domain ──────────────────────────────────────────────────────────────
-    final values = series.map((s) => s.value).toList();
-    var lo = values.reduce(math.min);
-    var hi = values.reduce(math.max);
-    final span = math.max(hi - lo, 4.0);
-    lo -= span * 0.18;
-    hi += span * 0.22;
+    final padded = paddedYRange(series.map((s) => s.value).toList());
     // Snap the padded domain out to round gridlines.
-    final axis = yAxisTicks(lo, hi);
-    lo = axis.values.first;
-    hi = axis.values.last;
+    final axis = yAxisTicks(padded.lo, padded.hi);
+    final lo = axis.values.first;
+    final hi = axis.values.last;
 
     final fractions = dateFractions([for (final s in series) s.date]);
     double xAt(int i) => _padL + fractions[i] * iw;
