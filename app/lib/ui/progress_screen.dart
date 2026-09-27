@@ -277,8 +277,7 @@ class _LiftView extends StatelessWidget {
 
         // (4) Chart. Exactly 1 point can't draw a trend, so it gets an
         // explanatory message instead; 0 points keeps LineChart's own
-        // existing blank-frame behaviour, and 2+ draws the real chart
-        // (see [showTrend]).
+        // existing blank-frame behaviour, and 2+ draws the real chart.
         WCard(
           padding: const EdgeInsets.fromLTRB(8, 16, 8, 10),
           child: rawSeries.length == 1
@@ -389,8 +388,9 @@ class _BigStatRow extends StatelessWidget {
     final currentUnit = metric.reps ? '$unit ×$topReps' : unit;
 
     // 12wk delta: for Top set, fall back to the rep change when the weight
-    // itself didn't move; the unit is baked into the label in that case, so
-    // the tile's own unit slot is suppressed to avoid showing it twice.
+    // itself didn't move. A WeightChange keeps the unit in the tile's own
+    // slot, styled the same as Current/Best; only a RepChange nulls it,
+    // since a rep count has no weight unit to show there.
     String delta12wkValue = '—';
     String? delta12wkUnit = unit.isNotEmpty ? unit : null;
     if (series.length >= 2) {
@@ -401,8 +401,8 @@ class _BigStatRow extends StatelessWidget {
           curWeight: last,
           curReps: topReps,
         );
-        delta12wkValue = changeLabel(l, c, fmtVal: fmtVal, unit: unit);
-        delta12wkUnit = null;
+        delta12wkValue = changeLabel(l, c, fmtVal: fmtVal);
+        if (c is RepChange) delta12wkUnit = null;
       } else {
         delta12wkValue = signedChange(delta, fmtVal, l);
       }
@@ -513,7 +513,7 @@ class _SessionLogCard extends StatelessWidget {
                     curReps: p.topReps,
                   )
                 : const NoChange();
-            deltaLabel = changeLabel(l, c, fmtVal: fmtVal, unit: unit);
+            deltaLabel = changeLabel(l, c, fmtVal: fmtVal);
             deltaColor = (c is WeightChange && c.delta > 0) ||
                     (c is RepChange && c.delta > 0)
                 ? tokens.accent
@@ -564,6 +564,7 @@ class _SessionLogCard extends StatelessWidget {
                         : Text(
                             deltaLabel,
                             textAlign: TextAlign.right,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: WorkoutType.mono(
                               size: 11.5,

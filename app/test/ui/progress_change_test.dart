@@ -58,16 +58,4 @@ void main() {
       expect(defaultProgressExercise(null, const []), isNull);
     });
   });
-
-  group('showTrend', () {
-    test('fewer than 2 points: no trend to draw', () {
-      expect(showTrend(0), isFalse);
-      expect(showTrend(1), isFalse);
-    });
-
-    test('2 or more points: draws the trend', () {
-      expect(showTrend(2), isTrue);
-      expect(showTrend(5), isTrue);
-    });
-  });
 }

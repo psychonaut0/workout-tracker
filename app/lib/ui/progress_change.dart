@@ -46,7 +46,8 @@ TopSetChange topSetChange({
 }
 
 /// A signed value string: "+x", "−x" (U+2212), or [AppLocalizations.progressSame]
-/// when the value rounds to zero under [fmtVal].
+/// when `fmtVal(delta.abs())` formats the same as `fmtVal(0)` — i.e. [delta]
+/// is exactly zero, or rounds away to nothing under the caller's formatter.
 String signedChange(double delta, String Function(double) fmtVal, AppLocalizations l) {
   final abs = fmtVal(delta.abs());
   if (abs == fmtVal(0)) return l.progressSame;
@@ -83,10 +84,6 @@ String changeLabel(
 /// Returns [lastTrainedId] when it names an exercise still in [catalog];
 /// otherwise (no history, or the last-trained exercise was since deleted)
 /// falls back to the first catalog entry, or `null` if the catalog is empty.
-/// Whether the chart card should show the line chart (true) or the
-/// "needs more data" message (false) for a series of this many points.
-bool showTrend(int points) => points >= 2;
-
 String? defaultProgressExercise(String? lastTrainedId, List<Exercise> catalog) {
   if (lastTrainedId != null) {
     for (final e in catalog) {
