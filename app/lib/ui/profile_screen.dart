@@ -778,6 +778,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: WIcons.globe,
                       title: l.settingsLanguage,
                       sub: _languageLabel(context, settings.localeOverride),
+                      right: Icon(WIcons.chevron, size: 16, color: tokens.faint),
                       onTap: () => _pickLanguage(context, settings),
                     ),
                   ],
@@ -886,6 +887,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             PrimaryBtn(
                               l.profileApplyServer,
                               enabled: serverChanged,
+                              secondary: true,
                               onTap: () => _applyServer(settings),
                             )
                           else
