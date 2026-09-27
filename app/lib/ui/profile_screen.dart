@@ -626,9 +626,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _currentServerUrl = settings.serverUrl;
     }
 
-    final serverChanged =
-        _serverCtrl.text.trim() != settings.serverUrl &&
-        _serverCtrl.text.trim().isNotEmpty;
+    final trimmedServerUrl = _serverCtrl.text.trim();
+    final serverChanged = trimmedServerUrl != settings.serverUrl &&
+        trimmedServerUrl.startsWith('http');
 
     final signedIn = widget.auth.email != null;
 
@@ -736,6 +736,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: WIcons.scale,
                       title: l.profileGoal,
                       sub: _goalLabel(l, settings.bodyweightGoal),
+                      right: Icon(WIcons.chevron, size: 16, color: tokens.faint),
                       onTap: () => _pickGoal(context, settings),
                     ),
                   ],
@@ -774,7 +775,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     _Row(
-                      icon: WIcons.gear,
+                      icon: WIcons.globe,
                       title: l.settingsLanguage,
                       sub: _languageLabel(context, settings.localeOverride),
                       onTap: () => _pickLanguage(context, settings),
@@ -986,9 +987,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    _version.isEmpty
-                        ? 'workout-tracker'
-                        : 'workout-tracker · v$_version',
+                    _version.isEmpty ? 'Reps' : 'Reps · v$_version',
                     textAlign: TextAlign.center,
                     style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                   ),

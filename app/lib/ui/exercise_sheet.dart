@@ -341,21 +341,19 @@ class _BodyweightRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? tokens.accent : tokens.surface,
+          color: tokens.surface,
           borderRadius: BorderRadius.circular(AppRadius.radius * 0.65),
           border: Border.all(
-            color: selected ? Colors.transparent : tokens.line,
+            color: selected ? tokens.accent : tokens.line,
+            width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            Icon(
-              WIcons.scale,
-              size: 20,
-              color: selected ? tokens.accentInk : tokens.accent,
-            ),
+            Icon(WIcons.scale, size: 20, color: tokens.accent),
             const SizedBox(width: 11),
             Expanded(
               child: Column(
@@ -367,24 +365,21 @@ class _BodyweightRow extends StatelessWidget {
                     style: WorkoutType.body(
                       size: 14.5,
                       weight: FontWeight.w600,
-                      color: selected ? tokens.accentInk : tokens.text,
+                      color: tokens.text,
                     ),
                   ),
                   const SizedBox(height: 1),
                   Text(
                     l.exerciseSheetBodyweightSub,
-                    style: WorkoutType.mono(
-                      size: 10.5,
-                      color: selected
-                          ? tokens.accentInk.withValues(alpha: 0.7)
-                          : tokens.faint,
-                    ),
+                    style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                   ),
                 ],
               ),
             ),
-            if (selected)
-              Icon(WIcons.check, size: 16, color: tokens.accentInk),
+            if (selected) ...[
+              const SizedBox(width: 8),
+              Icon(WIcons.check, size: 16, color: tokens.accent),
+            ],
           ],
         ),
       ),
@@ -410,14 +405,6 @@ class _ExerciseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    // Compound dot color: accent if compound, lineStrong if isolation.
-    // When selected (accent bg), compound dot becomes accentInk; isolation
-    // becomes semi-transparent black (rgba(0,0,0,0.3)) as in the JSX spec.
-    final dotColor = selected
-        ? (exercise.compound
-            ? tokens.accentInk
-            : const Color(0x4D000000)) // rgba(0,0,0,0.3)
-        : (exercise.compound ? tokens.accent : tokens.lineStrong);
 
     // Subtitle: '{equip}{compound ? ' · compound' : ''}'
     final equip = exercise.equip ?? '';
@@ -430,27 +417,18 @@ class _ExerciseRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? tokens.accent : tokens.surface,
+          color: tokens.surface,
           borderRadius: BorderRadius.circular(AppRadius.radius * 0.65),
           border: Border.all(
-            color: selected ? Colors.transparent : tokens.line,
+            color: selected ? tokens.accent : tokens.line,
+            width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            // 6×6 compound dot
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: dotColor,
-              ),
-            ),
-            const SizedBox(width: 11),
-
             // Name + subtitle
             Expanded(
               child: Column(
@@ -463,28 +441,25 @@ class _ExerciseRow extends StatelessWidget {
                     style: WorkoutType.body(
                       size: 14.5,
                       weight: FontWeight.w600,
-                      color: selected ? tokens.accentInk : tokens.text,
+                      color: tokens.text,
                     ),
                   ),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 1),
                     Text(
                       subtitle,
-                      style: WorkoutType.mono(
-                        size: 10.5,
-                        color: selected
-                            ? tokens.accentInk.withValues(alpha: 0.7)
-                            : tokens.faint,
-                      ),
+                      style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                     ),
                   ],
                 ],
               ),
             ),
 
-            // Check icon when selected
-            if (selected)
-              Icon(WIcons.check, size: 16, color: tokens.accentInk),
+            // Check icon when this is the current exercise
+            if (selected) ...[
+              const SizedBox(width: 8),
+              Icon(WIcons.check, size: 16, color: tokens.accent),
+            ],
           ],
         ),
       ),

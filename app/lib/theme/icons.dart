@@ -17,6 +17,7 @@ abstract final class WIcons {
   static const IconData home = Icons.home_outlined;
   static const IconData scale = Icons.monitor_weight_outlined;
   static const IconData gear = Icons.tune;
+  static const IconData globe = Icons.language;
   static const IconData plan = Icons.tune;
   static const IconData trash = Icons.delete_outline;
   static const IconData chevron = Icons.chevron_right;
