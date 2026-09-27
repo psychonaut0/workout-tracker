@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/l10n/app_localizations_en.dart';
 import 'package:workout_tracker/ui/progress_change.dart';
+import 'package:workout_tracker/util/format.dart';
 
 Exercise _exercise(String id) => Exercise(
       id: id,
@@ -56,6 +57,80 @@ void main() {
     test('empty catalog: returns null', () {
       expect(defaultProgressExercise('bb', const []), isNull);
       expect(defaultProgressExercise(null, const []), isNull);
+    });
+  });
+
+  group('signedChange', () {
+    test('a gain is signed with a plus', () {
+      expect(signedChange(2.5, f, l), '+2.5');
+    });
+    test('a loss uses the real minus sign', () {
+      expect(signedChange(-3, f, l), '−3');
+    });
+    test('zero reads "same"', () {
+      expect(signedChange(0, f, l), 'same');
+    });
+    test('a delta the formatter rounds away reads "same"', () {
+      expect(signedChange(0.3, (v) => v.round().toString(), l), 'same');
+      expect(signedChange(-0.04, fmtPlain, l), 'same');
+    });
+    test('never appends a unit: the unit belongs in its own slot', () {
+      expect(signedChange(1200, fmtThousands, l), '+1,200');
+    });
+  });
+
+  group('progressDeltaStat', () {
+    ({String value, String? unit}) stat(List<double> series,
+            {bool reps = false, int first = 5, int last = 5, String unit = 'kg'}) =>
+        progressDeltaStat(l,
+            series: series,
+            reps: reps,
+            firstTopReps: first,
+            topReps: last,
+            unit: unit,
+            fmtVal: f);
+
+    test('a weight change keeps the unit in its slot', () {
+      expect(stat([100, 102.5], reps: true), (value: '+2.5', unit: 'kg'));
+      expect(stat([100, 97.5]), (value: '−2.5', unit: 'kg'));
+    });
+    test('a rep change has no weight unit', () {
+      expect(stat([100, 100], reps: true, first: 5, last: 6), (value: '+1 rep', unit: null));
+    });
+    test('"same" never carries a unit', () {
+      expect(stat([100, 100], reps: true), (value: 'same', unit: null));
+      expect(stat([100, 100]), (value: 'same', unit: null));
+    });
+    test('fewer than two points shows a dash with the unit', () {
+      expect(stat([100]), (value: '—', unit: 'kg'));
+      expect(stat([100], unit: ''), (value: '—', unit: null));
+    });
+  });
+
+  group('shownProgressTarget', () {
+    final catalog = [_exercise('aa'), _exercise('bb')];
+    String? shown({String? pick, String? last, List<Exercise>? cat}) => shownProgressTarget(
+        pick: pick, lastTrainedId: last, catalog: cat ?? catalog, bodyweightId: 'BW');
+
+    test('no pick: the last-trained exercise is what is shown', () {
+      expect(shown(last: 'bb'), 'bb');
+    });
+    test('no pick and no history: the first catalog entry is shown', () {
+      expect(shown(), 'aa');
+    });
+    test('a pick wins over the last-trained exercise', () {
+      expect(shown(pick: 'aa', last: 'bb'), 'aa');
+    });
+    test('the bodyweight view is shown as the bodyweight id', () {
+      expect(shown(pick: 'BW', last: 'bb'), 'BW');
+      expect(shown(pick: 'BW', cat: const []), 'BW');
+    });
+    test('a picked exercise since deleted shows the first entry', () {
+      expect(shown(pick: 'gone'), 'aa');
+    });
+    test('an empty catalog shows nothing', () {
+      expect(shown(pick: 'gone', cat: const []), isNull);
+      expect(shown(cat: const []), isNull);
     });
   });
 }

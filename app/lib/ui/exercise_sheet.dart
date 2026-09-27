@@ -338,7 +338,7 @@ class _BodyweightRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return GestureDetector(
+    final row = GestureDetector(
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
@@ -384,6 +384,7 @@ class _BodyweightRow extends StatelessWidget {
         ),
       ),
     );
+    return selected ? Semantics(selected: true, child: row) : row;
   }
 }
 
@@ -414,7 +415,7 @@ class _ExerciseRow extends StatelessWidget {
             : l.exerciseCompound)
         : equip;
 
-    return GestureDetector(
+    final row = GestureDetector(
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
@@ -464,6 +465,7 @@ class _ExerciseRow extends StatelessWidget {
         ),
       ),
     );
+    return selected ? Semantics(selected: true, child: row) : row;
   }
 }
 

@@ -92,3 +92,58 @@ String? defaultProgressExercise(String? lastTrainedId, List<Exercise> catalog) {
   }
   return catalog.isEmpty ? null : catalog.first.id;
 }
+
+/// The id Progress actually shows, which is also the row its picker marks as
+/// current.
+///
+/// [pick] (the user's explicit choice) wins; with no pick, the default from
+/// [defaultProgressExercise]. [bodyweightId] passes through untouched. An
+/// exercise id that is no longer in [catalog] shows the first entry instead,
+/// and an empty catalog shows nothing (`null`).
+String? shownProgressTarget({
+  required String? pick,
+  required String? lastTrainedId,
+  required List<Exercise> catalog,
+  required String bodyweightId,
+}) {
+  final t = pick ?? defaultProgressExercise(lastTrainedId, catalog);
+  if (t == null || t == bodyweightId) return t;
+  for (final e in catalog) {
+    if (e.id == t) return t;
+  }
+  return catalog.isEmpty ? null : catalog.first.id;
+}
+
+/// The value and unit slot of Progress's 12-week change tile.
+///
+/// For a top-set metric ([reps]) the rep change stands in when the weight
+/// didn't move. The unit slot is null whenever the value is not a weight:
+/// a rep change, or "same". Fewer than two points show "—".
+({String value, String? unit}) progressDeltaStat(
+  AppLocalizations l, {
+  required List<double> series,
+  required bool reps,
+  required int firstTopReps,
+  required int topReps,
+  required String unit,
+  required String Function(double) fmtVal,
+}) {
+  final unitSlot = unit.isNotEmpty ? unit : null;
+  if (series.length < 2) return (value: '—', unit: unitSlot);
+  final first = series.first;
+  final last = series.last;
+  if (reps) {
+    final c = topSetChange(
+      prevWeight: first,
+      prevReps: firstTopReps,
+      curWeight: last,
+      curReps: topReps,
+    );
+    return (
+      value: changeLabel(l, c, fmtVal: fmtVal),
+      unit: c is WeightChange ? unitSlot : null,
+    );
+  }
+  final value = signedChange(last - first, fmtVal, l);
+  return (value: value, unit: value == l.progressSame ? null : unitSlot);
+}

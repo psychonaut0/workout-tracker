@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../data/exercise_repository.dart';
+import '../data/finished_session_store.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
 import '../data/progress_repository.dart';
 import '../data/stats_repository.dart';
+import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -51,10 +53,15 @@ class _ProgressScreenState extends State<ProgressScreen> {
   late final StatsRepository _statsRepo;
   late final Stream<List<Exercise>> _catalogStream;
 
-  /// The exercise of the most recent working set, fetched once on open (a
-  /// one-shot read, not a watch). Null until it resolves, or if there's no
-  /// history.
+  /// The exercise of the most recent working set: a one-shot read (not a
+  /// watch) on open, repeated each time a workout finishes. Null until it
+  /// resolves, or if there's no history.
   String? _lastTrained;
+
+  /// This screen lives in the shell's IndexedStack, so it is built once at
+  /// launch; listening for finished workouts keeps the default fresh.
+  SessionManager? _sessions;
+  FinishedSession? _seenFinished;
 
   String? _seriesKey;
   Stream<List<ProgressPoint>>? _seriesStream;
@@ -78,18 +85,46 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _statsRepo = StatsRepository(db);
     _catalogStream = _exerciseRepo.watchCatalog();
     if (widget.initialTarget == null) {
-      _statsRepo.lastTrainedExerciseId().then((id) {
-        if (!mounted) return;
-        setState(() => _lastTrained = id);
-      });
+      _refreshLastTrained();
+      try {
+        _sessions = context.read<SessionManager>();
+      } on ProviderNotFoundException {
+        _sessions = null; // widget tests that mount the screen bare
+      }
+      _seenFinished = _sessions?.lastFinished;
+      _sessions?.addListener(_onSessionsChanged);
     }
   }
 
-  Future<void> _openPicker(List<Exercise> catalog) async {
+  @override
+  void dispose() {
+    _sessions?.removeListener(_onSessionsChanged);
+    super.dispose();
+  }
+
+  void _refreshLastTrained() {
+    _statsRepo.lastTrainedExerciseId().then((id) {
+      if (!mounted) return;
+      setState(() => _lastTrained = id);
+    });
+  }
+
+  /// A newly adopted finish snapshot means a workout just committed: re-read
+  /// the last-trained exercise. An explicit pick still wins in build.
+  void _onSessionsChanged() {
+    final f = _sessions?.lastFinished;
+    if (f == null || identical(f, _seenFinished)) return;
+    _seenFinished = f;
+    _refreshLastTrained();
+  }
+
+  /// Opens the picker with [shown] — the id actually on screen, not just an
+  /// explicit pick — marked as the current row.
+  Future<void> _openPicker(List<Exercise> catalog, String? shown) async {
     final r = await showExerciseSheet(
       context,
       exercises: catalog,
-      current: _target,
+      current: shown,
     );
     if (r != null) setState(() => _target = r);
   }
@@ -108,13 +143,21 @@ class _ProgressScreenState extends State<ProgressScreen> {
         // otherwise default to the last-trained exercise, falling back to the
         // first catalog entry when there's no history or it was deleted.
         String? target = _target ?? defaultProgressExercise(_lastTrained, catalog);
+        // What is actually on screen, so the picker can mark it.
+        final shown = shownProgressTarget(
+          pick: _target,
+          lastTrainedId: _lastTrained,
+          catalog: catalog,
+          bodyweightId: bwId,
+        );
+        void openPicker() => _openPicker(catalog, shown);
 
         if (target == bwId) {
-          return BodyweightView(onOpenPicker: () => _openPicker(catalog));
+          return BodyweightView(onOpenPicker: openPicker);
         }
 
         if (target == null) {
-          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+          return _EmptyState(onOpenPicker: openPicker);
         }
 
         // The catalog stream's first emission is asynchronous, so a screen
@@ -127,7 +170,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           // second must stay recoverable via the picker instead of a dead
           // blank screen.
           if (!snap.hasData) return const SizedBox.shrink();
-          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+          return _EmptyState(onOpenPicker: openPicker);
         }
 
         final exId = target;
@@ -157,7 +200,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               metric: metric,
               rawSeries: rawSeries,
               unitService: unit,
-              onPickerTap: () => _openPicker(catalog),
+              onPickerTap: openPicker,
               onMetricChanged: (id) => setState(() => _metricId = id),
             );
           },
@@ -380,33 +423,24 @@ class _BigStatRow extends StatelessWidget {
     }
 
     final last = series.last;
-    final first = series.first;
     final best = series.reduce((a, b) => a > b ? a : b);
-    final delta = series.length >= 2 ? last - first : 0.0;
 
     // Current card unit: for the `top` metric, append ' ×{topReps}'
     final currentUnit = metric.reps ? '$unit ×$topReps' : unit;
 
     // 12wk delta: for Top set, fall back to the rep change when the weight
-    // itself didn't move. A WeightChange keeps the unit in the tile's own
-    // slot, styled the same as Current/Best; only a RepChange nulls it,
-    // since a rep count has no weight unit to show there.
-    String delta12wkValue = '—';
-    String? delta12wkUnit = unit.isNotEmpty ? unit : null;
-    if (series.length >= 2) {
-      if (metric.reps) {
-        final c = topSetChange(
-          prevWeight: first,
-          prevReps: firstTopReps,
-          curWeight: last,
-          curReps: topReps,
-        );
-        delta12wkValue = changeLabel(l, c, fmtVal: fmtVal);
-        if (c is RepChange) delta12wkUnit = null;
-      } else {
-        delta12wkValue = signedChange(delta, fmtVal, l);
-      }
-    }
+    // itself didn't move. A weight change keeps the unit in the tile's own
+    // slot, styled the same as Current/Best; a rep change or "same" has no
+    // weight unit to show there.
+    final delta12wk = progressDeltaStat(
+      l,
+      series: series,
+      reps: metric.reps,
+      firstTopReps: firstTopReps,
+      topReps: topReps,
+      unit: unit,
+      fmtVal: fmtVal,
+    );
 
     return Row(
       children: [
@@ -446,8 +480,8 @@ class _BigStatRow extends StatelessWidget {
               unitKey: unit,
               child: BigStat(
                 label: l.progressStat12wkDelta,
-                value: delta12wkValue,
-                unit: delta12wkUnit,
+                value: delta12wk.value,
+                unit: delta12wk.unit,
               ),
             ),
           ),
@@ -495,24 +529,25 @@ class _SessionLogCard extends StatelessWidget {
           final v = entry.value;
           // Previous in the reversed list = older session.
           final prevEntry = i < reversed.length - 1 ? reversed[i + 1] : null;
-          final prevValue = prevEntry?.value;
-          final diff = prevValue != null ? v - prevValue : 0.0;
+          final diff = prevEntry != null ? v - prevEntry.value : 0.0;
           final isLast = i == reversed.length - 1;
 
           // Delta label: for Top set, fall back to the rep change when the
           // weight equals the previous session's; otherwise a plain signed
-          // value. "same" replaces "=" everywhere, including no-prior-session.
+          // value. The oldest session has nothing to compare against, so its
+          // change slot stays empty.
           final String deltaLabel;
           final Color deltaColor;
-          if (metric.reps) {
-            final c = prevEntry != null
-                ? topSetChange(
-                    prevWeight: prevEntry.value,
-                    prevReps: prevEntry.point.topReps,
-                    curWeight: v,
-                    curReps: p.topReps,
-                  )
-                : const NoChange();
+          if (prevEntry == null) {
+            deltaLabel = '';
+            deltaColor = tokens.faint;
+          } else if (metric.reps) {
+            final c = topSetChange(
+              prevWeight: prevEntry.value,
+              prevReps: prevEntry.point.topReps,
+              curWeight: v,
+              curReps: p.topReps,
+            );
             deltaLabel = changeLabel(l, c, fmtVal: fmtVal);
             deltaColor = (c is WeightChange && c.delta > 0) ||
                     (c is RepChange && c.delta > 0)

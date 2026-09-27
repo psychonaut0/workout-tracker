@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/icons.dart';
 import 'package:workout_tracker/ui/exercise_sheet.dart';
 
@@ -50,12 +51,8 @@ void main() {
     await tester.tap(find.byKey(const Key('open-sheet')));
     await tester.pumpAndSettle();
 
-    // Bench (current) row: a check icon is present.
-    final benchRow = find.ancestor(
-      of: find.text('Bench Press'),
-      matching: find.byType(Container),
-    );
-    expect(benchRow, findsWidgets);
+    // Bench (current) row: a check icon, the accent border and the selected
+    // semantics flag.
     expect(
       find.descendant(
         of: find.ancestor(
@@ -65,7 +62,11 @@ void main() {
       findsOneWidget,
     );
 
-    // Curl (not current) row: no check icon.
+    final accent = tester.element(find.text('Bench Press')).tokens.accent;
+    expect(_rowBorderColor(tester, 'Bench Press'), accent);
+    expect(_isSelected(tester, 'Bench Press'), isTrue);
+
+    // Curl (not current) row: no check icon, no accent border.
     expect(
       find.descendant(
         of: find.ancestor(
@@ -74,6 +75,8 @@ void main() {
       ),
       findsNothing,
     );
+    expect(_rowBorderColor(tester, 'Curl'), isNot(accent));
+    expect(_isSelected(tester, 'Curl'), isFalse);
   });
 
   testWidgets('no leading compound dot is rendered', (tester) async {
@@ -107,5 +110,41 @@ void main() {
       ),
       findsOneWidget,
     );
+    final accent = tester.element(find.text('Bodyweight')).tokens.accent;
+    expect(_rowBorderColor(tester, 'Bodyweight'), accent);
+    expect(_isSelected(tester, 'Bodyweight'), isTrue);
+
+    // Exercise rows are unmarked when the bodyweight row is current.
+    for (final name in ['Bench Press', 'Curl']) {
+      expect(_rowBorderColor(tester, name), isNot(accent));
+      expect(_isSelected(tester, name), isFalse);
+      expect(
+        find.descendant(
+          of: find.ancestor(
+              of: find.text(name), matching: find.byType(GestureDetector)),
+          matching: find.byIcon(WIcons.check),
+        ),
+        findsNothing,
+      );
+    }
   });
 }
+
+/// The border colour of the nearest bordered container around [text] — the
+/// picker row itself.
+Color _rowBorderColor(WidgetTester tester, String text) {
+  final row = tester
+      .widgetList<Container>(
+          find.ancestor(of: find.text(text), matching: find.byType(Container)))
+      .firstWhere((c) =>
+          c.decoration is BoxDecoration &&
+          (c.decoration! as BoxDecoration).border != null);
+  final border = (row.decoration! as BoxDecoration).border! as Border;
+  return border.top.color;
+}
+
+/// Whether any semantics wrapper around [text] marks it selected.
+bool _isSelected(WidgetTester tester, String text) => tester
+    .widgetList<Semantics>(
+        find.ancestor(of: find.text(text), matching: find.byType(Semantics)))
+    .any((s) => s.properties.selected == true);
