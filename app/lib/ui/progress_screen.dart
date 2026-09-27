@@ -22,6 +22,7 @@ import '../widgets/progress_widgets.dart';
 import '../widgets/section_label.dart';
 import 'bodyweight_view.dart';
 import 'exercise_sheet.dart';
+import 'progress_change.dart';
 
 /// The sentinel value used to represent the Bodyweight target.
 const String bwId = '__bodyweight__';
@@ -197,13 +198,6 @@ class _LiftView extends StatelessWidget {
   String _fmtVal(double v) =>
       metricId == 'volume' ? fmtThousands(v) : fmtPlain(v);
 
-  String _signedDelta(double delta) {
-    final abs = _fmtVal(delta.abs());
-    if (delta > 0) return '+$abs';
-    if (delta < 0) return '-$abs';
-    return '0';
-  }
-
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
@@ -290,8 +284,8 @@ class _LiftView extends StatelessWidget {
           metric: metric,
           unit: unit,
           topReps: rawSeries.isNotEmpty ? rawSeries.last.topReps : 0,
+          firstTopReps: rawSeries.isNotEmpty ? rawSeries.first.topReps : 0,
           fmtVal: _fmtVal,
-          signedDelta: _signedDelta,
         ),
         const SizedBox(height: 22),
 
@@ -336,16 +330,16 @@ class _BigStatRow extends StatelessWidget {
     required this.metric,
     required this.unit,
     required this.topReps,
+    required this.firstTopReps,
     required this.fmtVal,
-    required this.signedDelta,
   });
 
   final List<double> series;
   final Metric metric;
   final String unit;
   final int topReps;
+  final int firstTopReps;
   final String Function(double) fmtVal;
-  final String Function(double) signedDelta;
 
   @override
   Widget build(BuildContext context) {
@@ -369,6 +363,26 @@ class _BigStatRow extends StatelessWidget {
 
     // Current card unit: for the `top` metric, append ' ×{topReps}'
     final currentUnit = metric.reps ? '$unit ×$topReps' : unit;
+
+    // 12wk delta: for Top set, fall back to the rep change when the weight
+    // itself didn't move; the unit is baked into the label in that case, so
+    // the tile's own unit slot is suppressed to avoid showing it twice.
+    String delta12wkValue = '—';
+    String? delta12wkUnit = unit.isNotEmpty ? unit : null;
+    if (series.length >= 2) {
+      if (metric.reps) {
+        final c = topSetChange(
+          prevWeight: first,
+          prevReps: firstTopReps,
+          curWeight: last,
+          curReps: topReps,
+        );
+        delta12wkValue = changeLabel(l, c, fmtVal: fmtVal, unit: unit);
+        delta12wkUnit = null;
+      } else {
+        delta12wkValue = signedChange(delta, fmtVal, l);
+      }
+    }
 
     return Row(
       children: [
@@ -408,8 +422,8 @@ class _BigStatRow extends StatelessWidget {
               unitKey: unit,
               child: BigStat(
                 label: l.progressStat12wkDelta,
-                value: series.length >= 2 ? signedDelta(delta) : '—',
-                unit: unit.isNotEmpty ? unit : null,
+                value: delta12wkValue,
+                unit: delta12wkUnit,
               ),
             ),
           ),
@@ -440,6 +454,7 @@ class _SessionLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first.
     final reversed = List.generate(rawSeries.length, (i) {
@@ -455,9 +470,34 @@ class _SessionLogCard extends StatelessWidget {
           final p = entry.point;
           final v = entry.value;
           // Previous in the reversed list = older session.
-          final prevValue = i < reversed.length - 1 ? reversed[i + 1].value : null;
+          final prevEntry = i < reversed.length - 1 ? reversed[i + 1] : null;
+          final prevValue = prevEntry?.value;
           final diff = prevValue != null ? v - prevValue : 0.0;
           final isLast = i == reversed.length - 1;
+
+          // Delta label: for Top set, fall back to the rep change when the
+          // weight equals the previous session's; otherwise a plain signed
+          // value. "same" replaces "=" everywhere, including no-prior-session.
+          final String deltaLabel;
+          final Color deltaColor;
+          if (metric.reps) {
+            final c = prevEntry != null
+                ? topSetChange(
+                    prevWeight: prevEntry.value,
+                    prevReps: prevEntry.point.topReps,
+                    curWeight: v,
+                    curReps: p.topReps,
+                  )
+                : const NoChange();
+            deltaLabel = changeLabel(l, c, fmtVal: fmtVal, unit: unit);
+            deltaColor = (c is WeightChange && c.delta > 0) ||
+                    (c is RepChange && c.delta > 0)
+                ? tokens.accent
+                : tokens.faint;
+          } else {
+            deltaLabel = signedChange(diff, fmtVal, l);
+            deltaColor = diff > 0 ? tokens.accent : tokens.faint;
+          }
 
           return Container(
             decoration: BoxDecoration(
@@ -480,7 +520,7 @@ class _SessionLogCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 // Value + reps for top metric
-                Flexible(
+                Expanded(
                   child: _ValueLabel(
                     value: fmtVal(v),
                     unit: unit,
@@ -488,24 +528,27 @@ class _SessionLogCard extends StatelessWidget {
                     tokens: tokens,
                   ),
                 ),
-                const Spacer(),
-                // PR badge or delta
-                if (metric.pr && p.isPr)
-                  const PRBadge(small: true)
-                else if (diff != 0)
-                  Text(
-                    _signedFmt(diff, fmtVal),
-                    style: WorkoutType.mono(
-                      size: 11.5,
-                      weight: FontWeight.w600,
-                      color: diff > 0 ? tokens.accent : tokens.faint,
-                    ),
-                  )
-                else
-                  Text(
-                    '=',
-                    style: WorkoutType.mono(size: 11.5, color: tokens.faint),
+                const SizedBox(width: 8),
+                // PR badge or delta, fixed width so it doesn't move the
+                // column when switching metric.
+                SizedBox(
+                  width: 64,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: metric.pr && p.isPr
+                        ? const PRBadge(small: true)
+                        : Text(
+                            deltaLabel,
+                            textAlign: TextAlign.right,
+                            overflow: TextOverflow.ellipsis,
+                            style: WorkoutType.mono(
+                              size: 11.5,
+                              weight: FontWeight.w600,
+                              color: deltaColor,
+                            ),
+                          ),
                   ),
+                ),
               ],
             ),
           );
@@ -513,11 +556,6 @@ class _SessionLogCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _signedFmt(double delta, String Function(double) fmtVal) {
-  final abs = fmtVal(delta.abs());
-  return delta > 0 ? '+$abs' : '-$abs';
 }
 
 class _ValueLabel extends StatelessWidget {

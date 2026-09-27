@@ -235,6 +235,8 @@
   "progressStat12wkDelta": "Δ 12 sett",
   "progressEmpty": "Nessun esercizio trovato",
   "progressChooseExercise": "Scegli esercizio",
+  "progressSame": "uguale",
+  "progressRepDelta": "{count, plural, =1{{signed} rip.} other{{signed} rip.}}",
   "bodyweightTrend": "Andamento peso corporeo",
   "bodyweightTitle": "Peso corporeo",
   "bodyweightDailyLog": "{count, plural, =1{Registro giornaliero · 1 voce} other{Registro giornaliero · {count} voci}}",

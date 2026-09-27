@@ -304,6 +304,7 @@ class BodyweightHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first, capped at 24.
     final items = series.reversed.take(24).toList();
@@ -369,7 +370,7 @@ class BodyweightHistoryCard extends StatelessWidget {
                 // Signed, and accent only when it moves the way the goal wants.
                 if (prevValue != null)
                   Text(
-                    fmtSigned(diff),
+                    fmtSigned(diff) == '0' ? l.progressSame : fmtSigned(diff),
                     style: WorkoutType.mono(
                       size: 11.5,
                       weight: FontWeight.w600,

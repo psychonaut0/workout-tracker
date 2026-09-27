@@ -491,6 +491,18 @@
   "progressStat12wkDelta": "12wk Δ",
   "progressEmpty": "No exercises found",
   "progressChooseExercise": "Choose exercise",
+  "progressSame": "same",
+  "progressRepDelta": "{count, plural, =1{{signed} rep} other{{signed} reps}}",
+  "@progressRepDelta": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "signed": {
+        "type": "String"
+      }
+    }
+  },
   "bodyweightTrend": "Bodyweight trend",
   "bodyweightTitle": "Bodyweight",
   "bodyweightDailyLog": "{count, plural, =1{Daily log · 1 entry} other{Daily log · {count} entries}}",
