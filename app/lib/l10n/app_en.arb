@@ -503,6 +503,7 @@
       }
     }
   },
+  "progressTrendNeedsMore": "Log one more session to see a trend",
   "bodyweightTrend": "Bodyweight trend",
   "bodyweightTitle": "Bodyweight",
   "bodyweightDailyLog": "{count, plural, =1{Daily log · 1 entry} other{Daily log · {count} entries}}",

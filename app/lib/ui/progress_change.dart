@@ -1,3 +1,4 @@
+import '../data/models.dart';
 import '../l10n/app_localizations.dart';
 
 /// The kind of change between a previous and a current top set.
@@ -75,4 +76,22 @@ String changeLabel(
     case NoChange():
       return l.progressSame;
   }
+}
+
+/// Picks the exercise Progress should open on.
+///
+/// Returns [lastTrainedId] when it names an exercise still in [catalog];
+/// otherwise (no history, or the last-trained exercise was since deleted)
+/// falls back to the first catalog entry, or `null` if the catalog is empty.
+/// Whether the chart card should show the line chart (true) or the
+/// "needs more data" message (false) for a series of this many points.
+bool showTrend(int points) => points >= 2;
+
+String? defaultProgressExercise(String? lastTrainedId, List<Exercise> catalog) {
+  if (lastTrainedId != null) {
+    for (final e in catalog) {
+      if (e.id == lastTrainedId) return lastTrainedId;
+    }
+  }
+  return catalog.isEmpty ? null : catalog.first.id;
 }

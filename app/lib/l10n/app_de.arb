@@ -237,6 +237,7 @@
   "progressChooseExercise": "Übung wählen",
   "progressSame": "gleich",
   "progressRepDelta": "{count, plural, =1{{signed} Wdh.} other{{signed} Wdh.}}",
+  "progressTrendNeedsMore": "Noch eine Einheit eintragen, um den Verlauf zu sehen",
   "bodyweightTrend": "Körpergewichtsverlauf",
   "bodyweightTitle": "Körpergewicht",
   "bodyweightDailyLog": "{count, plural, =1{Tägliches Protokoll · 1 Eintrag} other{Tägliches Protokoll · {count} Einträge}}",

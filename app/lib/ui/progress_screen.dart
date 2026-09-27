@@ -6,6 +6,7 @@ import '../data/exercise_repository.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
 import '../data/progress_repository.dart';
+import '../data/stats_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -47,7 +48,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   late final ExerciseRepository _exerciseRepo;
   late final ProgressRepository _progressRepo;
+  late final StatsRepository _statsRepo;
   late final Stream<List<Exercise>> _catalogStream;
+
+  /// The exercise of the most recent working set, fetched once on open (a
+  /// one-shot read, not a watch). Null until it resolves, or if there's no
+  /// history.
+  String? _lastTrained;
 
   String? _seriesKey;
   Stream<List<ProgressPoint>>? _seriesStream;
@@ -68,7 +75,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _target = widget.initialTarget;
     _exerciseRepo = ExerciseRepository(db);
     _progressRepo = ProgressRepository(db);
+    _statsRepo = StatsRepository(db);
     _catalogStream = _exerciseRepo.watchCatalog();
+    if (widget.initialTarget == null) {
+      _statsRepo.lastTrainedExerciseId().then((id) {
+        if (!mounted) return;
+        setState(() => _lastTrained = id);
+      });
+    }
   }
 
   Future<void> _openPicker(List<Exercise> catalog) async {
@@ -90,14 +104,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
       builder: (context, snap) {
         final catalog = snap.data ?? const <Exercise>[];
 
-        // Determine the effective target.
-        String? target = _target;
-        if (target == null && catalog.isNotEmpty) {
-          // Default: first exercise that has history; else first alphabetical.
-          // Since we can't await inside build, we use the first alphabetical
-          // as the default and rely on the stream update for a better pick.
-          target = catalog.first.id;
-        }
+        // Determine the effective target. A user pick (_target) always wins;
+        // otherwise default to the last-trained exercise, falling back to the
+        // first catalog entry when there's no history or it was deleted.
+        String? target = _target ?? defaultProgressExercise(_lastTrained, catalog);
 
         if (target == bwId) {
           return BodyweightView(onOpenPicker: () => _openPicker(catalog));
@@ -265,16 +275,30 @@ class _LiftView extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // (4) Chart
+        // (4) Chart. Exactly 1 point can't draw a trend, so it gets an
+        // explanatory message instead; 0 points keeps LineChart's own
+        // existing blank-frame behaviour, and 2+ draws the real chart
+        // (see [showTrend]).
         WCard(
           padding: const EdgeInsets.fromLTRB(8, 16, 8, 10),
-          child: LineChart(
-            key: ValueKey('$metricId-$unit'),
-            series: chartSeries,
-            height: 210,
-            unit: unit,
-            showReps: metric.reps,
-          ),
+          child: rawSeries.length == 1
+              ? SizedBox(
+                  height: 210,
+                  child: Center(
+                    child: Text(
+                      l.progressTrendNeedsMore,
+                      textAlign: TextAlign.center,
+                      style: WorkoutType.mono(size: 12, color: tokens.faint),
+                    ),
+                  ),
+                )
+              : LineChart(
+                  key: ValueKey('$metricId-$unit'),
+                  series: chartSeries,
+                  height: 210,
+                  unit: unit,
+                  showReps: metric.reps,
+                ),
         ),
         const SizedBox(height: 14),
 

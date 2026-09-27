@@ -79,6 +79,21 @@ class StatsRepository {
         .map((rs) => rs.first['n'] as int? ?? 0));
   }
 
+  /// One-shot lookup of the exercise trained in the most recent working set,
+  /// for Progress's default target. Not a watch — call once on open.
+  Future<String?> lastTrainedExerciseId() async {
+    final rs = await db.getAll(
+      'SELECT s.exercise_id '
+      'FROM sets s '
+      'JOIN sessions se ON se.id = s.session_id '
+      'WHERE s.is_warmup = 0 '
+      'ORDER BY se.date DESC, s.set_number DESC '
+      'LIMIT 1',
+    );
+    if (rs.isEmpty) return null;
+    return rs.first['exercise_id'] as String?;
+  }
+
   // ── List streams ──────────────────────────────────────────────────────────
 
   /// Live stream of the most-recent [limit] PR sets, newest session first.

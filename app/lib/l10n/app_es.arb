@@ -237,6 +237,7 @@
   "progressChooseExercise": "Elegir ejercicio",
   "progressSame": "igual",
   "progressRepDelta": "{count, plural, =1{{signed} rep.} other{{signed} rep.}}",
+  "progressTrendNeedsMore": "Registra una sesión más para ver la tendencia",
   "bodyweightTrend": "Tendencia de peso corporal",
   "bodyweightTitle": "Peso corporal",
   "bodyweightDailyLog": "{count, plural, =1{Registro diario · 1 entrada} other{Registro diario · {count} entradas}}",

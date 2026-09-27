@@ -1,6 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/l10n/app_localizations_en.dart';
 import 'package:workout_tracker/ui/progress_change.dart';
+
+Exercise _exercise(String id) => Exercise(
+      id: id,
+      name: id,
+      slug: id,
+      muscleGroup: 'chest',
+      compound: false,
+      plateStepKg: 2.5,
+      isTemplate: false,
+    );
 
 void main() {
   final l = AppLocalizationsEn();
@@ -25,5 +36,38 @@ void main() {
   test('negatives use the real minus sign', () {
     final c = topSetChange(prevWeight: 100, prevReps: 6, curWeight: 97.5, curReps: 6);
     expect(changeLabel(l, c, fmtVal: f), '−2.5');
+  });
+
+  group('defaultProgressExercise', () {
+    final catalog = [_exercise('aa'), _exercise('bb')];
+
+    test('last trained exercise is in the catalog: returns it', () {
+      expect(defaultProgressExercise('bb', catalog), 'bb');
+    });
+
+    test('last trained exercise is not in the catalog: returns the first', () {
+      expect(defaultProgressExercise('deleted', catalog), 'aa');
+    });
+
+    test('no history (null last trained): returns the first', () {
+      expect(defaultProgressExercise(null, catalog), 'aa');
+    });
+
+    test('empty catalog: returns null', () {
+      expect(defaultProgressExercise('bb', const []), isNull);
+      expect(defaultProgressExercise(null, const []), isNull);
+    });
+  });
+
+  group('showTrend', () {
+    test('fewer than 2 points: no trend to draw', () {
+      expect(showTrend(0), isFalse);
+      expect(showTrend(1), isFalse);
+    });
+
+    test('2 or more points: draws the trend', () {
+      expect(showTrend(2), isTrue);
+      expect(showTrend(5), isTrue);
+    });
   });
 }
