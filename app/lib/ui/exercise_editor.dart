@@ -153,8 +153,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         ? null
         : ex.muscleGroup;
 
-    // A half-set RIR range counts as not set.
+    // A half-set RIR range counts as not set; an inverted one (old data) is
+    // loaded in order.
     final rirSet = ex.defaultRirLow != null && ex.defaultRirHigh != null;
+    final rir = rirSet ? rirOrdered(ex.defaultRirLow!, ex.defaultRirHigh!) : null;
 
     setState(() {
       _editId = ex.id;
@@ -170,8 +172,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       _workSets = ex.defaultWorkingSets ?? 3;
       _warmupSets = ex.defaultWarmupSets ?? 0;
       _restSeconds = ex.defaultRestSeconds ?? 0;
-      _rirLow = rirSet ? ex.defaultRirLow : null;
-      _rirHigh = rirSet ? ex.defaultRirHigh : null;
+      _rirLow = rir?.low;
+      _rirHigh = rir?.high;
       _prKg = prKg;
       _extraMuscle = extra;
       _loaded = true;
@@ -629,11 +631,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   step: 1,
                   format: (v) => v.round().toString(),
                   onChanged: (v) {
-                    final low = v.round().clamp(0, 5);
-                    final high = _rirHigh ?? 1;
+                    final r = rirWithLow(_rirLow ?? 1, _rirHigh ?? 1, v.round());
                     setState(() {
-                      _rirLow = low;
-                      _rirHigh = high < low ? low : high;
+                      _rirLow = r.low;
+                      _rirHigh = r.high;
                     });
                   },
                   editable: true,
@@ -653,11 +654,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   step: 1,
                   format: (v) => v.round().toString(),
                   onChanged: (v) {
-                    final high = v.round().clamp(0, 5);
-                    final low = _rirLow ?? 1;
+                    final r = rirWithHigh(_rirLow ?? 1, _rirHigh ?? 1, v.round());
                     setState(() {
-                      _rirHigh = high;
-                      _rirLow = low > high ? high : low;
+                      _rirLow = r.low;
+                      _rirHigh = r.high;
                     });
                   },
                   editable: true,

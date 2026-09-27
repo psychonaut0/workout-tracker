@@ -31,6 +31,8 @@ class DaySlotState {
 }
 
 DaySlotState daySlotStateFromResolved(ResolvedSlot r, String? itemId) {
+  // Old data can hold an inverted RIR range; load it in order.
+  final rir = rirOrdered(r.rirLow, r.rirHigh);
   return DaySlotState(
     draft: SlotDraft(
       itemId: itemId,
@@ -39,8 +41,8 @@ DaySlotState daySlotStateFromResolved(ResolvedSlot r, String? itemId) {
       warmupSets: r.warmupSets,
       repLow: r.repLow,
       repHigh: r.repHigh,
-      rirLow: r.rirLow,
-      rirHigh: r.rirHigh,
+      rirLow: rir.low,
+      rirHigh: rir.high,
     ),
   );
 }
@@ -450,21 +452,21 @@ class _DaySlotRowState extends State<DaySlotRow> {
   // stepper is floored at low): stepping either one past the other drags it
   // along. A null bound displays as 1, so touching either stepper writes both.
   void _updateRirLow(double v) {
-    final low = v.round().clamp(0, 5);
-    final high = widget.slot.draft.rirHigh ?? 1;
+    final d = widget.slot.draft;
+    final r = rirWithLow(d.rirLow ?? 1, d.rirHigh ?? 1, v.round());
     setState(() {
-      widget.slot.draft.rirLow = low;
-      widget.slot.draft.rirHigh = high < low ? low : high;
+      d.rirLow = r.low;
+      d.rirHigh = r.high;
     });
     widget.onChanged();
   }
 
   void _updateRirHigh(double v) {
-    final high = v.round().clamp(0, 5);
-    final low = widget.slot.draft.rirLow ?? 1;
+    final d = widget.slot.draft;
+    final r = rirWithHigh(d.rirLow ?? 1, d.rirHigh ?? 1, v.round());
     setState(() {
-      widget.slot.draft.rirHigh = high;
-      widget.slot.draft.rirLow = low > high ? high : low;
+      d.rirLow = r.low;
+      d.rirHigh = r.high;
     });
     widget.onChanged();
   }
