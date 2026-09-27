@@ -88,4 +88,27 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(FittedBox), findsOneWidget);
   });
+
+  testWidgets('StepperButton is a 48x48 labelled target that fires onTap', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    var taps = 0;
+    await tester.pumpWidget(wrapL10n(Center(
+      child: StepperButton(
+        key: const Key('btn'),
+        icon: Icons.add,
+        semanticLabel: 'Increase Bodyweight',
+        onTap: () => taps++,
+      ),
+    )));
+    await tester.pump();
+
+    expect(tester.getSize(find.byKey(const Key('btn'))), const Size(48, 48));
+    expect(find.bySemanticsLabel('Increase Bodyweight'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn')));
+    expect(taps, 1);
+    handle.dispose();
+  });
 }

@@ -291,46 +291,22 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
     final tokens = context.tokens;
     final l = AppLocalizations.of(context);
 
-    final buttonDecoration = BoxDecoration(
-      color: tokens.surface3,
-      borderRadius: BorderRadius.circular(AppRadius.radius * 0.4),
-    );
-
     Widget btn({
       required Key key,
       required IconData icon,
       required int dir,
     }) {
-      return Semantics(
-        button: true,
-        label: dir < 0
+      return StepperButton(
+        key: key,
+        icon: icon,
+        semanticLabel: dir < 0
             ? (widget.semanticLabel == null
                 ? l.a11yDecreaseGeneric
                 : l.a11yDecrease(widget.semanticLabel!))
             : (widget.semanticLabel == null
                 ? l.a11yIncreaseGeneric
                 : l.a11yIncrease(widget.semanticLabel!)),
-        excludeSemantics: true,
         onTap: () => _step(dir),
-        child: GestureDetector(
-          key: key,
-          // Stop tap from propagating to parent (e.g. accordion header).
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _step(dir),
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Center(
-              child: Container(
-                width: 25,
-                height: 34,
-                decoration: buttonDecoration,
-                alignment: Alignment.center,
-                child: Icon(icon, size: 16, color: tokens.text),
-              ),
-            ),
-          ),
-        ),
       );
     }
 
@@ -416,6 +392,60 @@ class _WStepperState extends State<WStepper> with WidgetsBindingObserver {
         ),
         btn(key: const Key('stepper-inc'), icon: Icons.add, dir: 1),
       ],
+    );
+  }
+}
+
+/// The square − / + button [WStepper] flanks its value with: a 25×34 rounded
+/// rect inside a 48×48 hit area. Public so other steppers that manage their
+/// own value (the bodyweight sheet) share the exact same visual.
+///
+/// The tap does NOT bubble to enclosing widgets (e.g. an accordion header):
+/// the [GestureDetector] is [HitTestBehavior.opaque].
+class StepperButton extends StatelessWidget {
+  const StepperButton({
+    super.key,
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+
+  /// Spoken by screen readers; the icon itself is excluded.
+  final String semanticLabel;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        // Stop tap from propagating to parent (e.g. accordion header).
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(
+            child: Container(
+              width: 25,
+              height: 34,
+              decoration: BoxDecoration(
+                color: tokens.surface3,
+                borderRadius: BorderRadius.circular(AppRadius.radius * 0.4),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 16, color: tokens.text),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -21,14 +21,11 @@ import 'exercise_sheet.dart';
 
 // ── DaySlotState ────────────────────────────────────────────────────────────────
 
-/// Mutable UI state for a single slot row (wraps [SlotDraft] + RIR raw text).
+/// Mutable UI state for a single slot row (wraps [SlotDraft]).
 class DaySlotState {
-  DaySlotState({required this.draft, required this.rirText});
+  DaySlotState({required this.draft});
 
   SlotDraft draft;
-
-  // The RIR field keeps raw text; only parsed via rirTryParse on save.
-  String rirText;
 
   String get exerciseId => draft.exerciseId;
 }
@@ -45,7 +42,6 @@ DaySlotState daySlotStateFromResolved(ResolvedSlot r, String? itemId) {
       rirLow: r.rirLow,
       rirHigh: r.rirHigh,
     ),
-    rirText: rirToString(r.rirLow, r.rirHigh),
   );
 }
 
@@ -205,16 +201,6 @@ class _DayEditorState extends State<DayEditor> {
     FocusManager.instance.primaryFocus?.unfocus();
     FocusManager.instance.applyFocusChangesIfNeeded();
     setState(() => _saving = true);
-
-    // Commit RIR text → rirLow/rirHigh for each slot using rirTryParse.
-    for (final slot in _slots) {
-      final parsed = rirTryParse(slot.rirText);
-      if (parsed != null) {
-        slot.draft.rirLow = parsed.low;
-        slot.draft.rirHigh = parsed.high;
-      }
-      // If parse fails, keep existing rirLow/rirHigh values (prior valid state).
-    }
 
     final draft = DayDraft(
       name: _nameCtrl.text.trim(),
@@ -426,29 +412,6 @@ class DaySlotRow extends StatefulWidget {
 }
 
 class _DaySlotRowState extends State<DaySlotRow> {
-  late final TextEditingController _rirCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _rirCtrl = TextEditingController(text: widget.slot.rirText);
-  }
-
-  @override
-  void didUpdateWidget(DaySlotRow old) {
-    super.didUpdateWidget(old);
-    // Sync controller if the slot state changed externally (e.g. reorder).
-    if (old.slot != widget.slot) {
-      _rirCtrl.text = widget.slot.rirText;
-    }
-  }
-
-  @override
-  void dispose() {
-    _rirCtrl.dispose();
-    super.dispose();
-  }
-
   void _updateWork(double v) {
     setState(() {
       widget.slot.draft.workSets = v.round().clamp(1, 99);
@@ -479,6 +442,29 @@ class _DaySlotRowState extends State<DaySlotRow> {
     final high = v.round().clamp(low, 99);
     setState(() {
       widget.slot.draft.repHigh = high;
+    });
+    widget.onChanged();
+  }
+
+  // RIR keeps low ≤ high by moving the OTHER bound, unlike reps (whose high
+  // stepper is floored at low): stepping either one past the other drags it
+  // along. A null bound displays as 1, so touching either stepper writes both.
+  void _updateRirLow(double v) {
+    final low = v.round().clamp(0, 5);
+    final high = widget.slot.draft.rirHigh ?? 1;
+    setState(() {
+      widget.slot.draft.rirLow = low;
+      widget.slot.draft.rirHigh = high < low ? low : high;
+    });
+    widget.onChanged();
+  }
+
+  void _updateRirHigh(double v) {
+    final high = v.round().clamp(0, 5);
+    final low = widget.slot.draft.rirLow ?? 1;
+    setState(() {
+      widget.slot.draft.rirHigh = high;
+      widget.slot.draft.rirLow = low > high ? high : low;
     });
     widget.onChanged();
   }
@@ -725,17 +711,43 @@ class _DaySlotRowState extends State<DaySlotRow> {
                     ],
                   ),
 
-                  // RIR target — raw text field; parsed only on save
-                  Field(
-                    label: l.dayEditorRirTarget,
-                    child: TextInput(
-                      controller: _rirCtrl,
-                      placeholder: '1',
-                      onChanged: (v) {
-                        widget.slot.rirText = v;
-                        // Do NOT call rirParse here — it throws on partial input.
-                      },
-                    ),
+                  // RIR low + RIR high
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Field(
+                          label: l.dayEditorRirLow,
+                          child: WStepper(
+                            value: (d.rirLow ?? 1).toDouble(),
+                            step: 1,
+                            format: (v) => v.round().toString(),
+                            onChanged: _updateRirLow,
+                            editable: true,
+                            allowDecimal: false,
+                            min: 0,
+                            max: 5,
+                            semanticLabel: l.dayEditorRirLow,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Field(
+                          label: l.dayEditorRirHigh,
+                          child: WStepper(
+                            value: (d.rirHigh ?? 1).toDouble(),
+                            step: 1,
+                            format: (v) => v.round().toString(),
+                            onChanged: _updateRirHigh,
+                            editable: true,
+                            allowDecimal: false,
+                            min: 0,
+                            max: 5,
+                            semanticLabel: l.dayEditorRirHigh,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

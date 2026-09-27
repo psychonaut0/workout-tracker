@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/ui/day_editor.dart';
+import 'package:workout_tracker/widgets/plan_form.dart';
 
 import '../support/l10n_harness.dart';
 
@@ -26,7 +27,6 @@ DaySlotState _slot(String exerciseId) => DaySlotState(
     rirLow: 1,
     rirHigh: 1,
   ),
-  rirText: '1',
 );
 
 /// Hosts two [DaySlotRow]s in a [ReorderableListView], mirroring the shape
@@ -182,5 +182,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(state.slots.map((s) => s.exerciseId), ['ex2', 'ex1']);
+  });
+
+  // Field renders its label upper-cased.
+  Finder rirButton(String label, String key) => find.descendant(
+    of: find.ancestor(of: find.text(label), matching: find.byType(Field)),
+    matching: find.byKey(Key(key)),
+  );
+
+  testWidgets('raising RIR low above high pulls high up with it', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(wrapL10n(const _Harness(expandedIndex: 0)));
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+
+    await tester.tap(rirButton('RIR LOW', 'stepper-inc'));
+    await tester.pumpAndSettle();
+    await tester.tap(rirButton('RIR LOW', 'stepper-inc'));
+    await tester.pumpAndSettle();
+
+    expect(state.slots[0].draft.rirLow, 3);
+    expect(state.slots[0].draft.rirHigh, 3);
+
+    await tester.tap(rirButton('RIR HIGH', 'stepper-dec'));
+    await tester.pumpAndSettle();
+
+    expect(state.slots[0].draft.rirLow, 2);
+    expect(state.slots[0].draft.rirHigh, 2);
+  });
+
+  testWidgets('RIR steppers stay within 0 to 5', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(wrapL10n(const _Harness(expandedIndex: 0)));
+    final state = tester.state<_HarnessState>(find.byType(_Harness));
+
+    for (var i = 0; i < 7; i++) {
+      await tester.tap(rirButton('RIR HIGH', 'stepper-inc'));
+      await tester.pumpAndSettle();
+    }
+    expect(state.slots[0].draft.rirHigh, 5);
+    expect(state.slots[0].draft.rirLow, 1);
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(rirButton('RIR LOW', 'stepper-dec'));
+      await tester.pumpAndSettle();
+    }
+    expect(state.slots[0].draft.rirLow, 0);
+    expect(state.slots[0].draft.rirHigh, 5);
   });
 }
