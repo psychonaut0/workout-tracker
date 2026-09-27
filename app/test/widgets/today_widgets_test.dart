@@ -112,12 +112,14 @@ void main() {
       );
     });
 
-    testWidgets('six days fit a narrow phone at large text (Italian)', (tester) async {
+    for (final lang in ['it', 'de']) {
+    testWidgets('six days fit a narrow phone at large text ($lang), with a done day that is next',
+        (tester) async {
       tester.view.physicalSize = const Size(320, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       const six = [
-        (name: 'Upper A', weekday: 0, isNext: true, done: false),
+        (name: 'Upper A', weekday: 0, isNext: true, done: true),
         (name: 'Lower A', weekday: 1, isNext: false, done: true),
         (name: 'Upper B', weekday: 2, isNext: false, done: false),
         (name: 'Lower B', weekday: 3, isNext: false, done: false),
@@ -131,11 +133,12 @@ void main() {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: WeekStrip(days: six, selectedIndex: 0, onSelect: (_) {}),
           ),
-          locale: const Locale('it'),
+          locale: Locale(lang),
         ),
       ));
       expect(tester.takeException(), isNull);
     });
+    }
   });
 
   // ── VolumeBars ───────────────────────────────────────────────────────────────
