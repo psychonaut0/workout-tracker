@@ -84,8 +84,13 @@ class StatTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Value + unit baseline row
-          Row(
+          // Value + unit baseline row. Scales down rather than overflowing
+          // in a third-of-a-narrow-phone tile at large text sizes.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
@@ -109,6 +114,7 @@ class StatTile extends StatelessWidget {
                 ),
               ],
             ],
+          ),
           ),
           // Spark or sub label
           if (spark != null) ...[

@@ -211,23 +211,20 @@ void main() {
     testWidgets(
         'value texts line up across tiles when one label wraps (Italian, 1.3x)',
         (tester) async {
-      // A width wide enough that the value+unit row itself doesn't overflow
-      // at this text scale (a pre-existing, unrelated constraint on that
-      // row's own width — see the task report) while still exercising a
-      // narrow-phone three-tile layout and the long Italian label.
-      tester.view.physicalSize = const Size(400, 800);
+      // A narrow phone: the value row must also fit (it scales down).
+      tester.view.physicalSize = const Size(320, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(MediaQuery(
-        data: const MediaQueryData(size: Size(400, 800), textScaler: TextScaler.linear(1.3)),
+        data: const MediaQueryData(size: Size(320, 800), textScaler: TextScaler.linear(1.3)),
         child: wrapL10n(
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: StatTile(label: 'PESO', value: '82')),
+                Expanded(child: StatTile(label: 'PESO', value: '82', unit: 'kg')),
                 SizedBox(width: 10),
                 Expanded(
                   child: StatTile(label: 'SERIE QUESTA SETTIMANA', value: '12'),
@@ -246,6 +243,7 @@ void main() {
       final yPrs = tester.getTopLeft(find.text('3')).dy;
       expect(yWeight, ySets);
       expect(ySets, yPrs);
+      expect(tester.takeException(), isNull);
     });
   });
 }
