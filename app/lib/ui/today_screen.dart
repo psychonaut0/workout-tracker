@@ -530,6 +530,7 @@ class _TodayScreenState extends State<TodayScreen> {
                           label: l.todayPrsThisWeek,
                           value: '$v',
                           sub: sub,
+                          fitSub: true,
                         ),
                       );
                     },

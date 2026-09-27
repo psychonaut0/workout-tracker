@@ -15,6 +15,7 @@ class StatTile extends StatelessWidget {
     this.unit,
     this.spark,
     this.sub,
+    this.fitSub = false,
     this.onTap,
   });
 
@@ -34,6 +35,11 @@ class StatTile extends StatelessWidget {
   /// Optional secondary text shown below the value row when [spark] is null.
   final String? sub;
 
+  /// When true, [sub] scales down to fit on one line instead of ellipsizing —
+  /// for a short subtitle whose tail matters (a date). Longer subtitles leave
+  /// it off so they stay a readable size.
+  final bool fitSub;
+
   /// Optional tap handler; wraps the tile in an [InkWell] when set.
   final VoidCallback? onTap;
 
@@ -47,13 +53,18 @@ class StatTile extends StatelessWidget {
     );
     // Reserve two label lines' worth of height (at the current text scale) so
     // the value row lines up across tiles whether or not a label wraps.
-    final labelLineHeight = (TextPainter(
+    final labelPainter = TextPainter(
       text: TextSpan(text: 'Ag', style: labelStyle),
       maxLines: 1,
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
-    )..layout())
-        .height;
+    )..layout();
+    final labelLineHeight = labelPainter.height;
+    labelPainter.dispose();
+    final subStyle = WorkoutType.mono(
+      size: 10.5,
+      color: tokens.dim,
+    );
 
     Widget content = Container(
       decoration: BoxDecoration(
@@ -122,15 +133,19 @@ class StatTile extends StatelessWidget {
             spark!,
           ] else if (sub != null) ...[
             const SizedBox(height: 6),
-            Text(
-              sub!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: WorkoutType.mono(
-                size: 10.5,
-                color: tokens.dim,
+            if (fitSub)
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(sub!, maxLines: 1, style: subStyle),
+              )
+            else
+              Text(
+                sub!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: subStyle,
               ),
-            ),
           ],
         ],
       ),

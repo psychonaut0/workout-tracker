@@ -120,16 +120,21 @@ class SplitDayCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Weekday block — same width/divider style as History's date block.
+            // Weekday block — same width/divider style as History's date
+            // block. Scales down rather than wrapping ("MIÉ" at 1.3x).
             SizedBox(
               width: 44,
               child: Center(
-                child: Text(
-                  weekBadge.toUpperCase(),
-                  style: WorkoutType.display(
-                    size: 20,
-                    weight: FontWeight.w700,
-                    color: tokens.text,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    weekBadge.toUpperCase(),
+                    maxLines: 1,
+                    style: WorkoutType.display(
+                      size: 20,
+                      weight: FontWeight.w700,
+                      color: tokens.text,
+                    ),
                   ),
                 ),
               ),

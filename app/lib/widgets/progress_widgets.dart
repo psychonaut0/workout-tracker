@@ -108,30 +108,37 @@ class BigStat extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        // Baseline-aligned row: display value + optional mono unit
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              value,
-              style: WorkoutType.display(
-                size: 22,
-                weight: FontWeight.w700,
-                color: valueColor,
-              ),
-            ),
-            if (unit != null) ...[
-              const SizedBox(width: 3),
+        // Baseline-aligned row: display value + optional mono unit. Scales
+        // down rather than overflowing a third-of-a-narrow-phone card at
+        // large text sizes.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
               Text(
-                unit!,
-                style: WorkoutType.mono(
-                  size: 11,
-                  color: tokens.dim,
+                value,
+                style: WorkoutType.display(
+                  size: 22,
+                  weight: FontWeight.w700,
+                  color: valueColor,
                 ),
               ),
+              if (unit != null) ...[
+                const SizedBox(width: 3),
+                Text(
+                  unit!,
+                  style: WorkoutType.mono(
+                    size: 11,
+                    color: tokens.dim,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ],
     );

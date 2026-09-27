@@ -248,5 +248,47 @@ void main() {
       expect(ySets, yPrs);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('the PR subtitle shrinks instead of truncating (German, 1.3x)',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(size: Size(320, 800), textScaler: TextScaler.linear(1.3)),
+        child: wrapL10n(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: StatTile(label: 'KÖRPERGEWICHT', value: '82', unit: 'kg')),
+                SizedBox(width: 10),
+                Expanded(
+                  child: StatTile(label: 'SÄTZE DIESE WOCHE', value: '12', sub: 'wie Vorwoche'),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: StatTile(label: 'PRS DIESE WOCHE', value: '3', sub: 'zuletzt 12 Sept.', fitSub: true),
+                ),
+              ],
+            ),
+          ),
+          locale: const Locale('de'),
+        ),
+      ));
+
+      final sub = find.text('zuletzt 12 Sept.');
+      expect(sub, findsOneWidget);
+      final text = tester.widget<Text>(sub);
+      expect(text.overflow, isNot(TextOverflow.ellipsis));
+      expect(text.maxLines, 1);
+      // It is scaled into the tile, not clipped: the scaled width fits.
+      final tile = find.ancestor(of: sub, matching: find.byType(StatTile));
+      final subRect = tester.getRect(sub);
+      expect(subRect.right, lessThanOrEqualTo(tester.getRect(tile).right));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

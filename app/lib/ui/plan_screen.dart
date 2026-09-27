@@ -25,6 +25,11 @@ class _EditorRoute {
   final String? id;
 }
 
+/// The Plan header's eyebrow: "N training days", or empty while the day
+/// count ([dayCount] null) hasn't arrived — never a transient "0".
+String planEyebrow(AppLocalizations l, int? dayCount) =>
+    dayCount == null ? '' : l.planDaysEyebrow(dayCount);
+
 // ── PlanScreen ────────────────────────────────────────────────────────────
 
 /// The Plan tab: a header + Split|Exercises segmented toggle + in-place
@@ -118,7 +123,7 @@ class PlanScreenState extends State<PlanScreen> {
                       StreamBuilder<int>(
                         stream: _dayCountStream,
                         builder: (context, snap) => Text(
-                          l.planDaysEyebrow(snap.data ?? 0),
+                          planEyebrow(l, snap.data),
                           style: WorkoutType.mono(
                             size: 11.5,
                             color: tokens.faint,
