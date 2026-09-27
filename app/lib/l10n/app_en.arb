@@ -616,6 +616,7 @@
   "syncSyncing": "Syncing…",
   "syncError": "Sync error",
   "syncSessionExpired": "Session expired",
+  "todaySyncPaused": "Sync paused · Sign in again",
   "profileSessionExpiredSub": "Sign in again to resume sync. Your data stays on this device.",
   "syncOffline": "Offline",
   "syncSynced": "Synced",

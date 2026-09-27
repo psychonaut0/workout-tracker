@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../auth/auth_store.dart';
 import '../data/bodyweight_repository.dart';
 import '../data/day_template_repository.dart';
 import '../data/exercise_repository.dart';
@@ -30,8 +31,10 @@ import '../widgets/section_label.dart';
 import '../widgets/sparkline.dart';
 import '../widgets/split_card.dart';
 import '../widgets/stat_tile.dart';
+import '../widgets/sync_paused_banner.dart';
 import '../widgets/volume_bars.dart';
 import '../widgets/week_strip.dart';
+import 'sign_in_again.dart';
 import 'today_labels.dart';
 
 /// Resolves the title shown for the active workout: the live day name when
@@ -57,7 +60,8 @@ String resumeSessionTitle(
 ///
 /// Composes 6 sections:
 ///   1. Greeting header (avatar, rotation-only date/next-day or active-workout
-///      line, 'Ready to train' / 'Workout in progress')
+///      line, 'Ready to train' / 'Workout in progress'), then the sync-paused
+///      banner while the session is expired
 ///   2. SplitCard hero pager (split picker + Start button)
 ///   3. This week (WeekStrip)
 ///   4. Stat tiles (bodyweight / sets this week / PRs this week)
@@ -73,6 +77,7 @@ class TodayScreen extends StatefulWidget {
     required this.onOpenExercise,
     required this.onOpenProfile,
     required this.onResume,
+    required this.auth,
   });
 
   /// Called when the user taps Start on a SplitCard slide.
@@ -87,6 +92,10 @@ class TodayScreen extends StatefulWidget {
 
   /// Called when the user taps Resume on the active-workout hero.
   final VoidCallback onResume;
+
+  /// Its session-expired flag drives the sync-paused banner, and the
+  /// banner's sign-in-again flow logs in through it.
+  final AuthStore auth;
 
   @override
   State<TodayScreen> createState() => _TodayScreenState();
@@ -277,6 +286,25 @@ class _TodayScreenState extends State<TodayScreen> {
                 onTapProfile: widget.onOpenProfile,
               ),
               const SizedBox(height: 18),
+              // Sync paused: the first card under the header until a login
+              // clears the flag.
+              ValueListenableBuilder<bool>(
+                valueListenable: widget.auth.sessionExpired,
+                builder: (context, expired, child) => expired
+                    ? Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: child,
+                      )
+                    : child!,
+                child: SyncPausedBanner(
+                  expired: widget.auth.sessionExpired,
+                  onTap: () => signInAgain(
+                    context,
+                    auth: widget.auth,
+                    settings: context.read<SettingsService>(),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

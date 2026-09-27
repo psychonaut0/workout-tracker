@@ -327,6 +327,7 @@
   "syncSyncing": "Synchronisiert…",
   "syncError": "Sync-Fehler",
   "syncSessionExpired": "Sitzung abgelaufen",
+  "todaySyncPaused": "Synchronisierung pausiert · Erneut anmelden",
   "profileSessionExpiredSub": "Melde dich erneut an, um die Synchronisierung fortzusetzen. Deine Daten bleiben auf dem Gerät.",
   "syncOffline": "Offline",
   "syncSynced": "Synchronisiert",
