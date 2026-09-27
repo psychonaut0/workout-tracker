@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/theme/icons.dart';
+import 'package:workout_tracker/widgets/stat_tile.dart';
 import 'package:workout_tracker/widgets/week_strip.dart';
 import 'package:workout_tracker/widgets/volume_bars.dart';
 
@@ -96,6 +97,21 @@ void main() {
       expect(find.text('NEXT'), findsOneWidget); // on Upper A (isNext), not selected
     });
 
+    testWidgets('a chip that is both isNext and done shows NEXT and the check icon',
+        (tester) async {
+      const mixed = [
+        (name: 'Upper A', weekday: 0, isNext: true, done: true),
+        (name: 'Lower A', weekday: 1, isNext: false, done: false),
+      ];
+      await pumpWithTheme(tester, const WeekStrip(days: mixed));
+
+      expect(find.text('NEXT'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Icon && w.icon == WIcons.check),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('six days fit a narrow phone at large text (Italian)', (tester) async {
       tester.view.physicalSize = const Size(320, 800);
       tester.view.devicePixelRatio = 1;
@@ -186,6 +202,50 @@ void main() {
       // '14/14' is on target → text color.
       final onText = tester.widget<Text>(find.text('14/14'));
       expect(onText.style?.color, darkTokens.text);
+    });
+  });
+
+  // ── StatTile ─────────────────────────────────────────────────────────────────
+
+  group('StatTile', () {
+    testWidgets(
+        'value texts line up across tiles when one label wraps (Italian, 1.3x)',
+        (tester) async {
+      // A width wide enough that the value+unit row itself doesn't overflow
+      // at this text scale (a pre-existing, unrelated constraint on that
+      // row's own width — see the task report) while still exercising a
+      // narrow-phone three-tile layout and the long Italian label.
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(size: Size(400, 800), textScaler: TextScaler.linear(1.3)),
+        child: wrapL10n(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: StatTile(label: 'PESO', value: '82')),
+                SizedBox(width: 10),
+                Expanded(
+                  child: StatTile(label: 'SERIE QUESTA SETTIMANA', value: '12'),
+                ),
+                SizedBox(width: 10),
+                Expanded(child: StatTile(label: 'PR', value: '3')),
+              ],
+            ),
+          ),
+          locale: const Locale('it'),
+        ),
+      ));
+
+      final yWeight = tester.getTopLeft(find.text('82')).dy;
+      final ySets = tester.getTopLeft(find.text('12')).dy;
+      final yPrs = tester.getTopLeft(find.text('3')).dy;
+      expect(yWeight, ySets);
+      expect(ySets, yPrs);
     });
   });
 }

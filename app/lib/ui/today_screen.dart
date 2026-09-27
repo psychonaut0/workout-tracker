@@ -518,29 +518,19 @@ class _TodayScreenState extends State<TodayScreen> {
                     stream: _recentPrsStream,
                     builder: (context, recentSnap) {
                       final recent = recentSnap.data ?? [];
-                      return StreamBuilder<List<Exercise>>(
-                        stream: _catalogStream,
-                        builder: (context, exSnap) {
-                          final exMap = {
-                            for (final ex in (exSnap.data ?? [])) ex.id: ex,
-                          };
-                          final lastPrName = recent.isEmpty
-                              ? null
-                              : exMap[recent.first.exerciseId]?.name;
-                          final sub = recent.isEmpty
-                              ? l.todayNoPrsShort
-                              : (lastPrName == null
-                                  ? ''
-                                  : l.todayLastPr(lastPrName));
-                          return CountUp(
-                            value: prs,
-                            builder: (v) => StatTile(
-                              label: l.todayPrsThisWeek,
-                              value: '$v',
-                              sub: sub,
-                            ),
-                          );
-                        },
+                      final sub = recent.isEmpty
+                          ? l.todayNoPrsShort
+                          : l.todayLastPrDate(fmtDate(
+                              recent.first.date,
+                              Localizations.localeOf(context).toLanguageTag(),
+                            ));
+                      return CountUp(
+                        value: prs,
+                        builder: (v) => StatTile(
+                          label: l.todayPrsThisWeek,
+                          value: '$v',
+                          sub: sub,
+                        ),
                       );
                     },
                   );

@@ -40,6 +40,20 @@ class StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final labelStyle = WorkoutType.mono(
+      size: 10,
+      color: tokens.faint,
+      letterSpacing: 0.08 * 10,
+    );
+    // Reserve two label lines' worth of height (at the current text scale) so
+    // the value row lines up across tiles whether or not a label wraps.
+    final labelLineHeight = (TextPainter(
+      text: TextSpan(text: 'Ag', style: labelStyle),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout())
+        .height;
 
     Widget content = Container(
       decoration: BoxDecoration(
@@ -55,13 +69,18 @@ class StatTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Mono uppercase label
-          Text(
-            label.toUpperCase(),
-            style: WorkoutType.mono(
-              size: 10,
-              color: tokens.faint,
-              letterSpacing: 0.08 * 10,
+          // Mono uppercase label — reserves two lines so the value row
+          // lines up across tiles regardless of wrapping.
+          SizedBox(
+            height: labelLineHeight * 2,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Text(
+                label.toUpperCase(),
+                style: labelStyle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
           const SizedBox(height: 8),
