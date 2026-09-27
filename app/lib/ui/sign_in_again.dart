@@ -22,8 +22,27 @@ enum _ReconcileChoice { keep, discard }
 /// account while the keep/discard dialog is open. Backing out of the login
 /// screen restores sync as it was.
 ///
-/// Shared by Profile and the Today banner so both run the one flow.
+/// Shared by Profile and the Today banner so both run the one flow. A
+/// second call while one is running (a double tap) is ignored: two login
+/// screens would each restore sync on back-out, reconnecting an account the
+/// user chose to keep local.
 Future<void> signInAgain(
+  BuildContext context, {
+  required AuthStore auth,
+  required SettingsService settings,
+}) async {
+  if (_signInAgainInFlight) return;
+  _signInAgainInFlight = true;
+  try {
+    await _signInAgainOnce(context, auth: auth, settings: settings);
+  } finally {
+    _signInAgainInFlight = false;
+  }
+}
+
+bool _signInAgainInFlight = false;
+
+Future<void> _signInAgainOnce(
   BuildContext context, {
   required AuthStore auth,
   required SettingsService settings,
