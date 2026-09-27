@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../data/day_template_repository.dart';
 import '../l10n/app_localizations.dart';
+import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/motion.dart';
@@ -49,6 +51,14 @@ class PlanScreenState extends State<PlanScreen> {
   /// Active sub-tab while at the list level.
   String _activeTab = 'split';
 
+  // The header's eyebrow needs the day count regardless of which sub-tab is
+  // active, so it watches the same repository stream SplitTab does rather
+  // than being fed one by SplitTab (which isn't even mounted on Exercises or
+  // Targets). Cached once here, not created in build.
+  late final DayTemplateRepository _dayRepo = DayTemplateRepository(db);
+  late final Stream<int> _dayCountStream =
+      _dayRepo.watchDays().map((days) => days.length);
+
   void _openEditor(_EditorRoute route) => setState(() => _editor = route);
 
   void _onBack() => setState(() => _editor = null);
@@ -81,32 +91,53 @@ class PlanScreenState extends State<PlanScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Top safe-area + title row
+          // Top safe-area + title block
           Padding(
-            padding: EdgeInsets.only(top: topPad),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: Row(
-                children: [
-                  // Leading: back chevron (editor open) or plan icon tile
-                  if (_editor != null)
-                    _BackButton(tokens: tokens, onBack: _onBack)
-                  else
-                    _PlanIconTile(tokens: tokens),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _titleOf(l),
-                      style: WorkoutType.display(
-                        size: 19,
-                        weight: FontWeight.w700,
-                        color: tokens.text,
+            padding: EdgeInsets.fromLTRB(16, 8 + topPad, 16, 12),
+            child: _editor != null
+                ? Row(
+                    children: [
+                      _BackButton(tokens: tokens, onBack: _onBack),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _titleOf(l),
+                          style: WorkoutType.display(
+                            size: 19,
+                            weight: FontWeight.w700,
+                            color: tokens.text,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StreamBuilder<int>(
+                        stream: _dayCountStream,
+                        builder: (context, snap) => Text(
+                          l.planDaysEyebrow(snap.data ?? 0),
+                          style: WorkoutType.mono(
+                            size: 11.5,
+                            color: tokens.faint,
+                            letterSpacing: 0.06 * 11.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        l.planTitle,
+                        style: WorkoutType.display(
+                          size: 28,
+                          weight: FontWeight.w700,
+                          color: tokens.text,
+                          letterSpacing: 28 * -0.02,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
           ),
 
           // Segmented toggle — shown only at list level
@@ -221,24 +252,6 @@ class _BackButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PlanIconTile extends StatelessWidget {
-  const _PlanIconTile({required this.tokens});
-  final WorkoutTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(36 * 0.55),
-        color: tokens.surface3,
-      ),
-      child: Icon(WIcons.plan, size: 20, color: tokens.accent),
     );
   }
 }

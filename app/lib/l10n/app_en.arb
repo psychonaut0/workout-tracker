@@ -270,9 +270,20 @@
   "planTabSplit": "Split",
   "planTabExercises": "Exercises",
   "planTabTargets": "Targets",
-  "splitDaysInRotation": "{count, plural, =1{1 training day in rotation} other{{count} training days in rotation}}",
-  "@splitDaysInRotation": {
+  "planDaysEyebrow": "{count, plural, =1{1 training day} other{{count} training days}}",
+  "@planDaysEyebrow": {
     "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "splitDayMeta": "{focus} · {count, plural, =1{1 exercise} other{{count} exercises}}",
+  "@splitDayMeta": {
+    "placeholders": {
+      "focus": {
+        "type": "String"
+      },
       "count": {
         "type": "int"
       }
