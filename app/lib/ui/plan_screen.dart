@@ -95,6 +95,9 @@ class PlanScreenState extends State<PlanScreen> {
       color: tokens.bg,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        // Stretch, or the min-width title block is centred instead of sitting
+        // left like History's and Progress's headers.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Top safe-area + title block
           Padding(
