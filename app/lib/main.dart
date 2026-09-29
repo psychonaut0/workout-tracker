@@ -142,7 +142,8 @@ class _AppState extends State<App> {
     await disconnectAndClear();
     await widget.auth.logout();
     await widget.settingsService.setSyncEnabled(false);
-    await widget.syncHealth.recompute();
+    // Forget this account's last sync (clear() also recomputes).
+    await widget.syncHealth.clear();
     setState(() {}); // returns to the local app shell, not a login wall
   }
 

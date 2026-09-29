@@ -91,4 +91,38 @@ void main() {
     expect(h.lastSyncedAt, newer);
     h.dispose();
   });
+
+  test('clear() forgets the last sync, in memory and on disk', () async {
+    final h1 = health(initial: SyncStatus(lastSyncedAt: now.subtract(const Duration(hours: 2))));
+    await h1.start();
+    var n = 0;
+    h1.addListener(() => n++);
+    // After logout PowerSync has no time for the next account either.
+    status.add(const SyncStatus());
+    await pumpEventQueue();
+    await h1.clear();
+    expect(h1.lastSyncedAt, isNull);
+    expect(n, 1);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('sync.last_synced_at_ms'), isNull);
+    h1.dispose();
+    final h2 = health(); // the next account, before its first sync
+    await h2.start();
+    expect(h2.lastSyncedAt, isNull);
+    h2.dispose();
+  });
+
+  test('clear() ignores a status that still reports the old time; a newer sync shows', () async {
+    final old = now.subtract(const Duration(hours: 2));
+    final h = health(initial: SyncStatus(lastSyncedAt: old));
+    await h.start();
+    await h.clear(); // PowerSync's status has not caught up yet
+    expect(h.lastSyncedAt, isNull);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('sync.last_synced_at_ms'), isNull);
+    status.add(SyncStatus(connected: true, lastSyncedAt: now));
+    await pumpEventQueue();
+    expect(h.lastSyncedAt, now);
+    h.dispose();
+  });
 }

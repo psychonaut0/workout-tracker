@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../auth/auth_store.dart';
 import '../data/session_repository.dart';
 import '../l10n/app_localizations.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
+import '../sync/sync_health.dart';
 import '../widgets/w_dialog.dart';
 import 'login_screen.dart';
 
@@ -98,6 +100,7 @@ Future<void> reconcileAndConnect(
     // use_build_context_synchronously.
     if (!navigator.mounted) return;
     final l = AppLocalizations.of(navigator.context);
+    final health = navigator.context.read<SyncHealth>();
     final choice = await showWDialog<_ReconcileChoice>(
       navigator.context,
       title: l.profileReconcileTitle,
@@ -121,6 +124,8 @@ Future<void> reconcileAndConnect(
 
     if (choice == _ReconcileChoice.discard) {
       await disconnectAndClear();
+      // The discarded data's last sync is not the account's.
+      await health.clear();
     }
   }
 

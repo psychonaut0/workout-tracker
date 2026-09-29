@@ -44,6 +44,9 @@ class SyncHealth extends ChangeNotifier {
   Timer? _timer;
   DateTime? _saved;
   DateTime? _published;
+  // Set by [clear]: a live time at or before it belongs to the account that
+  // signed out, reported by a status that has not caught up yet.
+  DateTime? _clearedUpTo;
   bool _atRisk = false;
   bool _disposed = false;
 
@@ -51,7 +54,7 @@ class SyncHealth extends ChangeNotifier {
 
   /// The newest of PowerSync's time and the one remembered here.
   DateTime? get lastSyncedAt {
-    final live = _status.lastSyncedAt;
+    final live = _live;
     final saved = _saved;
     if (live == null) return saved;
     if (saved == null) return live;
@@ -72,8 +75,29 @@ class SyncHealth extends ChangeNotifier {
     await recompute();
   }
 
-  Future<void> recompute() async {
+  DateTime? get _live {
     final live = _status.lastSyncedAt;
+    final floor = _clearedUpTo;
+    if (live == null || floor == null) return live;
+    return live.isAfter(floor) ? live : null;
+  }
+
+  /// Forgets the remembered last sync, for a logout or a discard of local
+  /// data: the next account must not show the previous one's time.
+  Future<void> clear() async {
+    final forgotten = lastSyncedAt;
+    if (forgotten != null) _clearedUpTo = forgotten;
+    _saved = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsKey);
+    if (_disposed) return;
+    // recompute() publishes the now-empty time and notifies if it or the
+    // at-risk flag changed.
+    await recompute();
+  }
+
+  Future<void> recompute() async {
+    final live = _live;
     if (live != null && (_saved == null || live.isAfter(_saved!))) {
       _saved = live;
       final prefs = await SharedPreferences.getInstance();
