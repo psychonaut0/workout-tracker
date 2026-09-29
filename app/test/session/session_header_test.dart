@@ -20,11 +20,19 @@ void main() {
   late int adds, skips, menus, mins;
   setUp(() => adds = skips = menus = mins = 0);
 
-  Widget header({DateTime? restStart, int restTotal = 0, Locale locale = const Locale('en')}) => wrapL10n(
+  Widget header({
+    DateTime? restStart,
+    int restTotal = 0,
+    DateTime? restEndedAt,
+    bool showRestRow = false,
+    Locale locale = const Locale('en'),
+  }) =>
+      wrapL10n(
         SessionHeader(
           draft: _draft, elapsed: const Duration(minutes: 1, seconds: 2),
           doneWork: 1, totalWork: 14, prCount: 0,
           restStart: restStart, restTotal: restTotal,
+          restEndedAt: restEndedAt, showRestRow: showRestRow,
           nextLabel: 'Next · Lying leg curl · set 1 · 40kg × 8',
           onMinimize: () => mins++, onMenu: () => menus++,
           onAdd30s: () => adds++, onSkip: () => skips++,
@@ -32,7 +40,7 @@ void main() {
         locale: locale,
       );
 
-  testWidgets('not resting: no rest row', (tester) async {
+  testWidgets('before the first log: no rest row', (tester) async {
     await tester.pumpWidget(header());
     expect(find.text('REST'), findsNothing);
     expect(find.text('+30s'), findsNothing);
@@ -52,6 +60,74 @@ void main() {
     await tester.tap(skip);
     expect((adds, skips), (1, 1));
   });
+
+  testWidgets('after rest: RESTED counts up from the end, chips keep their space but are gone',
+      (tester) async {
+    await tester.pumpWidget(header(
+        showRestRow: true,
+        restEndedAt: DateTime.now().subtract(const Duration(seconds: 84))));
+    expect(find.text('RESTED'), findsOneWidget);
+    expect(find.text('1:24'), findsOneWidget);
+    expect(find.text('Next · Lying leg curl · set 1 · 40kg × 8'), findsOneWidget);
+    expect(find.text('+30s').hitTestable(), findsNothing);
+    expect(find.bySemanticsLabel('+30s'), findsNothing);
+  });
+
+  testWidgets('after rest with no known end: the label without a time', (tester) async {
+    await tester.pumpWidget(header(showRestRow: true));
+    expect(find.text('RESTED'), findsOneWidget);
+    expect(find.textContaining(':'), findsOneWidget); // only the elapsed 1:02
+  });
+
+  testWidgets("a finished countdown the controller hasn't stopped yet reads as rested from its end",
+      (tester) async {
+    await tester.pumpWidget(header(
+        showRestRow: true,
+        restStart: DateTime.now().subtract(const Duration(seconds: 100)),
+        restTotal: 90));
+    expect(find.text('RESTED'), findsOneWidget);
+    expect(find.text('0:10'), findsOneWidget);
+  });
+
+  testWidgets('a future end clamps to 0:00; a very long rest caps at 99:59', (tester) async {
+    await tester.pumpWidget(header(
+        showRestRow: true, restEndedAt: DateTime.now().add(const Duration(minutes: 5))));
+    expect(find.text('0:00'), findsOneWidget);
+    await tester.pumpWidget(header(
+        showRestRow: true, restEndedAt: DateTime.now().subtract(const Duration(hours: 3))));
+    expect(find.text('99:59'), findsOneWidget);
+  });
+
+  for (final width in const [412.0, 320.0]) {
+    for (final scale in const [1.0, 2.0]) {
+      for (final locale in const [Locale('en'), Locale('it')]) {
+        testWidgets('resting and rested are the same height at ${width}dp / $scale× ${locale.languageCode}',
+            (tester) async {
+          tester.view.physicalSize = Size(width, 900);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          Future<double> heightOf(Widget h) async {
+            await tester.pumpWidget(MediaQuery(
+              data: MediaQueryData(size: Size(width, 900), textScaler: TextScaler.linear(scale)),
+              child: h,
+            ));
+            expect(tester.takeException(), isNull);
+            return tester.getSize(find.byType(SessionHeader)).height;
+          }
+
+          final resting = await heightOf(header(
+              showRestRow: true, restStart: DateTime.now(), restTotal: 180, locale: locale));
+          final rested = await heightOf(header(
+              showRestRow: true,
+              restEndedAt: DateTime.now().subtract(const Duration(seconds: 84)),
+              locale: locale));
+          final unknown = await heightOf(header(showRestRow: true, locale: locale));
+          expect(rested, resting);
+          expect(unknown, resting);
+        });
+      }
+    }
+  }
 
   testWidgets('menu and minimize are labelled 48dp buttons', (tester) async {
     await tester.pumpWidget(header());
@@ -127,6 +203,16 @@ void main() {
     });
     test('nothing left: finish', () {
       expect(restNextLabel(l, unit, null), 'Next · Finish workout');
+    });
+
+    test('while a logged set is open for correction, names the real next set', () {
+      final s1 = SetState(id: 's1', weightKg: 40, reps: 8, rir: 1, isWarmup: false, done: true);
+      final s2 = SetState(id: 's2', weightKg: 42.5, reps: 8, rir: 1, isWarmup: false, done: false);
+      final c = ActiveSessionController()
+        ..seedForTest(SessionDraft(templateId: null, name: 'W', focus: '',
+            startedAt: DateTime(2026, 9, 29, 10), blocks: [block([], [s1, s2])]));
+      c.focusSet(s1);
+      expect(restNextLabel(l, unit, c.nextPendingSet), 'Next · Lying leg curl · set 2 · 42.5kg × 8');
     });
   });
 }

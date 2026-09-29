@@ -351,7 +351,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
             prCount: controller.prCount,
             restStart: controller.restStart,
             restTotal: controller.restTotal,
-            nextLabel: restNextLabel(l, unit, live),
+            restEndedAt: controller.restEndedAt,
+            showRestRow: controller.hasLoggedSet,
+            nextLabel: restNextLabel(l, unit, controller.nextPendingSet),
             onMinimize: () => Navigator.of(context).pop(),
             onMenu: () => _openWorkoutMenu(controller),
             onAdd30s: () {

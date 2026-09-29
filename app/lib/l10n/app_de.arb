@@ -124,6 +124,7 @@
   "sessionNoExercisesFound": "Keine Übungen gefunden",
   "sessionOtherMuscle": "Andere",
   "restLabel": "PAUSE",
+  "restRestedLabel": "PAUSIERT",
   "restAdd30s": "+30s",
   "summarySessionNotFound": "Einheit nicht gefunden.",
   "summaryLoadFailed": "Einheit konnte nicht geladen werden: {error}",

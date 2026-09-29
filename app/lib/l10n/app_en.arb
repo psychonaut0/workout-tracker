@@ -246,6 +246,7 @@
   "sessionNoExercisesFound": "No exercises found",
   "sessionOtherMuscle": "Other",
   "restLabel": "REST",
+  "restRestedLabel": "RESTED",
   "restAdd30s": "+30s",
   "summarySessionNotFound": "Session not found.",
   "summaryLoadFailed": "Failed to load session: {error}",

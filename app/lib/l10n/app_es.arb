@@ -124,6 +124,7 @@
   "sessionNoExercisesFound": "No se encontraron ejercicios",
   "sessionOtherMuscle": "Otro",
   "restLabel": "DESCANSO",
+  "restRestedLabel": "DESCANSADO",
   "restAdd30s": "+30s",
   "summarySessionNotFound": "Sesión no encontrada.",
   "summaryLoadFailed": "No se pudo cargar la sesión: {error}",
