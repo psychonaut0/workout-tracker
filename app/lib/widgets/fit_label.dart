@@ -349,6 +349,34 @@ class RenderFitLabel extends RenderProxyBox {
     );
     size = constraints.constrain(child.size);
   }
+
+  final LayerHandle<ClipRectLayer> _clipLayer = LayerHandle<ClipRectLayer>();
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    // A tight parent shorter than the text leaves the child taller than this
+    // box. Clip it, so the overspill can't hide from the layout checks.
+    if (child.size.height > size.height) {
+      _clipLayer.layer = context.pushClipRect(
+        needsCompositing,
+        offset,
+        Offset.zero & size,
+        super.paint,
+        oldLayer: _clipLayer.layer,
+      );
+    } else {
+      _clipLayer.layer = null;
+      super.paint(context, offset);
+    }
+  }
+
+  @override
+  void dispose() {
+    _clipLayer.layer = null;
+    super.dispose();
+  }
 }
 
 /// The ambient [TextScaler] times a shrink factor: a fitted label still
