@@ -18,6 +18,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pending_input.dart';
 import '../widgets/w_action_sheet.dart';
 import '../widgets/w_dialog.dart';
@@ -505,12 +506,16 @@ class _DashedButton extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: tokens.dim),
             const SizedBox(width: 7),
-            Text(
-              label,
-              style: WorkoutType.mono(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: tokens.dim),
+            // Shrinks, then ellipsizes, rather than pushing past the button
+            // on a narrow phone at large text.
+            Flexible(
+              child: FitLabel(
+                label,
+                style: WorkoutType.mono(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: tokens.dim),
+              ),
             ),
           ],
         ),
