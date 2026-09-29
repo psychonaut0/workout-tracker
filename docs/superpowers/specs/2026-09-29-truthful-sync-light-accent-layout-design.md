@@ -149,6 +149,26 @@ Out of scope: `danger` in light mode (≈ 2.9:1) is a known gap for a later pass
 - The exercise editor's RIR steppers get their missing widget test here, now that the harness can mount the editor.
 - `AGENTS.md` / `app/CLAUDE.md`: correct the note that screens owning PowerSync watch-streams can't be mounted, and point to the harness.
 
+## Notes from planning
+
+These details were settled against the code while writing the plan. They override the sections above where they differ.
+
+- **`FitLabel` implementation:**
+  - It is a `RenderProxyBox` hosting a real `Text`, not a `LayoutBuilder`. The Today stat row and the week strip sit under `IntrinsicHeight`, and `LayoutBuilder` asserts on intrinsic queries.
+  - It has a `FitLabel.rich` variant for the two-style labels (History card label, summary title).
+  - Numbers (summary tile values, the week strip's NEXT status) use `FittedBox` instead, because a number must never ellipsize.
+- **Words are whitespace-separated.** A hyphenated compound such as "Kurzhantel-Schrägbankdrücken" counts as one word, so at 320dp it shrinks, then ellipsizes, rather than breaking at the hyphen.
+- **The split-word check compares character boxes.** `RenderParagraph`'s line-boundary lookup is private. The check also flags digit-to-digit breaks ("10" wrapping to "1/0").
+- **Fonts:** google/fonts ships these families only as variable fonts. The bundled statics are the exact per-weight files `google_fonts` itself downloads, verified by the sha256 in its generated tables. `OFL.txt` holds the three families' licences.
+- **Sparkline:** `Sparkline.width` becomes nullable and fills the tile. The Today call site doesn't change.
+- **The doc note** being corrected lives in `app/AGENTS.md` (`app/CLAUDE.md` only includes it).
+- **Found while reading, also fixed:**
+  - the History date block at 2.0×;
+  - the History 4-week summary cards;
+  - the hero pager, stats row, Start label and Custom slide at 2.0× and 320dp;
+  - the week strip weekday code;
+  - the split tab day name at 2.0×.
+
 ## Out of scope
 
 The P2 and lower critique items:
