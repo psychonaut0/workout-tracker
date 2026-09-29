@@ -167,25 +167,33 @@ class SplitDayCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  // A long focus ellipsizes; the count keeps its own slot.
-                  Row(
-                    children: [
-                      if (focusText.isNotEmpty)
-                        Flexible(
-                          child: Text(
-                            focusText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                  // A long focus ellipsizes; the count keeps its own slot,
+                  // capped at the row so at large text it shrinks, then
+                  // ellipsizes, rather than overflowing.
+                  LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: [
+                        if (focusText.isNotEmpty)
+                          Flexible(
+                            child: Text(
+                              focusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: metaStyle,
+                            ),
+                          ),
+                        ConstrainedBox(
+                          constraints:
+                              BoxConstraints(maxWidth: constraints.maxWidth),
+                          child: FitLabel(
+                            focusText.isNotEmpty
+                                ? ' · $countText'
+                                : countText,
                             style: metaStyle,
                           ),
                         ),
-                      Text(
-                        focusText.isNotEmpty ? ' · $countText' : countText,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: metaStyle,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -231,12 +239,14 @@ class _NewDayButton extends StatelessWidget {
             children: [
               Icon(WIcons.plus, size: 16, color: tokens.dim),
               const SizedBox(width: 7),
-              Text(
-                l.planNewDay,
-                style: WorkoutType.mono(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: tokens.dim,
+              Flexible(
+                child: FitLabel(
+                  l.planNewDay,
+                  style: WorkoutType.mono(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: tokens.dim,
+                  ),
                 ),
               ),
             ],
