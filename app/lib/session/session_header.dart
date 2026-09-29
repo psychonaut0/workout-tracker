@@ -206,88 +206,91 @@ class SessionHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      // Label and clock shrink to fit before the chips are
-                      // squeezed, so the widest labels at large text scale
-                      // never overflow the row.
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(resting ? l.restLabel : l.restRestedLabel,
-                                  style: WorkoutType.mono(
-                                      size: 10, color: tokens.faint, letterSpacing: 0.08 * 10)),
-                              const SizedBox(width: 8),
-                              // Always laid out (empty when the rested time is unknown)
-                              // so both states keep one height.
-                              AnimatedDefaultTextStyle(
-                                duration: Motion.of(context, Motion.base),
-                                curve: Motion.curve,
-                                style: WorkoutType.display(
-                                  size: 18,
-                                  weight: FontWeight.w700,
-                                  color: !resting
-                                      ? tokens.dim
-                                      : remaining <= _finalThreshold
-                                          ? tokens.accentText
-                                          : tokens.text,
-                                ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                                child: Text(resting
-                                    ? clock(remaining)
-                                    : rested == null
-                                        ? ''
-                                        : clock(rested)),
-                              ),
-                            ],
+                  LayoutBuilder(builder: (context, row) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // The chips keep their natural width; the label and
+                        // clock take what is left and scale down to fit when
+                        // it runs out, so the widest labels at large text
+                        // scale never overflow the row.
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(resting ? l.restLabel : l.restRestedLabel,
+                                    style: WorkoutType.mono(
+                                        size: 10, color: tokens.faint, letterSpacing: 0.08 * 10)),
+                                const SizedBox(width: 8),
+                                // Always laid out (empty when the rested time is unknown)
+                                // so both states keep one height.
+                                AnimatedDefaultTextStyle(
+                                  duration: Motion.of(context, Motion.base),
+                                  curve: Motion.curve,
+                                  style: WorkoutType.display(
+                                    size: 18,
+                                    weight: FontWeight.w700,
+                                    color: !resting
+                                        ? tokens.dim
+                                        : remaining <= _finalThreshold
+                                            ? tokens.accentText
+                                            : tokens.text,
+                                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                                  child: Text(resting
+                                      ? clock(remaining)
+                                      : rested == null
+                                          ? ''
+                                          : clock(rested)),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      // The chip pair sits flush right at natural width; at
-                      // extreme width/scale/translation combos there is not
-                      // enough room for both at their natural (unellipsized)
-                      // text width, so this Expanded — the row's only flex
-                      // child — lets them shrink together rather than
-                      // overflow, each keeping its own ellipsis as a floor.
-                      Expanded(
-                        // After rest the chips are gone but keep their space,
-                        // so the row does not change height.
-                        child: Visibility(
-                          visible: resting,
-                          maintainSize: true,
-                          maintainAnimation: true,
-                          maintainState: true,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Flexible(
-                                child: _RestChip(
+                        // The chip pair sits flush right at natural width,
+                        // capped at 60% of the row so the label and clock
+                        // always keep room. Only past that cap (narrow
+                        // screens, large text, long translations) does Skip
+                        // shrink, keeping its ellipsis as a floor; +30s is
+                        // short in every locale.
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: row.maxWidth * 0.6),
+                          // After rest the chips are gone but keep their
+                          // space, so the row does not change height.
+                          child: Visibility(
+                            visible: resting,
+                            maintainSize: true,
+                            maintainAnimation: true,
+                            maintainState: true,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _RestChip(
                                   key: const Key('rest-add'),
                                   label: l.restAdd30s,
                                   filled: false,
                                   tokens: tokens,
                                   onTap: onAdd30s,
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: _RestChip(
-                                  key: const Key('rest-skip'),
-                                  label: l.commonSkip,
-                                  filled: true,
-                                  tokens: tokens,
-                                  onTap: onSkip,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: _RestChip(
+                                    key: const Key('rest-skip'),
+                                    label: l.commonSkip,
+                                    filled: true,
+                                    tokens: tokens,
+                                    onTap: onSkip,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  }),
                   const SizedBox(height: 4),
                   Text(nextLabel,
                       maxLines: 1,

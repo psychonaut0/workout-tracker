@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/l10n/app_localizations.dart';
@@ -180,6 +181,43 @@ void main() {
       expect(size.width, inInclusiveRange(56, 100), reason: '$key');
       expect(size.height, 48, reason: '$key');
     }
+  });
+
+  for (final width in const [360.0, 412.0]) {
+    testWidgets('${width}dp / 1.0× de: the Skip chip shows its whole label while resting',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MediaQuery(
+        data: MediaQueryData(size: Size(width, 800)),
+        child: header(restStart: DateTime.now(), restTotal: 90, locale: const Locale('de')),
+      ));
+      expect(tester.takeException(), isNull);
+      for (final key in const [Key('rest-add'), Key('rest-skip')]) {
+        final paragraph = tester.renderObject<RenderParagraph>(find
+            .descendant(of: find.byKey(key), matching: find.byType(RichText))
+            .first);
+        expect(paragraph.didExceedMaxLines, isFalse, reason: '$key');
+      }
+    });
+  }
+
+  testWidgets('412dp / 1.0× en: the rest clock is drawn at full size', (tester) async {
+    tester.view.physicalSize = const Size(412, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(size: Size(412, 800)),
+      child: header(restStart: DateTime.now(), restTotal: 90),
+    ));
+    final clock = find.text('1:30');
+    final laidOut = tester.getSize(clock);
+    final drawn = tester.getRect(clock);
+    expect(drawn.width, closeTo(laidOut.width, 0.01));
+    expect(drawn.height, closeTo(laidOut.height, 0.01));
+    // The chips still sit flush right, inside the 12dp end padding.
+    expect(tester.getRect(find.byKey(const Key('rest-skip'))).right, closeTo(400, 0.01));
   });
 
   group('restNextLabel', () {
