@@ -619,7 +619,11 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
       scaler: MediaQuery.textScalerOf(context),
     );
 
-    final tape = RepaintBoundary(
+    // Clipped to the ruler's own box: the painter draws a step past each
+    // side so edge values slide in, and the ShaderMask's fade only covers
+    // its own bounds.
+    final tape = ClipRect(
+      child: RepaintBoundary(
       child: CustomPaint(
       painter: _TapePainter(
         position: _pos,
@@ -635,7 +639,7 @@ class RulerPickerState extends State<RulerPicker> with TickerProviderStateMixin 
         paints: _paints,
         centreLabels: _centreLabels,
       ),
-    ));
+    )));
 
     return Semantics(
       slider: true,
