@@ -74,4 +74,21 @@ void main() {
     h.dispose();
     expect(status.hasListener, isFalse);
   });
+
+  test('repeated identical status events do not notify; a newer sync does', () async {
+    final h = health(initial: SyncStatus(lastSyncedAt: now));
+    await h.start();
+    var n = 0;
+    h.addListener(() => n++);
+    status.add(SyncStatus(connected: true, lastSyncedAt: now));
+    status.add(SyncStatus(connected: true, lastSyncedAt: now));
+    await pumpEventQueue();
+    expect(n, 0);
+    final newer = now.add(const Duration(minutes: 1));
+    status.add(SyncStatus(connected: true, lastSyncedAt: newer));
+    await pumpEventQueue();
+    expect(n, 1);
+    expect(h.lastSyncedAt, newer);
+    h.dispose();
+  });
 }

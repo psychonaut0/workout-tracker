@@ -43,6 +43,7 @@ class SyncHealth extends ChangeNotifier {
   StreamSubscription<SyncStatus>? _sub;
   Timer? _timer;
   DateTime? _saved;
+  DateTime? _published;
   bool _atRisk = false;
   bool _disposed = false;
 
@@ -67,6 +68,7 @@ class SyncHealth extends ChangeNotifier {
     });
     _settings?.addListener(recompute);
     _timer = Timer.periodic(_poll, (_) => recompute());
+    _published = lastSyncedAt;
     await recompute();
   }
 
@@ -87,11 +89,11 @@ class SyncHealth extends ChangeNotifier {
       lastSyncedAt: lastSyncedAt,
       now: _clock(),
     );
-    if (next != _atRisk) {
+    final last = lastSyncedAt;
+    if (next != _atRisk || last != _published) {
       _atRisk = next;
+      _published = last;
       notifyListeners();
-    } else if (live != null) {
-      notifyListeners(); // Profile shows the new time
     }
   }
 
