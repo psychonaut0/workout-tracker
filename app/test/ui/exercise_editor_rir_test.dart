@@ -1,0 +1,47 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/ui/exercise_editor.dart';
+import 'package:workout_tracker/widgets/plan_form.dart';
+
+import '../support/pump_until.dart';
+import '../support/screen_harness.dart';
+
+// Field renders its label upper-cased.
+Finder _inField(String label, Finder matching) => find.descendant(
+      of: find.ancestor(of: find.text(label), matching: find.byType(Field)),
+      matching: matching,
+    );
+
+void main() {
+  final harness = ScreenHarness();
+  tearDown(harness.close);
+
+  testWidgets('RIR low and high stay ordered: each drags the other along',
+      (tester) async {
+    await harness.open(tester);
+    setPhone(tester, width: 412);
+    await tester.pumpWidget(harness.wrap(
+        Scaffold(body: ExerciseEditor(id: 'ex3', onBack: () {}))));
+    await pumpUntilFound(tester,
+        find.descendant(of: find.byType(ExerciseEditor), matching: find.byType(ListView)));
+    await scrollIntoView(
+        tester, find.byType(ExerciseEditor), find.text('RIR HIGH'));
+
+    expect(_inField('RIR LOW', find.text('1')), findsOneWidget);
+    expect(_inField('RIR HIGH', find.text('2')), findsOneWidget);
+
+    await tester.tap(_inField('RIR LOW', find.byKey(const Key('stepper-inc'))));
+    await tester.pump();
+    await tester.tap(_inField('RIR LOW', find.byKey(const Key('stepper-inc'))));
+    await tester.pump();
+    expect(_inField('RIR LOW', find.text('3')), findsOneWidget);
+    expect(_inField('RIR HIGH', find.text('3')), findsOneWidget);
+
+    await tester.tap(_inField('RIR HIGH', find.byKey(const Key('stepper-dec'))));
+    await tester.pump();
+    expect(_inField('RIR LOW', find.text('2')), findsOneWidget);
+    expect(_inField('RIR HIGH', find.text('2')), findsOneWidget);
+
+    await harness.unmount(tester);
+  });
+}
