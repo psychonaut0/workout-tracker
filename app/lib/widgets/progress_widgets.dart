@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../theme/icons.dart';
+import 'fit_label.dart';
 
 // ── Metric model + const list ─────────────────────────────────────────────────
 
@@ -98,8 +99,9 @@ class BigStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mono 9.5 uppercase faint label, mb6
-        Text(
+        // Mono 9.5 uppercase faint label, mb6. A third of a narrow phone at
+        // large text is too small for "BESTWERT": shrink, then ellipsize.
+        FitLabel(
           label.toUpperCase(),
           style: WorkoutType.mono(
             size: 9.5,

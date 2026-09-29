@@ -19,6 +19,7 @@ import '../units/unit_service.dart';
 import '../util/dates.dart';
 import '../util/format.dart';
 import '../widgets/card.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/line_chart.dart';
 import '../widgets/pr_badge.dart';
 import '../widgets/progress_widgets.dart';
@@ -294,8 +295,9 @@ class _LiftView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              Text(
+              FitLabel(
                 l.progressTrend(metricName),
+                maxLines: 2,
                 style: WorkoutType.display(size: 28, weight: FontWeight.w700),
               ),
             ],
@@ -572,8 +574,9 @@ class _SessionLogCard extends StatelessWidget {
                 // Date
                 SizedBox(
                   width: 58,
-                  child: Text(
+                  child: FitLabel(
                     fmtDate(p.date, localeName),
+                    maxLines: 2,
                     style: WorkoutType.mono(size: 12, color: tokens.dim),
                   ),
                 ),
