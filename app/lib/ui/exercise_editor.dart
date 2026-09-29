@@ -51,7 +51,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
   late final TextEditingController _nameCtrl;
   late final TextEditingController _equipCtrl;
-  late final TextEditingController _rirCtrl;
 
   String _muscleGroup = 'chest';
   bool _compound = false;
@@ -68,6 +67,11 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   int _repHigh = 12;
   int _workSets = 3;
   int _warmupSets = 0;
+
+  // Default RIR; null = not set. The steppers show a null bound as 1, and
+  // only a touch writes both bounds, so an untouched editor saves nothing new.
+  int? _rirLow;
+  int? _rirHigh;
 
   // Per-exercise rest (seconds); 0 = "Default" = null (use the global default).
   int _restSeconds = 0;
@@ -90,7 +94,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     super.initState();
     _nameCtrl = TextEditingController();
     _equipCtrl = TextEditingController();
-    _rirCtrl = TextEditingController();
     _loadData();
   }
 
@@ -98,7 +101,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
   void dispose() {
     _nameCtrl.dispose();
     _equipCtrl.dispose();
-    _rirCtrl.dispose();
     super.dispose();
   }
 
@@ -115,7 +117,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           _compound = false;
           _baseWeightDisplay = 0;
           _stepDisplay = stepDisplay;
-          _rirCtrl.text = '1';
           _loaded = true;
         });
       }
@@ -152,10 +153,10 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         ? null
         : ex.muscleGroup;
 
-    // RIR display string.
-    final rirText = (ex.defaultRirLow != null && ex.defaultRirHigh != null)
-        ? rirToString(ex.defaultRirLow!, ex.defaultRirHigh!)
-        : '1';
+    // A half-set RIR range counts as not set; an inverted one (old data) is
+    // loaded in order.
+    final rirSet = ex.defaultRirLow != null && ex.defaultRirHigh != null;
+    final rir = rirSet ? rirOrdered(ex.defaultRirLow!, ex.defaultRirHigh!) : null;
 
     setState(() {
       _editId = ex.id;
@@ -171,7 +172,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       _workSets = ex.defaultWorkingSets ?? 3;
       _warmupSets = ex.defaultWarmupSets ?? 0;
       _restSeconds = ex.defaultRestSeconds ?? 0;
-      _rirCtrl.text = rirText;
+      _rirLow = rir?.low;
+      _rirHigh = rir?.high;
       _prKg = prKg;
       _extraMuscle = extra;
       _loaded = true;
@@ -215,9 +217,6 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
         ? null
         : UnitService.toKg(_baseWeightDisplay, unit);
 
-    // Parse RIR (non-throwing; if fails keep null).
-    final rir = rirTryParse(_rirCtrl.text);
-
     final draft = ExerciseDraft(
       name: _nameCtrl.text.trim(),
       muscleGroup: _muscleGroup,
@@ -229,8 +228,8 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       defaultRepHigh: _repHigh,
       defaultWarmupSets: _warmupSets,
       defaultWorkingSets: _workSets,
-      defaultRirLow: rir?.low,
-      defaultRirHigh: rir?.high,
+      defaultRirLow: _rirLow,
+      defaultRirHigh: _rirHigh,
       defaultRestSeconds: _restSeconds == 0 ? null : _restSeconds,
     );
 
@@ -621,14 +620,55 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           ),
         ),
 
-        // RIR target — raw text, parsed via rirTryParse on save only.
-        Field(
-          label: l.dayEditorRirTarget,
-          child: TextInput(
-            controller: _rirCtrl,
-            placeholder: '1',
-            // Do NOT parse on change — rirParse throws on partial input.
-          ),
+        // RIR low + RIR high — stepping either past the other drags it along.
+        Row(
+          children: [
+            Expanded(
+              child: Field(
+                label: l.dayEditorRirLow,
+                child: WStepper(
+                  value: (_rirLow ?? 1).toDouble(),
+                  step: 1,
+                  format: (v) => v.round().toString(),
+                  onChanged: (v) {
+                    final r = rirWithLow(_rirLow ?? 1, _rirHigh ?? 1, v.round());
+                    setState(() {
+                      _rirLow = r.low;
+                      _rirHigh = r.high;
+                    });
+                  },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 0,
+                  max: 5,
+                  semanticLabel: l.dayEditorRirLow,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Field(
+                label: l.dayEditorRirHigh,
+                child: WStepper(
+                  value: (_rirHigh ?? 1).toDouble(),
+                  step: 1,
+                  format: (v) => v.round().toString(),
+                  onChanged: (v) {
+                    final r = rirWithHigh(_rirLow ?? 1, _rirHigh ?? 1, v.round());
+                    setState(() {
+                      _rirLow = r.low;
+                      _rirHigh = r.high;
+                    });
+                  },
+                  editable: true,
+                  allowDecimal: false,
+                  min: 0,
+                  max: 5,
+                  semanticLabel: l.dayEditorRirHigh,
+                ),
+              ),
+            ),
+          ],
         ),
 
         // ── Primary action ─────────────────────────────────────────────────

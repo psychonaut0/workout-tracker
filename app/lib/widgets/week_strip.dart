@@ -193,13 +193,31 @@ class _StatusIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isNext) {
-      return Text(
+      final next = Text(
         AppLocalizations.of(context).weekStripNext,
         style: WorkoutType.mono(
           size: 9,
           weight: FontWeight.w700,
           color: filled ? tokens.accentInk : tokens.accent,
           letterSpacing: 0.06 * 9,
+        ),
+      );
+      if (!isDone) return next;
+      // Both next and already done this week: NEXT plus a small check,
+      // scaled down to fit a narrow chip (a long NEXT label, large text).
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            next,
+            const SizedBox(width: 3),
+            Icon(
+              WIcons.check,
+              size: 10,
+              color: filled ? tokens.accentInk : tokens.accent,
+            ),
+          ],
         ),
       );
     }

@@ -3,9 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../data/exercise_repository.dart';
+import '../data/finished_session_store.dart';
 import '../data/models.dart';
 import '../data/muscles.dart';
 import '../data/progress_repository.dart';
+import '../data/stats_repository.dart';
+import '../session/session_manager.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -22,6 +25,7 @@ import '../widgets/progress_widgets.dart';
 import '../widgets/section_label.dart';
 import 'bodyweight_view.dart';
 import 'exercise_sheet.dart';
+import 'progress_change.dart';
 
 /// The sentinel value used to represent the Bodyweight target.
 const String bwId = '__bodyweight__';
@@ -46,7 +50,18 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   late final ExerciseRepository _exerciseRepo;
   late final ProgressRepository _progressRepo;
+  late final StatsRepository _statsRepo;
   late final Stream<List<Exercise>> _catalogStream;
+
+  /// The exercise of the most recent working set: a one-shot read (not a
+  /// watch) on open, repeated each time a workout finishes. Null until it
+  /// resolves, or if there's no history.
+  String? _lastTrained;
+
+  /// This screen lives in the shell's IndexedStack, so it is built once at
+  /// launch; listening for finished workouts keeps the default fresh.
+  SessionManager? _sessions;
+  FinishedSession? _seenFinished;
 
   String? _seriesKey;
   Stream<List<ProgressPoint>>? _seriesStream;
@@ -67,14 +82,49 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _target = widget.initialTarget;
     _exerciseRepo = ExerciseRepository(db);
     _progressRepo = ProgressRepository(db);
+    _statsRepo = StatsRepository(db);
     _catalogStream = _exerciseRepo.watchCatalog();
+    if (widget.initialTarget == null) {
+      _refreshLastTrained();
+      try {
+        _sessions = context.read<SessionManager>();
+      } on ProviderNotFoundException {
+        _sessions = null; // widget tests that mount the screen bare
+      }
+      _seenFinished = _sessions?.lastFinished;
+      _sessions?.addListener(_onSessionsChanged);
+    }
   }
 
-  Future<void> _openPicker(List<Exercise> catalog) async {
+  @override
+  void dispose() {
+    _sessions?.removeListener(_onSessionsChanged);
+    super.dispose();
+  }
+
+  void _refreshLastTrained() {
+    _statsRepo.lastTrainedExerciseId().then((id) {
+      if (!mounted) return;
+      setState(() => _lastTrained = id);
+    });
+  }
+
+  /// A newly adopted finish snapshot means a workout just committed: re-read
+  /// the last-trained exercise. An explicit pick still wins in build.
+  void _onSessionsChanged() {
+    final f = _sessions?.lastFinished;
+    if (f == null || identical(f, _seenFinished)) return;
+    _seenFinished = f;
+    _refreshLastTrained();
+  }
+
+  /// Opens the picker with [shown] — the id actually on screen, not just an
+  /// explicit pick — marked as the current row.
+  Future<void> _openPicker(List<Exercise> catalog, String? shown) async {
     final r = await showExerciseSheet(
       context,
       exercises: catalog,
-      current: _target,
+      current: shown,
     );
     if (r != null) setState(() => _target = r);
   }
@@ -89,21 +139,25 @@ class _ProgressScreenState extends State<ProgressScreen> {
       builder: (context, snap) {
         final catalog = snap.data ?? const <Exercise>[];
 
-        // Determine the effective target.
-        String? target = _target;
-        if (target == null && catalog.isNotEmpty) {
-          // Default: first exercise that has history; else first alphabetical.
-          // Since we can't await inside build, we use the first alphabetical
-          // as the default and rely on the stream update for a better pick.
-          target = catalog.first.id;
-        }
+        // Determine the effective target. A user pick (_target) always wins;
+        // otherwise default to the last-trained exercise, falling back to the
+        // first catalog entry when there's no history or it was deleted.
+        String? target = _target ?? defaultProgressExercise(_lastTrained, catalog);
+        // What is actually on screen, so the picker can mark it.
+        final shown = shownProgressTarget(
+          pick: _target,
+          lastTrainedId: _lastTrained,
+          catalog: catalog,
+          bodyweightId: bwId,
+        );
+        void openPicker() => _openPicker(catalog, shown);
 
         if (target == bwId) {
-          return BodyweightView(onOpenPicker: () => _openPicker(catalog));
+          return BodyweightView(onOpenPicker: openPicker);
         }
 
         if (target == null) {
-          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+          return _EmptyState(onOpenPicker: openPicker);
         }
 
         // The catalog stream's first emission is asynchronous, so a screen
@@ -116,7 +170,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           // second must stay recoverable via the picker instead of a dead
           // blank screen.
           if (!snap.hasData) return const SizedBox.shrink();
-          return _EmptyState(onOpenPicker: () => _openPicker(catalog));
+          return _EmptyState(onOpenPicker: openPicker);
         }
 
         final exId = target;
@@ -146,7 +200,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               metric: metric,
               rawSeries: rawSeries,
               unitService: unit,
-              onPickerTap: () => _openPicker(catalog),
+              onPickerTap: openPicker,
               onMetricChanged: (id) => setState(() => _metricId = id),
             );
           },
@@ -196,13 +250,6 @@ class _LiftView extends StatelessWidget {
 
   String _fmtVal(double v) =>
       metricId == 'volume' ? fmtThousands(v) : fmtPlain(v);
-
-  String _signedDelta(double delta) {
-    final abs = _fmtVal(delta.abs());
-    if (delta > 0) return '+$abs';
-    if (delta < 0) return '-$abs';
-    return '0';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -271,16 +318,29 @@ class _LiftView extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // (4) Chart
+        // (4) Chart. Exactly 1 point can't draw a trend, so it gets an
+        // explanatory message instead; 0 points keeps LineChart's own
+        // existing blank-frame behaviour, and 2+ draws the real chart.
         WCard(
           padding: const EdgeInsets.fromLTRB(8, 16, 8, 10),
-          child: LineChart(
-            key: ValueKey('$metricId-$unit'),
-            series: chartSeries,
-            height: 210,
-            unit: unit,
-            showReps: metric.reps,
-          ),
+          child: rawSeries.length == 1
+              ? SizedBox(
+                  height: 210,
+                  child: Center(
+                    child: Text(
+                      l.progressTrendNeedsMore,
+                      textAlign: TextAlign.center,
+                      style: WorkoutType.mono(size: 12, color: tokens.faint),
+                    ),
+                  ),
+                )
+              : LineChart(
+                  key: ValueKey('$metricId-$unit'),
+                  series: chartSeries,
+                  height: 210,
+                  unit: unit,
+                  showReps: metric.reps,
+                ),
         ),
         const SizedBox(height: 14),
 
@@ -290,8 +350,8 @@ class _LiftView extends StatelessWidget {
           metric: metric,
           unit: unit,
           topReps: rawSeries.isNotEmpty ? rawSeries.last.topReps : 0,
+          firstTopReps: rawSeries.isNotEmpty ? rawSeries.first.topReps : 0,
           fmtVal: _fmtVal,
-          signedDelta: _signedDelta,
         ),
         const SizedBox(height: 22),
 
@@ -336,16 +396,16 @@ class _BigStatRow extends StatelessWidget {
     required this.metric,
     required this.unit,
     required this.topReps,
+    required this.firstTopReps,
     required this.fmtVal,
-    required this.signedDelta,
   });
 
   final List<double> series;
   final Metric metric;
   final String unit;
   final int topReps;
+  final int firstTopReps;
   final String Function(double) fmtVal;
-  final String Function(double) signedDelta;
 
   @override
   Widget build(BuildContext context) {
@@ -363,12 +423,24 @@ class _BigStatRow extends StatelessWidget {
     }
 
     final last = series.last;
-    final first = series.first;
     final best = series.reduce((a, b) => a > b ? a : b);
-    final delta = series.length >= 2 ? last - first : 0.0;
 
     // Current card unit: for the `top` metric, append ' ×{topReps}'
     final currentUnit = metric.reps ? '$unit ×$topReps' : unit;
+
+    // 12wk delta: for Top set, fall back to the rep change when the weight
+    // itself didn't move. A weight change keeps the unit in the tile's own
+    // slot, styled the same as Current/Best; a rep change or "same" has no
+    // weight unit to show there.
+    final delta12wk = progressDeltaStat(
+      l,
+      series: series,
+      reps: metric.reps,
+      firstTopReps: firstTopReps,
+      topReps: topReps,
+      unit: unit,
+      fmtVal: fmtVal,
+    );
 
     return Row(
       children: [
@@ -408,8 +480,8 @@ class _BigStatRow extends StatelessWidget {
               unitKey: unit,
               child: BigStat(
                 label: l.progressStat12wkDelta,
-                value: series.length >= 2 ? signedDelta(delta) : '—',
-                unit: unit.isNotEmpty ? unit : null,
+                value: delta12wk.value,
+                unit: delta12wk.unit,
               ),
             ),
           ),
@@ -440,6 +512,7 @@ class _SessionLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first.
     final reversed = List.generate(rawSeries.length, (i) {
@@ -455,9 +528,35 @@ class _SessionLogCard extends StatelessWidget {
           final p = entry.point;
           final v = entry.value;
           // Previous in the reversed list = older session.
-          final prevValue = i < reversed.length - 1 ? reversed[i + 1].value : null;
-          final diff = prevValue != null ? v - prevValue : 0.0;
+          final prevEntry = i < reversed.length - 1 ? reversed[i + 1] : null;
+          final diff = prevEntry != null ? v - prevEntry.value : 0.0;
           final isLast = i == reversed.length - 1;
+
+          // Delta label: for Top set, fall back to the rep change when the
+          // weight equals the previous session's; otherwise a plain signed
+          // value. The oldest session has nothing to compare against, so its
+          // change slot stays empty.
+          final String deltaLabel;
+          final Color deltaColor;
+          if (prevEntry == null) {
+            deltaLabel = '';
+            deltaColor = tokens.faint;
+          } else if (metric.reps) {
+            final c = topSetChange(
+              prevWeight: prevEntry.value,
+              prevReps: prevEntry.point.topReps,
+              curWeight: v,
+              curReps: p.topReps,
+            );
+            deltaLabel = changeLabel(l, c, fmtVal: fmtVal);
+            deltaColor = (c is WeightChange && c.delta > 0) ||
+                    (c is RepChange && c.delta > 0)
+                ? tokens.accent
+                : tokens.faint;
+          } else {
+            deltaLabel = signedChange(diff, fmtVal, l);
+            deltaColor = diff > 0 ? tokens.accent : tokens.faint;
+          }
 
           return Container(
             decoration: BoxDecoration(
@@ -480,7 +579,7 @@ class _SessionLogCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 // Value + reps for top metric
-                Flexible(
+                Expanded(
                   child: _ValueLabel(
                     value: fmtVal(v),
                     unit: unit,
@@ -488,24 +587,28 @@ class _SessionLogCard extends StatelessWidget {
                     tokens: tokens,
                   ),
                 ),
-                const Spacer(),
-                // PR badge or delta
-                if (metric.pr && p.isPr)
-                  const PRBadge(small: true)
-                else if (diff != 0)
-                  Text(
-                    _signedFmt(diff, fmtVal),
-                    style: WorkoutType.mono(
-                      size: 11.5,
-                      weight: FontWeight.w600,
-                      color: diff > 0 ? tokens.accent : tokens.faint,
-                    ),
-                  )
-                else
-                  Text(
-                    '=',
-                    style: WorkoutType.mono(size: 11.5, color: tokens.faint),
+                const SizedBox(width: 8),
+                // PR badge or delta, fixed width so it doesn't move the
+                // column when switching metric.
+                SizedBox(
+                  width: 64,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: metric.pr && p.isPr
+                        ? const PRBadge(small: true)
+                        : Text(
+                            deltaLabel,
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WorkoutType.mono(
+                              size: 11.5,
+                              weight: FontWeight.w600,
+                              color: deltaColor,
+                            ),
+                          ),
                   ),
+                ),
               ],
             ),
           );
@@ -513,11 +616,6 @@ class _SessionLogCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _signedFmt(double delta, String Function(double) fmtVal) {
-  final abs = fmtVal(delta.abs());
-  return delta > 0 ? '+$abs' : '-$abs';
 }
 
 class _ValueLabel extends StatelessWidget {

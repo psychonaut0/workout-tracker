@@ -33,7 +33,6 @@ class _SplitTabState extends State<SplitTab> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final tokens = context.tokens;
 
     return StreamBuilder<List<DayTemplate>>(
@@ -44,20 +43,16 @@ class _SplitTabState extends State<SplitTab> {
         return ListView(
           padding: EdgeInsets.fromLTRB(16, 8, 16, bottomNavInset(context)),
           children: [
-            // Header count
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Text(
-                l.splitDaysInRotation(days.length),
-                style: WorkoutType.mono(size: 11.5, color: tokens.faint),
-              ),
-            ),
-
             // Day cards
-            ...days.map((day) => _DayCard(
-                  day: day,
-                  tokens: tokens,
-                  onTap: () => widget.onOpenEditor(day.id),
+            ...days.map((day) => Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: SplitDayCard(
+                    weekday: day.scheduledWeekday,
+                    name: day.name,
+                    focus: day.focus,
+                    exerciseCount: day.slots.length,
+                    onTap: () => widget.onOpenEditor(day.id),
+                  ),
                 )),
 
             if (days.isNotEmpty) const SizedBox(height: 14),
@@ -76,108 +71,114 @@ class _SplitTabState extends State<SplitTab> {
 
 // ── Day card ──────────────────────────────────────────────────────────────────
 
-class _DayCard extends StatelessWidget {
-  const _DayCard({
-    required this.day,
-    required this.tokens,
+/// A training-day row: weekday block, name, and "focus · N exercises" meta.
+///
+/// Public so it is directly widget-testable (see `test/ui/split_tab_test.dart`)
+/// without mounting the PowerSync-backed [SplitTab].
+class SplitDayCard extends StatelessWidget {
+  const SplitDayCard({
+    super.key,
+    required this.weekday,
+    required this.name,
+    required this.focus,
+    required this.exerciseCount,
     required this.onTap,
   });
 
-  final DayTemplate day;
-  final WorkoutTokens tokens;
+  /// Monday-origin (0-6) scheduled weekday, or null if unscheduled.
+  final int? weekday;
+  final String name;
+  final String? focus;
+  final int exerciseCount;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // Guard nullable scheduledWeekday — weekdayShort is non-nullable and
-    // indexes an unguarded array.
-    final weekBadge = (day.scheduledWeekday != null &&
-            day.scheduledWeekday! >= 0 &&
-            day.scheduledWeekday! <= 6)
-        ? weekdayShort(day.scheduledWeekday!,
-            Localizations.localeOf(context).toLanguageTag())
+    final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
+
+    // Guard nullable weekday — weekdayShort is non-nullable and indexes an
+    // unguarded array.
+    final weekBadge = (weekday != null && weekday! >= 0 && weekday! <= 6)
+        ? weekdayShort(
+            weekday!, Localizations.localeOf(context).toLanguageTag())
         : '–';
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: tokens.surface,
-            border: Border.all(color: tokens.line),
-            borderRadius: BorderRadius.circular(AppRadius.radius),
-          ),
-          child: Row(
-            children: [
-              // Weekday badge + slot count
-              SizedBox(
-                width: 42,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      weekBadge.toUpperCase(),
-                      style: WorkoutType.mono(
-                        size: 10,
-                        color: tokens.faint,
-                      ),
+    final focusText = focus?.trim() ?? '';
+    final meta = focusText.isNotEmpty
+        ? l.splitDayMeta(focusText, exerciseCount)
+        : l.splitDayMeta('', exerciseCount).replaceFirst(RegExp(r'^\s*·\s*'), '');
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          border: Border.all(color: tokens.line),
+          borderRadius: BorderRadius.circular(AppRadius.radius),
+        ),
+        child: Row(
+          children: [
+            // Weekday block — same width/divider style as History's date
+            // block. Scales down rather than wrapping ("MIÉ" at 1.3x).
+            SizedBox(
+              width: 44,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    weekBadge.toUpperCase(),
+                    maxLines: 1,
+                    style: WorkoutType.display(
+                      size: 20,
+                      weight: FontWeight.w700,
+                      color: tokens.text,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${day.slots.length}',
-                      style: WorkoutType.display(
-                        size: 15,
-                        weight: FontWeight.w700,
-                        color: tokens.accent,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+            ),
 
-              // Divider
-              Container(
-                width: 1,
-                height: 36,
-                color: tokens.line,
-                margin: const EdgeInsets.symmetric(horizontal: 13),
-              ),
+            // Divider
+            Container(
+              width: 1,
+              height: 44,
+              color: tokens.line,
+              margin: const EdgeInsets.symmetric(horizontal: 13),
+            ),
 
-              // Name + focus
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      day.name,
-                      style: WorkoutType.body(
-                        size: 15.5,
-                        weight: FontWeight.w600,
-                        color: tokens.text,
-                      ),
+            // Name + meta
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: WorkoutType.body(
+                      size: 15.5,
+                      weight: FontWeight.w600,
+                      color: tokens.text,
                     ),
-                    if (day.focus != null && day.focus!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        day.focus!,
-                        overflow: TextOverflow.ellipsis,
-                        style: WorkoutType.mono(
-                          size: 11,
-                          color: tokens.faint,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: WorkoutType.mono(
+                      size: 11,
+                      color: tokens.faint,
+                    ),
+                  ),
+                ],
               ),
+            ),
 
-              // Chevron
-              Icon(WIcons.chevron, size: 16, color: tokens.faint),
-            ],
-          ),
+            // Chevron
+            Icon(WIcons.chevron, size: 16, color: tokens.faint),
+          ],
         ),
       ),
     );

@@ -19,6 +19,7 @@ import '../widgets/line_chart.dart';
 import '../widgets/progress_widgets.dart';
 import '../widgets/section_label.dart';
 import 'add_weight_sheet.dart';
+import 'progress_change.dart';
 
 /// Bodyweight progress view — rendered inside [ProgressScreen] when the
 /// target is the `__bodyweight__` sentinel.
@@ -205,6 +206,7 @@ class _BwStatRow extends StatelessWidget {
       orElse: () => series.first,
     );
     final delta30 = last - month30.value;
+    final delta30Label = signedChange(delta30, fmtPlain, l);
 
     return Row(
       children: [
@@ -229,8 +231,8 @@ class _BwStatRow extends StatelessWidget {
               unitKey: unit,
               child: BigStat(
                 label: l.bodyweightStat30Day,
-                value: fmtSigned(delta30),
-                unit: unit,
+                value: delta30Label,
+                unit: delta30Label == l.progressSame ? null : unit,
                 accent: bodyweightDeltaTone(
                         displayedBodyweightDelta(delta30), goal) ==
                     DeltaTone.good,
@@ -304,6 +306,7 @@ class BodyweightHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final l = AppLocalizations.of(context);
     final localeName = Localizations.localeOf(context).toLanguageTag();
     // Newest first, capped at 24.
     final items = series.reversed.take(24).toList();
@@ -369,7 +372,7 @@ class BodyweightHistoryCard extends StatelessWidget {
                 // Signed, and accent only when it moves the way the goal wants.
                 if (prevValue != null)
                   Text(
-                    fmtSigned(diff),
+                    signedChange(diff, fmtPlain, l),
                     style: WorkoutType.mono(
                       size: 11.5,
                       weight: FontWeight.w600,

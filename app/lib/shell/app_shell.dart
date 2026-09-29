@@ -177,6 +177,7 @@ class _AppShellState extends State<AppShell> {
                       final m = context.read<SessionManager>();
                       launcher.openActiveSession(context, m);
                     },
+                    auth: widget.auth,
                   ),
                   ProgressScreen(
                     key: ValueKey(_progressTarget),

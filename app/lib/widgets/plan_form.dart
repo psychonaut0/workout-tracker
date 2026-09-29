@@ -238,6 +238,7 @@ class Toggle extends StatelessWidget {
 
 /// Full-width h52 primary action button.
 /// Enabled: accent bg / accentInk text.
+/// Enabled [secondary]: surface2 bg / line border / text label.
 /// Disabled: surface3 bg / faint text.
 class PrimaryBtn extends StatelessWidget {
   const PrimaryBtn(
@@ -245,11 +246,15 @@ class PrimaryBtn extends StatelessWidget {
     super.key,
     required this.enabled,
     required this.onTap,
+    this.secondary = false,
   });
 
   final String label;
   final bool enabled;
   final VoidCallback onTap;
+
+  /// A quieter look for an action that isn't the screen's main one.
+  final bool secondary;
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +267,12 @@ class PrimaryBtn extends StatelessWidget {
           height: 52,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.radius),
-            color: enabled ? tokens.accent : tokens.surface3,
+            color: !enabled
+                ? tokens.surface3
+                : secondary
+                    ? tokens.surface2
+                    : tokens.accent,
+            border: enabled && secondary ? Border.all(color: tokens.line) : null,
           ),
           alignment: Alignment.center,
           child: Text(
@@ -270,7 +280,11 @@ class PrimaryBtn extends StatelessWidget {
             style: WorkoutType.display(
               size: 16,
               weight: FontWeight.w700,
-              color: enabled ? tokens.accentInk : tokens.faint,
+              color: !enabled
+                  ? tokens.faint
+                  : secondary
+                      ? tokens.text
+                      : tokens.accentInk,
             ),
           ),
         ),

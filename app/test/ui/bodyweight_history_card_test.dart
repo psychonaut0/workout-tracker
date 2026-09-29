@@ -47,16 +47,16 @@ void main() {
     expect(tester.getSize(date.first).height, lessThan(24));
   });
 
-  testWidgets('a delta that displays as 0 is never coloured', (tester) async {
+  testWidgets('a delta that displays as 0 reads "same" and is never coloured', (tester) async {
     final series = [
       (date: '2026-09-06', value: 67.00, reps: 0, isPr: false),
-      (date: '2026-09-07', value: 67.03, reps: 0, isPr: false), // +0.03 → "0"
+      (date: '2026-09-07', value: 67.03, reps: 0, isPr: false), // +0.03 → "same"
     ];
     await tester.pumpWidget(wrapL10n(SingleChildScrollView(
         child: BodyweightHistoryCard(series: series, unit: 'kg', goal: BodyweightGoal.bulk))));
     final tokens = tester.element(find.byType(BodyweightHistoryCard)).tokens;
-    expect(find.text('0'), findsOneWidget);
-    expect(_colorOf(tester, '0'), tokens.dim);
+    expect(find.text('same'), findsOneWidget);
+    expect(_colorOf(tester, 'same'), tokens.dim);
   });
 
   testWidgets('the oldest visible row still shows a delta when older entries exist', (tester) async {

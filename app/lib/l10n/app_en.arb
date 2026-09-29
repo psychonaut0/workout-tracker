@@ -43,8 +43,8 @@
   "todayVsLastWeek": "{delta} vs last wk",
   "@todayVsLastWeek": {"placeholders": {"delta": {"type": "String"}}},
   "todaySameAsLastWeek": "same as last wk",
-  "todayLastPr": "last: {name}",
-  "@todayLastPr": {"placeholders": {"name": {"type": "String"}}},
+  "todayLastPrDate": "last {date}",
+  "@todayLastPrDate": {"placeholders": {"date": {"type": "String"}}},
   "todayNoPrsShort": "none yet",
   "weekStripCustom": "Custom",
   "splitNextInRotation": "NEXT IN ROTATION",
@@ -270,9 +270,20 @@
   "planTabSplit": "Split",
   "planTabExercises": "Exercises",
   "planTabTargets": "Targets",
-  "splitDaysInRotation": "{count, plural, =1{1 training day in rotation} other{{count} training days in rotation}}",
-  "@splitDaysInRotation": {
+  "planDaysEyebrow": "{count, plural, =1{1 training day} other{{count} training days}}",
+  "@planDaysEyebrow": {
     "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "splitDayMeta": "{focus} · {count, plural, =1{1 exercise} other{{count} exercises}}",
+  "@splitDayMeta": {
+    "placeholders": {
+      "focus": {
+        "type": "String"
+      },
       "count": {
         "type": "int"
       }
@@ -306,7 +317,8 @@
   "dayEditorWarmups": "Warmups",
   "dayEditorRepLow": "Rep low",
   "dayEditorRepHigh": "Rep high",
-  "dayEditorRirTarget": "RIR target",
+  "dayEditorRirLow": "RIR low",
+  "dayEditorRirHigh": "RIR high",
   "dayEditorAddExercise": "Add exercise",
   "dayEditorSaveChanges": "Save changes",
   "dayEditorCreateDay": "Create training day",
@@ -491,6 +503,19 @@
   "progressStat12wkDelta": "12wk Δ",
   "progressEmpty": "No exercises found",
   "progressChooseExercise": "Choose exercise",
+  "progressSame": "same",
+  "progressRepDelta": "{count, plural, =1{{signed} rep} other{{signed} reps}}",
+  "@progressRepDelta": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "signed": {
+        "type": "String"
+      }
+    }
+  },
+  "progressTrendNeedsMore": "Log one more session to see a trend",
   "bodyweightTrend": "Bodyweight trend",
   "bodyweightTitle": "Bodyweight",
   "bodyweightDailyLog": "{count, plural, =1{Daily log · 1 entry} other{Daily log · {count} entries}}",
@@ -603,6 +628,7 @@
   "syncSyncing": "Syncing…",
   "syncError": "Sync error",
   "syncSessionExpired": "Session expired",
+  "todaySyncPaused": "Sync paused · Sign in again",
   "profileSessionExpiredSub": "Sign in again to resume sync. Your data stays on this device.",
   "syncOffline": "Offline",
   "syncSynced": "Synced",

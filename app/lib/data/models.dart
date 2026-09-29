@@ -13,7 +13,7 @@
 ///
 /// `'1'` → `(low: 1, high: 1)`, `'0–1'` or `'1–0'` → `(low: 0, high: 1)`.
 /// Normalizes so `low <= high`.
-/// Throws on empty / partial / non-numeric input — use [rirTryParse] in editors.
+/// Throws on empty / partial / non-numeric input.
 ({int low, int high}) rirParse(String s) {
   // Handle both hyphen '-' and en-dash '–'
   final parts = s.split(RegExp(r'[-–]'));
@@ -33,17 +33,28 @@ String rirToString(int low, int high) {
   return low == high ? '$low' : '$low–$high';
 }
 
-/// Non-throwing variant of [rirParse]: returns null on empty / partial /
-/// non-numeric input instead of throwing. Safe to call on every keystroke
-/// in a text field.
-({int low, int high})? rirTryParse(String s) {
-  final trimmed = s.trim();
-  if (trimmed.isEmpty) return null;
-  try {
-    return rirParse(trimmed);
-  } catch (_) {
-    return null;
-  }
+/// The editors' RIR bounds: 0–5.
+const int rirMin = 0;
+const int rirMax = 5;
+
+/// A RIR range with its bounds in order: an inverted pair (from old data) is
+/// swapped rather than trusted.
+({int low, int high}) rirOrdered(int a, int b) =>
+    a <= b ? (low: a, high: b) : (low: b, high: a);
+
+/// The range after the low bound is set to [v] (stepped or typed), clamped to
+/// [rirMin]–[rirMax]. A low past [high] drags the high along, so the range
+/// stays ordered.
+({int low, int high}) rirWithLow(int low, int high, int v) {
+  final l = v.clamp(rirMin, rirMax);
+  return (low: l, high: high < l ? l : high);
+}
+
+/// The range after the high bound is set to [v], clamped to [rirMin]–[rirMax].
+/// A high below [low] drags the low down with it.
+({int low, int high}) rirWithHigh(int low, int high, int v) {
+  final h = v.clamp(rirMin, rirMax);
+  return (low: low > h ? h : low, high: h);
 }
 
 // ── Exercise ─────────────────────────────────────────────────────────────────

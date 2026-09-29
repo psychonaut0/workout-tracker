@@ -6,12 +6,12 @@ import '../l10n/app_localizations.dart';
 import '../data/bodyweight_repository.dart';
 import '../sync/db.dart';
 import '../theme/app_theme.dart';
-import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
 import '../util/number_input.dart';
+import '../widgets/stepper.dart';
 
 /// Shows the "Log bodyweight" modal bottom sheet.
 ///
@@ -312,12 +312,12 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Minus button
-                _RoundButton(
-                  icon: WIcons.minus,
+                StepperButton(
+                  icon: Icons.remove,
                   semanticLabel: l.a11yDecrease(l.bodyweightTitle),
                   onTap: () => _bump(-1),
                 ),
-                const SizedBox(width: 22),
+                const SizedBox(width: 12),
 
                 // Value display
                 SizedBox(
@@ -404,10 +404,10 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
                   ),
                 ),
 
-                const SizedBox(width: 22),
+                const SizedBox(width: 12),
                 // Plus button
-                _RoundButton(
-                  icon: WIcons.plus,
+                StepperButton(
+                  icon: Icons.add,
                   semanticLabel: l.a11yIncrease(l.bodyweightTitle),
                   onTap: () => _bump(1),
                 ),
@@ -439,44 +439,6 @@ class _AddWeightSheetState extends State<_AddWeightSheet>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── RoundButton ───────────────────────────────────────────────────────────────
-
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
-    required this.icon,
-    required this.semanticLabel,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String semanticLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      excludeSemantics: true,
-      onTap: onTap,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: t.surface3,
-            border: Border.all(color: t.lineStrong),
-          ),
-          child: Icon(icon, size: 22, color: t.text),
-        ),
       ),
     );
   }
