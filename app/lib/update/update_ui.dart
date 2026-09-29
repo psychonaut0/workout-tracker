@@ -182,7 +182,7 @@ class _ProgressDialogState extends State<_ProgressDialog> {
                     value: installing ? null : _percent / 100,
                     minHeight: 6,
                     backgroundColor: tokens.surface3,
-                    valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
+                    valueColor: AlwaysStoppedAnimation<Color>(tokens.accentText),
                   ),
                 ),
               ),

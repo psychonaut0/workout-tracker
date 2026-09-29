@@ -551,11 +551,11 @@ class _SessionLogCard extends StatelessWidget {
             deltaLabel = changeLabel(l, c, fmtVal: fmtVal);
             deltaColor = (c is WeightChange && c.delta > 0) ||
                     (c is RepChange && c.delta > 0)
-                ? tokens.accent
+                ? tokens.accentText
                 : tokens.faint;
           } else {
             deltaLabel = signedChange(diff, fmtVal, l);
-            deltaColor = diff > 0 ? tokens.accent : tokens.faint;
+            deltaColor = diff > 0 ? tokens.accentText : tokens.faint;
           }
 
           return Container(
@@ -687,7 +687,7 @@ class _EmptyState extends StatelessWidget {
               style: WorkoutType.mono(
                 size: 13,
                 weight: FontWeight.w600,
-                color: tokens.accent,
+                color: tokens.accentText,
               ),
             ),
           ),

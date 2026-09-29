@@ -765,7 +765,7 @@ class _PrRow extends StatelessWidget {
             child: Icon(
               WIcons.bolt,
               size: 18,
-              color: tokens.accent,
+              color: tokens.accentText,
             ),
           ),
           const SizedBox(width: 12),
@@ -939,7 +939,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
             children: [
               Text(l.todayActiveNow,
                   style: WorkoutType.mono(
-                      size: 10, color: tokens.accent, letterSpacing: 1.5)),
+                      size: 10, color: tokens.accentText, letterSpacing: 1.5)),
               const SizedBox(height: 10),
               Text(title,
                   style: WorkoutType.display(size: 28, color: tokens.text)),
@@ -959,7 +959,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
                     style: WorkoutType.mono(
                         size: 14,
                         weight: FontWeight.w700,
-                        color: resting ? tokens.accent : tokens.text),
+                        color: resting ? tokens.accentText : tokens.text),
                   ),
                   const SizedBox(width: 12),
                   Text(l.todayExerciseCount(exCount),

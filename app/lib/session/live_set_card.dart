@@ -63,7 +63,7 @@ class LiveSetCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: tokens.surface2,
         borderRadius: BorderRadius.circular(AppRadius.radius * 0.8),
-        border: Border.all(color: tokens.accent, width: 1.5),
+        border: Border.all(color: tokens.accentText, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -72,7 +72,7 @@ class LiveSetCard extends StatelessWidget {
               style: WorkoutType.mono(
                   size: 10.5,
                   weight: FontWeight.w700,
-                  color: tokens.accent,
+                  color: tokens.accentText,
                   letterSpacing: 0.08 * 10.5))),
           const SizedBox(height: 10),
           SetValuesEditor(

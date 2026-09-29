@@ -232,7 +232,7 @@ class _StatusIndicator extends StatelessWidget {
         child: Icon(
           WIcons.check,
           size: 11,
-          color: tokens.accent,
+          color: tokens.accentText,
         ),
       );
     }

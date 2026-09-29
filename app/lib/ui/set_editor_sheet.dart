@@ -336,7 +336,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                                 Icon(
                                   WIcons.plus,
                                   size: 14,
-                                  color: tokens.accent,
+                                  color: tokens.accentText,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
@@ -344,7 +344,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                                   style: WorkoutType.mono(
                                     size: 11,
                                     weight: FontWeight.w600,
-                                    color: tokens.accent,
+                                    color: tokens.accentText,
                                   ),
                                 ),
                               ],
@@ -584,7 +584,7 @@ class _SetEditingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: tokens.surface2,
         borderRadius: BorderRadius.circular(AppRadius.radius * 0.8),
-        border: Border.all(color: tokens.accent, width: 1.5),
+        border: Border.all(color: tokens.accentText, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

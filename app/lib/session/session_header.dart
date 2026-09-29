@@ -183,7 +183,7 @@ class SessionHeader extends StatelessWidget {
                   children: [
                     Text('$mm:${ss.toString().padLeft(2, '0')}',
                         style: WorkoutType.mono(
-                            size: 18, weight: FontWeight.w700, color: tokens.accent)),
+                            size: 18, weight: FontWeight.w700, color: tokens.accentText)),
                     const SizedBox(height: 2),
                     Text(l.sessionElapsed,
                         style: WorkoutType.mono(
@@ -233,7 +233,7 @@ class SessionHeader extends StatelessWidget {
                                   color: !resting
                                       ? tokens.dim
                                       : remaining <= _finalThreshold
-                                          ? tokens.accent
+                                          ? tokens.accentText
                                           : tokens.text,
                                 ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                                 child: Text(resting
@@ -311,7 +311,7 @@ class SessionHeader extends StatelessWidget {
               builder: (_, value, __) => FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: value.clamp(0.0, 1.0),
-                child: Container(color: tokens.accent),
+                child: Container(color: tokens.accentText),
               ),
             ),
           ),

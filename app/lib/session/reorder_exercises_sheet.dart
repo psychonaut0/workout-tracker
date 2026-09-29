@@ -134,7 +134,7 @@ class _Row extends StatelessWidget {
                 style: WorkoutType.mono(
                     size: 12,
                     weight: FontWeight.w700,
-                    color: done == total && total > 0 ? tokens.accent : tokens.dim)),
+                    color: done == total && total > 0 ? tokens.accentText : tokens.dim)),
             Semantics(
               // No tap action: the list supplies the move actions.
               label: '${l.sessionReorderExercises}: ${block.exercise.name}',

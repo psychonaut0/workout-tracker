@@ -492,7 +492,7 @@ class _TileInner extends StatelessWidget {
               style: WorkoutType.display(
                 size: 20,
                 weight: FontWeight.w700,
-                color: highlight ? tokens.accent : tokens.text,
+                color: highlight ? tokens.accentText : tokens.text,
               ),
               textAlign: TextAlign.center,
             ),

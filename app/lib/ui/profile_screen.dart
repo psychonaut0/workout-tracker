@@ -125,7 +125,7 @@ class _Row extends StatelessWidget {
             child: Icon(
               icon,
               size: 18,
-              color: danger ? tokens.danger : tokens.accent,
+              color: danger ? tokens.danger : tokens.accentText,
             ),
           ),
           const SizedBox(width: 13),
@@ -1084,7 +1084,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: WorkoutType.mono(
                           size: 11,
                           weight: FontWeight.w600,
-                          color: tokens.accent,
+                          color: tokens.accentText,
                         ),
                       ),
                     ),
@@ -1180,7 +1180,7 @@ class _SyncStatusRight extends StatelessWidget {
           hasError: s?.uploadError != null || s?.downloadError != null,
         );
         final color = switch (state) {
-          SyncDotState.syncing || SyncDotState.synced => tokens.accent,
+          SyncDotState.syncing || SyncDotState.synced => tokens.accentText,
           SyncDotState.offline => tokens.faint,
           SyncDotState.error => tokens.danger,
         };

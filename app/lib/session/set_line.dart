@@ -70,7 +70,7 @@ class SetLine extends StatelessWidget {
                       style: WorkoutType.mono(
                         size: 13,
                         weight: FontWeight.w700,
-                        color: done && !set.isWarmup ? tokens.accent : tokens.faint,
+                        color: done && !set.isWarmup ? tokens.accentText : tokens.faint,
                       ),
                     ),
                   ),

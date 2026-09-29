@@ -442,7 +442,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
                   borderRadius: BorderRadius.circular(15 * 0.5),
                 ),
                 alignment: Alignment.center,
-                child: Icon(WIcons.bolt, size: 18, color: tokens.accent),
+                child: Icon(WIcons.bolt, size: 18, color: tokens.accentText),
               ),
               const SizedBox(width: 12),
               Expanded(

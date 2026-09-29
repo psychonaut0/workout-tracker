@@ -9,7 +9,7 @@ import '../theme/motion.dart';
 /// Default size is 92×22 (wider than the JSX 64×24 to fit the stat-tile).
 /// Returns [SizedBox.shrink] when fewer than 2 values are provided.
 ///
-/// The [stroke] color defaults to `context.tokens.accent`; callers that want a
+/// The [stroke] color defaults to `context.tokens.accentText`; callers that want a
 /// muted line (e.g. the bodyweight tile) pass `context.tokens.dim` explicitly.
 class Sparkline extends StatelessWidget {
   const Sparkline({
@@ -22,7 +22,7 @@ class Sparkline extends StatelessWidget {
 
   final List<double> values;
 
-  /// Stroke / fill colour. Defaults to [WorkoutTokens.accent].
+  /// Stroke / fill colour. Defaults to [WorkoutTokens.accentText].
   final Color? stroke;
 
   final double width;
@@ -31,7 +31,7 @@ class Sparkline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (values.length < 2) return const SizedBox.shrink();
-    final color = stroke ?? context.tokens.accent;
+    final color = stroke ?? context.tokens.accentText;
     return SizedBox(
       width: width,
       height: height,

@@ -242,7 +242,7 @@ class _ExerciseRow extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color:
-                    exercise.compound ? tokens.accent : tokens.lineStrong,
+                    exercise.compound ? tokens.accentText : tokens.lineStrong,
               ),
             ),
             const SizedBox(width: 11),

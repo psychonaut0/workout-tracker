@@ -837,7 +837,7 @@ class SessionCardBody extends StatelessWidget {
               key: const ValueKey('history-resume'),
               icon: WIcons.resume,
               label: l.historyResumeWorkout,
-              color: tokens.accent,
+              color: tokens.accentText,
               onTap: onResume,
             ),
           if (resumeState != SessionResumeState.inProgress) ...[
@@ -845,7 +845,7 @@ class SessionCardBody extends StatelessWidget {
               key: const ValueKey('history-add-exercise'),
               icon: WIcons.plus,
               label: l.sessionAddExercise,
-              color: tokens.accent,
+              color: tokens.accentText,
               onTap: onAddExercise,
             ),
             const SizedBox(height: 8),
@@ -930,7 +930,7 @@ class _BlockRow extends StatelessWidget {
     final exercise = catalogMap[block.exerciseId];
     final isCompound = exercise?.compound ?? false;
     final name = exercise?.name ?? block.exerciseId;
-    final dotColor = isCompound ? tokens.accent : tokens.lineStrong;
+    final dotColor = isCompound ? tokens.accentText : tokens.lineStrong;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -966,7 +966,7 @@ class _BlockRow extends StatelessWidget {
             // PR bolt
             if (block.isPr) ...[
               const SizedBox(width: 6),
-              Icon(WIcons.bolt, size: 13, color: tokens.accent),
+              Icon(WIcons.bolt, size: 13, color: tokens.accentText),
             ],
 
             // Weight × reps

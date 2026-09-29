@@ -379,7 +379,7 @@ class BodyweightHistoryCard extends StatelessWidget {
                       color: bodyweightDeltaTone(
                                   displayedBodyweightDelta(diff), goal) ==
                               DeltaTone.good
-                          ? tokens.accent
+                          ? tokens.accentText
                           : tokens.dim,
                     ),
                   ),

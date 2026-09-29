@@ -211,7 +211,7 @@ class LineChart extends StatelessWidget {
               series: series,
               unit: unit,
               showReps: showReps,
-              accent: tokens.accent,
+              accent: tokens.accentText,
               bg: tokens.bg,
               faint: tokens.faint,
               text: tokens.text,

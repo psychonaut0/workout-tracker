@@ -71,7 +71,7 @@ class _VolumeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final underTarget = row.sets < row.target;
-    final fillColor = underTarget ? tokens.lineStrong : tokens.accent;
+    final fillColor = underTarget ? tokens.lineStrong : tokens.accentText;
     final valueColor = underTarget ? tokens.dim : tokens.text;
 
     // Normalize against THIS muscle's own target (0% = none, 100% = target).

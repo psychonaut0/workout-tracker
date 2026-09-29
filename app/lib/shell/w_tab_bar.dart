@@ -127,7 +127,7 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final color = active ? tokens.accent : tokens.faint;
+    final color = active ? tokens.accentText : tokens.faint;
 
     return Expanded(
       child: GestureDetector(
