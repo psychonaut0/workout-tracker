@@ -1,5 +1,4 @@
 import 'package:flutter/rendering.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/auth/auth_store.dart';
 import 'package:workout_tracker/ui/profile_screen.dart';
@@ -51,11 +50,9 @@ void main() {
 
   testWidgets('an expired session status fits the sync row at 320dp 2.0x de',
       (tester) async {
-    FlutterSecureStorage.setMockInitialValues({'email': 'me@example.com'});
-    await harness.open(tester, prefs: {'settings.sync_enabled': true});
+    await harness.open(tester, prefs: syncOnPrefs);
     setPhone(tester, width: 320, textScale: 2.0);
-    final auth = AuthStore();
-    await tester.runAsync(auth.load);
+    final auth = await signedInAuth(tester);
     auth.sessionExpired.value = true;
     await pumpProfile(tester, 'de', auth: auth);
     final status = find.text('Sitzung abgelaufen');
@@ -64,6 +61,56 @@ void main() {
     expectNoSplitWords(tester, within: status);
     final row = tester.getRect(find.byType(ProfileScreen));
     expect(tester.getRect(status).right, lessThanOrEqualTo(row.right));
+    await harness.unmount(tester);
+  });
+
+  // The last sync time is the point of the status: at large text it moves
+  // under the title and wraps there, never ellipsized away.
+  for (final width in [320.0, 412.0]) {
+    for (final (code, title, label) in [
+      ('de', 'Sync-Server', 'Offline · synchronisiert vor 3 Std'),
+      ('it', 'Server di sync', 'Offline · sincronizzato 3 h fa'),
+    ]) {
+      testWidgets(
+          'the offline status keeps its last sync time whole at '
+          '${width.round()}dp 2.0x $code', (tester) async {
+        await harness.open(tester,
+            prefs: syncOnPrefs,
+            lastSyncedAt:
+                DateTime.now().subtract(const Duration(hours: 3, minutes: 5)));
+        setPhone(tester, width: width, textScale: 2.0);
+        await pumpProfile(tester, code, auth: await signedInAuth(tester));
+        final status = find.text(label);
+        await scrollIntoView(tester, find.byType(ProfileScreen), status);
+        expect(tester.takeException(), isNull);
+        final p = tester.renderObject<RenderParagraph>(status);
+        expect(p.didExceedMaxLines, isFalse,
+            reason: '"$label" is cut short');
+        expectNoSplitWords(tester, within: status);
+        expect(tester.getRect(status).top,
+            greaterThanOrEqualTo(tester.getRect(find.text(title)).bottom),
+            reason: 'the status should sit under the title');
+        expect(tester.getRect(status).right,
+            lessThanOrEqualTo(tester.getRect(find.byType(ProfileScreen)).right));
+        await harness.unmount(tester);
+      });
+    }
+  }
+
+  testWidgets('a short status stays in the right slot at 412dp 1.0x en',
+      (tester) async {
+    await harness.open(tester,
+        prefs: syncOnPrefs,
+        lastSyncedAt:
+            DateTime.now().subtract(const Duration(hours: 3, minutes: 5)));
+    setPhone(tester, width: 412);
+    await pumpProfile(tester, 'en', auth: await signedInAuth(tester));
+    final status = find.text('Offline · synced 3h ago');
+    await scrollIntoView(tester, find.byType(ProfileScreen), status);
+    final title = tester.getRect(find.text('Sync server'));
+    expect(tester.getRect(status).left, greaterThan(title.right));
+    expectOneLine(tester, status);
+    expect(tester.takeException(), isNull);
     await harness.unmount(tester);
   });
 }

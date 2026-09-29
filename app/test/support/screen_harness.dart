@@ -15,12 +15,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:powersync/powersync.dart' show PowerSyncDatabase, SyncStatus;
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workout_tracker/auth/auth_store.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/identity/identity_service.dart';
 import 'package:workout_tracker/l10n/app_localizations.dart';
@@ -77,10 +79,12 @@ class ScreenHarness {
 
   /// Mocks prefs and platform channels, opens and seeds a real database as
   /// the global `db`, loads the unit/settings services and the app's faces.
+  /// [lastSyncedAt] is the last sync time [SyncHealth] reports.
   Future<void> open(
     WidgetTester tester, {
     Map<String, Object> prefs = const {},
     Future<void> Function(PowerSyncDatabase db) seed = seedLong,
+    DateTime? lastSyncedAt,
   }) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'identity.current_user_id': 'u1',
@@ -106,7 +110,7 @@ class ScreenHarness {
       // reports at risk and leaves nothing pending when the test ends.
       _syncHealth = SyncHealth(
         status: const Stream.empty(),
-        initial: const SyncStatus(),
+        initial: SyncStatus(lastSyncedAt: lastSyncedAt),
         pendingChanges: () async => 0,
         signedIn: () => false,
         syncEnabled: () => false,
@@ -183,6 +187,18 @@ class ScreenHarness {
         const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
         (call) async => null);
   }
+}
+
+/// Prefs for [ScreenHarness.open] that turn sync on, for [signedInAuth].
+const syncOnPrefs = <String, Object>{'settings.sync_enabled': true};
+
+/// An [AuthStore] signed in as me@example.com (no network: tokens are only
+/// read from the mocked secure storage).
+Future<AuthStore> signedInAuth(WidgetTester tester) async {
+  FlutterSecureStorage.setMockInitialValues({'email': 'me@example.com'});
+  final auth = AuthStore();
+  await tester.runAsync(auth.load);
+  return auth;
 }
 
 // ── Tester helpers ──────────────────────────────────────────────────────────

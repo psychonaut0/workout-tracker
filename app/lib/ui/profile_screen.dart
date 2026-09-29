@@ -96,6 +96,7 @@ class _Row extends StatelessWidget {
     required this.title,
     this.sub,
     this.right,
+    this.below,
     this.onTap,
     this.danger = false,
   });
@@ -104,6 +105,9 @@ class _Row extends StatelessWidget {
   final String title;
   final String? sub;
   final Widget? right;
+
+  /// A line under the title and sub, for a value too long for [right].
+  final Widget? below;
   final VoidCallback? onTap;
   final bool danger;
 
@@ -113,7 +117,7 @@ class _Row extends StatelessWidget {
     final r = AppRadius.radius * 0.5;
 
     Widget row = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      padding: const EdgeInsets.symmetric(horizontal: _hPad, vertical: 13),
       child: LayoutBuilder(builder: (context, constraints) => Row(
         children: [
           Container(
@@ -152,6 +156,10 @@ class _Row extends StatelessWidget {
                     style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                   ),
                 ],
+                if (below != null) ...[
+                  const SizedBox(height: 6),
+                  below!,
+                ],
               ],
             ),
           ),
@@ -180,6 +188,8 @@ class _Row extends StatelessWidget {
   /// The most of the row the right slot may take; the 144dp rest steppers
   /// still fit it at 320dp.
   static const _rightShare = 0.6;
+
+  static const _hPad = 14.0;
 }
 
 // ── Quick-stats card ──────────────────────────────────────────────────────────
@@ -856,37 +866,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _Group(
                   label: l.profileGroupSync,
                   children: [
-                    _Row(
-                      icon: WIcons.cloud,
+                    _SyncRow(
+                      live: signedIn && settings.syncEnabled,
+                      expired: widget.auth.sessionExpired,
                       title: l.profileSyncServer,
                       sub: settings.serverUrl,
-                      right: signedIn && settings.syncEnabled
-                          ? _SyncStatusRight(expired: widget.auth.sessionExpired)
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    color: tokens.faint,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: FitLabel(
-                                    l.syncNotConnected,
-                                    maxLines: 2,
-                                    style: WorkoutType.mono(
-                                      size: 11,
-                                      weight: FontWeight.w600,
-                                      color: tokens.dim,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 0, 14, 13),
@@ -1178,66 +1162,116 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-/// Live sync status: dot + label driven by the PowerSync status stream.
-class _SyncStatusRight extends StatelessWidget {
-  const _SyncStatusRight({required this.expired});
+/// The sync server row. Signed in with sync on, its status (dot + label)
+/// follows the PowerSync status stream; otherwise it reads "Not connected".
+///
+/// The status sits in the row's right slot when it fits there on one line.
+/// Otherwise ("Offline · synchronisiert vor 3 Std" at large text) it moves to
+/// its own line under the title, where it wraps at spaces rather than
+/// ellipsizing away the last sync time.
+class _SyncRow extends StatelessWidget {
+  const _SyncRow({
+    required this.live,
+    required this.expired,
+    required this.title,
+    required this.sub,
+  });
+
+  final bool live;
 
   /// The session ended server-side: say so rather than a generic error.
   final ValueListenable<bool> expired;
+  final String title;
+  final String sub;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final l = AppLocalizations.of(context);
+    if (!live) {
+      return _layout(context, l.syncNotConnected, tokens.faint, false);
+    }
     return ValueListenableBuilder<bool>(
       valueListenable: expired,
       builder: (context, isExpired, _) => StreamBuilder<SyncStatus>(
-      stream: db.statusStream,
-      initialData: db.currentStatus,
-      builder: (context, snap) {
-        final s = snap.data;
-        final state = syncDotStateFor(
-          connected: s?.connected ?? false,
-          syncing: (s?.uploading ?? false) || (s?.downloading ?? false),
-          hasError: s?.uploadError != null || s?.downloadError != null,
-        );
-        final color = switch (state) {
-          SyncDotState.syncing || SyncDotState.synced => tokens.accentText,
-          SyncDotState.offline => tokens.faint,
-          SyncDotState.error => tokens.danger,
-        };
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _SyncDot(
-              color: isExpired ? tokens.danger : color,
-              pulsing: !isExpired && state == SyncDotState.syncing,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: FitLabel(
-                isExpired
-                    ? l.syncSessionExpired
-                    : syncStatusLabel(
-                        l,
-                        state,
-                        s?.lastSyncedAt ??
-                            context.read<SyncHealth>().lastSyncedAt,
-                        DateTime.now()),
-                maxLines: 2,
-                style: WorkoutType.mono(
-                  size: 11,
-                  weight: FontWeight.w600,
-                  color: tokens.dim,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+        stream: db.statusStream,
+        initialData: db.currentStatus,
+        builder: (context, snap) {
+          final s = snap.data;
+          final state = syncDotStateFor(
+            connected: s?.connected ?? false,
+            syncing: (s?.uploading ?? false) || (s?.downloading ?? false),
+            hasError: s?.uploadError != null || s?.downloadError != null,
+          );
+          if (isExpired) {
+            return _layout(context, l.syncSessionExpired, tokens.danger, false);
+          }
+          final color = switch (state) {
+            SyncDotState.syncing || SyncDotState.synced => tokens.accentText,
+            SyncDotState.offline => tokens.faint,
+            SyncDotState.error => tokens.danger,
+          };
+          final label = syncStatusLabel(
+              l,
+              state,
+              s?.lastSyncedAt ?? context.read<SyncHealth>().lastSyncedAt,
+              DateTime.now());
+          return _layout(
+              context, label, color, state == SyncDotState.syncing);
+        },
       ),
     );
   }
+
+  Widget _layout(
+      BuildContext context, String label, Color color, bool pulsing) {
+    final tokens = context.tokens;
+    final style =
+        WorkoutType.mono(size: 11, weight: FontWeight.w600, color: tokens.dim);
+    return LayoutBuilder(builder: (context, constraints) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 1,
+      )..layout();
+      final needed = _dot + _gap + painter.width;
+      final lineHeight = painter.preferredLineHeight;
+      painter.dispose();
+      final slot = (constraints.maxWidth - 2 * _Row._hPad) * _Row._rightShare;
+      final fits = needed <= slot;
+      final status = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment:
+            fits ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: fits ? null : lineHeight,
+            child: Center(
+              widthFactor: 1,
+              child: _SyncDot(color: color, pulsing: pulsing),
+            ),
+          ),
+          const SizedBox(width: _gap),
+          Flexible(
+            child: fits
+                ? Text(label, maxLines: 1, style: style)
+                : FitLabel(label, maxLines: 3, style: style),
+          ),
+        ],
+      );
+      return _Row(
+        icon: WIcons.cloud,
+        title: title,
+        sub: sub,
+        right: fits ? status : null,
+        below: fits ? null : status,
+      );
+    });
+  }
+
+  static const _dot = 7.0;
+  static const _gap = 6.0;
 }
 
 /// 7px dot; pulses (opacity loop) while [pulsing], skipped under reduced motion.

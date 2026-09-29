@@ -21,5 +21,23 @@ void main() {
           tester, find.byType(ProfileScreen), 'Profile $name');
       await harness.unmount(tester);
     });
+
+    // Signed in with sync on, offline, last synced 3h ago: the longest
+    // sync status ("Offline · synchronisiert vor 3 Std").
+    testWidgets('Profile signed in holds at $name', (tester) async {
+      await harness.open(tester,
+          prefs: syncOnPrefs,
+          lastSyncedAt:
+              DateTime.now().subtract(const Duration(hours: 3, minutes: 5)));
+      setPhone(tester, width: c.width, textScale: c.textScale);
+      final auth = await signedInAuth(tester);
+      await tester.pumpWidget(harness.wrap(
+          ProfileScreen(onClose: () {}, onLogout: () async {}, auth: auth),
+          locale: c.locale));
+      await settleReal(tester);
+      await expectLayoutHoldsWhileScrolling(
+          tester, find.byType(ProfileScreen), 'Profile signed in $name');
+      await harness.unmount(tester);
+    });
   }
 }
