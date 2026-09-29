@@ -25,6 +25,15 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
       surface: tokens.surface,
       onSurface: tokens.text,
     ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: tokens.accentText),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: tokens.accentText),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: tokens.accentText,
+      selectionHandleColor: tokens.accentText,
+      selectionColor: tokens.accent.withValues(alpha: 0.35),
+    ),
   );
 }
 
