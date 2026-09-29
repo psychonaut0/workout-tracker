@@ -576,7 +576,7 @@ class ActiveSessionController extends ChangeNotifier {
   void markNotDone(SetState set) {
     set.done = false;
     _focusedSetId = set.id;
-    if (_rirPromptSetId == set.id) _closeRirPrompt();
+    _closeRirPrompt();
     notifyListeners();
   }
 

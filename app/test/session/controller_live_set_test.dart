@@ -207,6 +207,16 @@ void main() {
   });
 
   group('markNotDone', () {
+    test('un-logging a different set closes an open strip', () {
+      final a = _b('a', work: [_s('a1', done: true), _s('a2'), _s('a3')]);
+      final c = _c([a]);
+      c.logLiveSet(); // logs a2, strip on a2
+      expect(c.rirPromptSetId, 'a2');
+      c.markNotDone(a.workingSets[0]);
+      expect(c.rirPromptSetId, isNull);
+      expect(c.liveSet!.set.id, 'a1');
+    });
+
     test('un-logs the set, makes it live and closes its prompt', () {
       final a = _b('a', work: [_s('a1'), _s('a2')]);
       final c = _c([a]);
