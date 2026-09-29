@@ -225,6 +225,30 @@ Future<void> settleReal(WidgetTester tester, {int ticks = 30}) async {
   }
 }
 
+/// Text or rich text under [within] that contains any of [needles].
+Finder textWithAnyOf(Finder within, List<String> needles) => find.descendant(
+      of: within,
+      matching: find.byWidgetPredicate((w) {
+        final text = switch (w) {
+          Text(:final data?) => data,
+          Text(:final textSpan?) => textSpan.toPlainText(),
+          RichText(:final text) => text.toPlainText(),
+          _ => null,
+        };
+        return text != null && needles.any(text.contains);
+      }),
+    );
+
+/// Pumps real-async ticks until [marker] is built (at most [maxTicks]), then
+/// asserts it is: a layout check on a still-loading screen proves nothing.
+Future<void> settleUntilFound(WidgetTester tester, Finder marker,
+    {required String where, int maxTicks = 150}) async {
+  for (var i = 0; i < maxTicks && marker.evaluate().isEmpty; i++) {
+    await settleReal(tester, ticks: 1);
+  }
+  expect(marker, findsWidgets, reason: '$where: seeded content never rendered');
+}
+
 /// Taps the bottom-nav tab showing [icon] (locale-independent).
 Future<void> openTab(WidgetTester tester, IconData icon) async {
   await tester.tap(find.descendant(
