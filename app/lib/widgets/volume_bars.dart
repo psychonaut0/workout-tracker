@@ -1,18 +1,21 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import 'card.dart';
+import 'fit_label.dart';
 
 /// A card listing per-muscle weekly volume bars with target ticks.
 ///
 /// Each row shows:
-///   • A 74 px muscle label
+///   • A muscle label, 74 dp at 1.0× and scaled with the text size
 ///   • A proportional fill bar (muted `lineStrong` when `sets < target`,
 ///     `accent` when `sets >= target`), normalized against this muscle's own
 ///     `target`, with the 1.5 px target tick at the right end of the track
-///   • A right-aligned `'{sets}/{target}'` value (dim when under target)
+///   • A right-aligned `'{sets}/{target}'` value, measured to fit (dim when under target)
 ///
 /// `target` is always a non-null int; Task 7 coalesces goalless muscles to
 /// `target = sets` so nothing ever divides by zero or compares against null.
@@ -31,25 +34,57 @@ class VolumeBars extends StatelessWidget {
   /// - [target] — target sets for the week (non-null)
   final List<({String muscle, int sets, int target})> rows;
 
+  static TextStyle _countStyle(Color color) =>
+      WorkoutType.mono(size: 11.5, color: color);
+
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+
+    // The count column fits the widest '{sets}/{target}' at the current text
+    // size (38 dp at 1.0×), so a count never wraps digit by digit.
+    var countWidth = 38.0;
+    for (final row in rows) {
+      final painter = TextPainter(
+        text: TextSpan(
+            text: '${row.sets}/${row.target}', style: _countStyle(tokens.text)),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      countWidth = math.max(countWidth, painter.width.ceilToDouble());
+      painter.dispose();
+    }
 
     return WCard(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (index, row) in rows.indexed)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 11),
-              child: _VolumeRow(
-                row: row,
-                tokens: tokens,
-                index: index,
-              ),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Muscle names get 74 dp at 1.0×, growing with the text size but
+          // never past 38% of the row, so the bar keeps its share.
+          final grown = scaler.scale(74);
+          final labelWidth = constraints.hasBoundedWidth
+              ? math.min(grown, constraints.maxWidth * 0.38)
+              : grown;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (index, row) in rows.indexed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 11),
+                  child: _VolumeRow(
+                    row: row,
+                    tokens: tokens,
+                    index: index,
+                    labelWidth: labelWidth,
+                    countWidth: countWidth,
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -60,6 +95,8 @@ class _VolumeRow extends StatelessWidget {
     required this.row,
     required this.tokens,
     required this.index,
+    required this.labelWidth,
+    required this.countWidth,
   });
 
   final ({String muscle, int sets, int target}) row;
@@ -67,6 +104,8 @@ class _VolumeRow extends StatelessWidget {
 
   /// Row position, used to stagger the bar grow-in (~20ms per row).
   final int index;
+  final double labelWidth;
+  final double countWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -81,17 +120,12 @@ class _VolumeRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Muscle label — fixed width 74
+        // Muscle label — shrinks a little, then ellipsizes.
         SizedBox(
-          width: 74,
-          child: Text(
+          width: labelWidth,
+          child: FitLabel(
             row.muscle,
-            style: WorkoutType.body(
-              size: 12.5,
-              color: tokens.dim,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            style: WorkoutType.body(size: 12.5, color: tokens.dim),
           ),
         ),
         const SizedBox(width: 12),
@@ -148,16 +182,15 @@ class _VolumeRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        // '{sets}/{target}' value — fixed width 38, right-aligned
+        // '{sets}/{target}' value — as wide as the widest count, one line.
         SizedBox(
-          width: 38,
+          width: countWidth,
           child: Text(
             '${row.sets}/${row.target}',
             textAlign: TextAlign.right,
-            style: WorkoutType.mono(
-              size: 11.5,
-              color: valueColor,
-            ),
+            maxLines: 1,
+            softWrap: false,
+            style: VolumeBars._countStyle(valueColor),
           ),
         ),
       ],

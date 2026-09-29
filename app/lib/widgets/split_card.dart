@@ -9,6 +9,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
 import 'dashed_border.dart';
+import 'fit_label.dart';
 import 'pressable.dart';
 
 // ── DaySlide ──────────────────────────────────────────────────────────────────
@@ -66,8 +67,8 @@ class DaySlide extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Eyebrow
-            Text(
+            // Eyebrow — one line: a long day name shrinks, then ellipsizes.
+            FitLabel(
               eyebrow,
               style: WorkoutType.mono(
                 size: 11,
@@ -105,30 +106,36 @@ class DaySlide extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 16),
-            // Stats row
-            Row(
-              children: [
-                _StatCol(
-                  value: '$exerciseCount',
-                  label: l.splitExercises,
-                  valueColor: accentInk,
-                  labelColor: accentDim,
-                ),
-                const SizedBox(width: 18),
-                _StatCol(
-                  value: l.splitEstTimeValue(est),
-                  label: l.splitEstTime,
-                  valueColor: accentInk,
-                  labelColor: accentDim,
-                ),
-                const SizedBox(width: 18),
-                _StatCol(
-                  value: lastAgo.isEmpty ? '—' : lastAgo,
-                  label: l.splitLast,
-                  valueColor: accentInk,
-                  labelColor: accentDim,
-                ),
-              ],
+            // Stats row — scales down as a unit rather than overflowing a
+            // narrow card at large text.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _StatCol(
+                    value: '$exerciseCount',
+                    label: l.splitExercises,
+                    valueColor: accentInk,
+                    labelColor: accentDim,
+                  ),
+                  const SizedBox(width: 18),
+                  _StatCol(
+                    value: l.splitEstTimeValue(est),
+                    label: l.splitEstTime,
+                    valueColor: accentInk,
+                    labelColor: accentDim,
+                  ),
+                  const SizedBox(width: 18),
+                  _StatCol(
+                    value: lastAgo.isEmpty ? '—' : lastAgo,
+                    label: l.splitLast,
+                    valueColor: accentInk,
+                    labelColor: accentDim,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -195,7 +202,7 @@ class CustomSlide extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Eyebrow
-        Text(
+        FitLabel(
           l.splitNoTemplate,
           style: WorkoutType.mono(
             size: 11,
@@ -206,7 +213,7 @@ class CustomSlide extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         // Name
-        Text(
+        FitLabel(
           l.todayCustomSession,
           style: WorkoutType.display(
             size: 40,
@@ -217,7 +224,7 @@ class CustomSlide extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         // Sub
-        Text(
+        FitLabel(
           l.splitBuildAsYouGo,
           style: WorkoutType.display(
             size: 19,
@@ -227,17 +234,20 @@ class CustomSlide extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        // Hint row
+        // Hint row — the hint takes the rest of the row, two lines at most.
         Row(
           children: [
             Icon(WIcons.plus, size: 17, color: dimColor),
             const SizedBox(width: 9),
-            Text(
-              l.splitAddExercisesLive,
-              style: WorkoutType.mono(
-                size: 12,
-                weight: FontWeight.w600,
-                color: dimColor,
+            Flexible(
+              child: FitLabel(
+                l.splitAddExercisesLive,
+                maxLines: 2,
+                style: WorkoutType.mono(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: dimColor,
+                ),
               ),
             ),
           ],
@@ -413,8 +423,10 @@ class _SplitCardState extends State<SplitCard> {
                   children: [
                     // ── Pager ────────────────────────────────────────────────
                     SizedBox(
-                      // Fixed height to keep the card stable as slides scroll.
-                      height: 180,
+                      // Fixed height to keep the card stable as slides
+                      // scroll; the text part grows with the user's text
+                      // size (180 at 1.0×) so a slide never overflows.
+                      height: 32 + MediaQuery.textScalerOf(context).scale(148),
                       child: ClipRect(
                         child: PageView.builder(
                           controller: _pageController,
@@ -473,13 +485,15 @@ class _SplitCardState extends State<SplitCard> {
                             children: [
                               Icon(btnIcon, size: 18, color: btnInk),
                               const SizedBox(width: 8),
-                              Text(
-                                btnLabel,
-                                style: WorkoutType.display(
-                                  size: 17,
-                                  weight: FontWeight.w700,
-                                  color: btnInk,
-                                  letterSpacing: 17 * 0.01,
+                              Flexible(
+                                child: FitLabel(
+                                  btnLabel,
+                                  style: WorkoutType.display(
+                                    size: 17,
+                                    weight: FontWeight.w700,
+                                    color: btnInk,
+                                    letterSpacing: 17 * 0.01,
+                                  ),
                                 ),
                               ),
                             ],

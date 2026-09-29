@@ -5,6 +5,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../theme/icons.dart';
 import '../util/dates.dart';
+import 'fit_label.dart';
 
 /// A horizontal row of day chips showing the weekly rotation state.
 ///
@@ -129,37 +130,39 @@ class _DayChip extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Weekday label
-              Text(
-                weekdayLabel,
-                style: WorkoutType.mono(
-                  size: 9.5,
-                  color: filled
-                      ? tokens.accentInk.withValues(alpha: 0.7)
-                      : tokens.faint,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              // Day name
+              // Weekday label — a 2–3 letter code: scales down, never wraps.
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  day.name,
-                  style: WorkoutType.display(
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: filled ? tokens.accentInk : tokens.text,
-                    letterSpacing: 0,
-                  ),
-                  textAlign: TextAlign.center,
+                  weekdayLabel,
                   maxLines: 1,
                   softWrap: false,
+                  style: WorkoutType.mono(
+                    size: 9.5,
+                    color: filled
+                        ? tokens.accentInk.withValues(alpha: 0.7)
+                        : tokens.faint,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-              // Status slot — fixed height 14
+              const SizedBox(height: 4),
+              // Day name — two lines, shrinks a little, then ellipsizes.
+              FitLabel(
+                day.name,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: WorkoutType.display(
+                  size: 13,
+                  weight: FontWeight.w700,
+                  color: filled ? tokens.accentInk : tokens.text,
+                  letterSpacing: 0,
+                ),
+              ),
+              // Status slot — 14 tall at 1.0×, growing with the text size so
+              // NEXT is never clipped.
               SizedBox(
-                height: 14,
+                height: MediaQuery.textScalerOf(context).scale(14),
                 child: Center(
                   child: _StatusIndicator(
                     isNext: day.isNext,
@@ -195,6 +198,8 @@ class _StatusIndicator extends StatelessWidget {
     if (isNext) {
       final next = Text(
         AppLocalizations.of(context).weekStripNext,
+        maxLines: 1,
+        softWrap: false,
         style: WorkoutType.mono(
           size: 9,
           weight: FontWeight.w700,
@@ -202,7 +207,8 @@ class _StatusIndicator extends StatelessWidget {
           letterSpacing: 0.06 * 9,
         ),
       );
-      if (!isDone) return next;
+      // One line always: a narrow chip scales it down rather than wrapping.
+      if (!isDone) return FittedBox(fit: BoxFit.scaleDown, child: next);
       // Both next and already done this week: NEXT plus a small check,
       // scaled down to fit a narrow chip (a long NEXT label, large text).
       return FittedBox(

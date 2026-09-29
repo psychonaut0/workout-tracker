@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import 'fit_label.dart';
 
 /// A compact stat tile: mono uppercase label, big value, optional unit,
 /// and either a sparkline widget or a sub-label below.
@@ -86,11 +87,10 @@ class StatTile extends StatelessWidget {
             height: labelLineHeight * 2,
             child: Align(
               alignment: Alignment.topLeft,
-              child: Text(
+              child: FitLabel(
                 label.toUpperCase(),
                 style: labelStyle,
                 maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -140,12 +140,7 @@ class StatTile extends StatelessWidget {
                 child: Text(sub!, maxLines: 1, style: subStyle),
               )
             else
-              Text(
-                sub!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: subStyle,
-              ),
+              FitLabel(sub!, style: subStyle),
           ],
         ],
       ),
