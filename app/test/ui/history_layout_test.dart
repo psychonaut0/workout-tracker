@@ -70,5 +70,30 @@ void main() {
       expectLayoutHolds(tester, 'History 320dp 2.0x');
       await harness.unmount(tester);
     });
+
+    testWidgets('an expanded card keeps its footer actions inside it at 320dp, '
+        '2.0x in Italian', (tester) async {
+      await harness.open(tester);
+      setPhone(tester, width: 320, textScale: 2.0);
+      await tester.pumpWidget(harness.wrap(const Scaffold(body: HistoryScreen()),
+          locale: const Locale('it')));
+      await pumpUntilFound(tester, find.byType(SessionCard));
+      await settleReal(tester, ticks: 5);
+      final card = find.byType(SessionCard).first;
+      await tester.ensureVisible(card);
+      await tester.tap(card, warnIfMissed: false);
+      await settleReal(tester, ticks: 15);
+      final delete = find.text('Elimina allenamento');
+      await scrollIntoView(tester, find.byType(HistoryScreen), delete);
+      expect(tester.takeException(), isNull);
+      for (final label in [find.text('Aggiungi esercizio'), delete]) {
+        expectOneLine(tester, label);
+        expect(tester.getRect(label).right,
+            lessThanOrEqualTo(tester.getRect(card).right + 0.01));
+      }
+      await expectLayoutHoldsWhileScrolling(
+          tester, find.byType(HistoryScreen), 'History expanded 320dp 2.0x it');
+      await harness.unmount(tester);
+    });
   });
 }

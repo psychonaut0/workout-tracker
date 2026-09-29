@@ -949,9 +949,11 @@ class _InlineAction extends StatelessWidget {
               children: [
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+                Flexible(
+                  child: FitLabel(
+                    label,
+                    style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+                  ),
                 ),
               ],
             ),
