@@ -332,7 +332,22 @@ class RenderFitLabel extends RenderProxyBox {
           ..maxLines = fit.ellipsized ? 1 : _maxLines;
       });
     }
-    super.performLayout();
+    final child = this.child;
+    if (child == null) {
+      size = computeSizeForNoChild(constraints);
+      return;
+    }
+    // Never hand the child tight constraints: a tightly constrained paragraph
+    // is its own relayout boundary, so a rebuild (which resets its scaler and
+    // maxLines to the widget's values) would re-lay out only the paragraph, at
+    // full size, without refitting here. With an unbounded height every
+    // change to the child bubbles up to this layout. The width stays as given,
+    // so textAlign still has the full line to align in.
+    child.layout(
+      constraints.copyWith(minHeight: 0, maxHeight: double.infinity),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(child.size);
   }
 }
 

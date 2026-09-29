@@ -42,6 +42,74 @@ double _natural(String text, {double scale = 1}) {
   return w;
 }
 
+/// Height of [text] laid out in [maxWidth] at [scale] × the style, as the
+/// label paints it.
+double _height(
+  String text, {
+  double maxWidth = double.infinity,
+  double scale = 1,
+  int maxLines = 2,
+  TextStyle style = _style,
+}) {
+  final p = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: TextScaler.linear(scale),
+    maxLines: maxLines,
+    ellipsis: '\u2026',
+  )..layout(maxWidth: maxWidth);
+  final h = p.height;
+  p.dispose();
+  return h;
+}
+
+/// A label in a box tight in both directions, so the paragraph could
+/// otherwise become its own relayout boundary.
+Widget _tight(
+  String text, {
+  required double width,
+  TextStyle style = _style,
+  TextScaler scaler = TextScaler.noScaling,
+}) => _host(
+  SizedBox(
+    height: 60,
+    // Deliberately not const: every pump hands the element a new widget.
+    child: FitLabel(text, style: style, maxLines: 2),
+  ),
+  width: width,
+  scaler: scaler,
+);
+
+/// A label in the IntrinsicHeight + stretched Row + Expanded shape of the
+/// Today stat row and the week strip.
+Widget _intrinsicRow(String text, {required double width}) => _host(
+  IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: FitLabel(text, style: _style, maxLines: 2)),
+        const Expanded(child: ColoredBox(color: Color(0xFF000000))),
+      ],
+    ),
+  ),
+  width: width * 2,
+);
+
+void _expectFit(
+  WidgetTester tester,
+  String text,
+  double scale, {
+  double fontSize = 20,
+}) {
+  expect(_fit(tester).appliedScale, scale);
+  expect(
+    _paragraph(tester, text).textScaler.scale(fontSize),
+    closeTo(fontSize * scale, 1e-9),
+    reason: 'the paragraph must paint at the fitted scale',
+  );
+  expectNoSplitWords(tester);
+}
+
 RenderFitLabel _fit(WidgetTester tester) =>
     tester.renderObject<RenderFitLabel>(find.byType(FitLabel));
 
@@ -176,10 +244,11 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    expect(
-      tester.getSize(find.byType(Row)).height,
-      tester.getSize(find.text('LOWER BODY')).height,
-    );
+    // Two lines at the full size: under a stretched Row the child always
+    // matches the Row, so compare against the painted height instead.
+    final expected = _height('LOWER BODY', maxWidth: _natural('LOWER') + 2);
+    expect(expected, greaterThan(_height('LOWER') * 1.5));
+    expect(tester.getSize(find.byType(Row)).height, closeTo(expected, 1e-6));
   });
 
   testWidgets('re-fits when the text changes', (tester) async {
@@ -250,5 +319,94 @@ void main() {
       expectOneLine(tester, find.text('Oberschenkelrückseite'));
       expectNoSplitWords(tester, where: 'width x$factor');
     }
+  });
+  group('refits on every change under tight constraints', () {
+    testWidgets('a rebuild with an equal widget keeps the fit', (tester) async {
+      final width = _natural('BODYWEIGHT') * 0.97;
+      await tester.pumpWidget(_tight('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 0.95);
+      await tester.pumpWidget(_tight('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 0.95);
+    });
+
+    testWidgets('a text change refits', (tester) async {
+      final width = _natural('BODYWEIGHT') * 0.97;
+      await tester.pumpWidget(_tight('BODY', width: width));
+      _expectFit(tester, 'BODY', 1.0);
+      await tester.pumpWidget(_tight('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 0.95);
+    });
+
+    testWidgets('a style change refits', (tester) async {
+      final width = _natural('BODYWEIGHT') + 5;
+      await tester.pumpWidget(_tight('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 1.0);
+      // 24 px is 240 wide: 0.85 × 240 = 204 fits in 205.
+      await tester.pumpWidget(
+        _tight(
+          'BODYWEIGHT',
+          width: width,
+          style: const TextStyle(fontSize: 24),
+        ),
+      );
+      _expectFit(tester, 'BODYWEIGHT', 0.85, fontSize: 24);
+    });
+
+    testWidgets('an ambient text scale change refits', (tester) async {
+      final width = _natural('BODYWEIGHT', scale: 2) * 0.97;
+      await tester.pumpWidget(_tight('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 1.0);
+      await tester.pumpWidget(
+        _tight('BODYWEIGHT', width: width, scaler: const TextScaler.linear(2)),
+      );
+      expect(_fit(tester).appliedScale, 0.95);
+      expect(
+        _paragraph(tester, 'BODYWEIGHT').textScaler.scale(20),
+        closeTo(38, 1e-9),
+      );
+      expectNoSplitWords(tester);
+    });
+
+    testWidgets('a width change refits', (tester) async {
+      await tester.pumpWidget(
+        _tight('BODYWEIGHT', width: _natural('BODYWEIGHT') + 10),
+      );
+      _expectFit(tester, 'BODYWEIGHT', 1.0);
+      await tester.pumpWidget(
+        _tight('BODYWEIGHT', width: _natural('BODYWEIGHT') * 0.97),
+      );
+      _expectFit(tester, 'BODYWEIGHT', 0.95);
+    });
+  });
+
+  group('refits under IntrinsicHeight', () {
+    testWidgets('a rebuild keeps the fit and the row height', (tester) async {
+      final width = _natural('BODYWEIGHT') * 0.97;
+      await tester.pumpWidget(_intrinsicRow('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 0.95);
+      await tester.pumpWidget(_intrinsicRow('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 0.95);
+      expect(
+        tester.getSize(find.byType(Row)).height,
+        closeTo(_height('BODYWEIGHT', scale: 0.95, maxLines: 1), 1e-6),
+      );
+    });
+
+    testWidgets('a text change refits and resizes the row', (tester) async {
+      final width = _natural('LOWER') + 2;
+      await tester.pumpWidget(_intrinsicRow('LOWER BODY', width: width));
+      _expectFit(tester, 'LOWER BODY', 1.0);
+      expect(
+        tester.getSize(find.byType(Row)).height,
+        closeTo(_height('LOWER BODY', maxWidth: width), 1e-6),
+      );
+      await tester.pumpWidget(_intrinsicRow('BODYWEIGHT', width: width));
+      _expectFit(tester, 'BODYWEIGHT', 0.8);
+      expect(_fit(tester).ellipsized, isTrue);
+      expect(
+        tester.getSize(find.byType(Row)).height,
+        closeTo(_height('BODYWEIGHT', scale: 0.8, maxLines: 1), 1e-6),
+      );
+    });
   });
 }
