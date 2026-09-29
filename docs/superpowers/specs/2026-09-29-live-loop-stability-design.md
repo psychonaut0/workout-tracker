@@ -74,7 +74,7 @@ Remove `rirPromptWindow`, `_rirPromptUntil` and `expireRirPrompt`, and the ticke
 
 **Closes:**
 - **`logLiveSet`:** logging any other set moves the strip to it if it is a newly logged working set, and closes it otherwise. That is the current rule minus the timer.
-- **`focusSet`:** tapping a different set closes it.
+- **`focusSet`:** tapping any set closes it. Tapping the prompted set itself turns it into the live card, which has no strip.
 - **`markNotDone`:** un-logging the prompted set closes it (already done today).
 - **Set-list changes:** adding a set or warm-up, removing a set (swipe, or restore on Undo), adding or removing an exercise, moving an exercise up or down, reordering.
 - **Discard / finish:** the controller is reset.
