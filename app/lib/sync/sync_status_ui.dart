@@ -67,3 +67,21 @@ RelativeTimeBucket relativeTimeBucket(DateTime t, DateTime now) {
   }
   return RelativeTimeBucket(RelativeTimeKind.date, date: t);
 }
+
+/// How long local changes may wait unsynced before Today mentions it.
+const Duration syncRiskAfter = Duration(days: 3);
+
+/// Whether local changes are at risk: sync is meant to run, the phone is
+/// offline, changes are waiting, and the last sync is older than
+/// [syncRiskAfter] (or never happened).
+bool syncAtRisk({
+  required bool signedIn,
+  required bool syncEnabled,
+  required bool connected,
+  required int pendingChanges,
+  required DateTime? lastSyncedAt,
+  required DateTime now,
+}) {
+  if (!signedIn || !syncEnabled || connected || pendingChanges <= 0) return false;
+  return lastSyncedAt == null || now.difference(lastSyncedAt) > syncRiskAfter;
+}

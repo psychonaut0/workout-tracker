@@ -15,6 +15,7 @@ import '../l10n/app_localizations.dart';
 import '../settings/bodyweight_goal.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
+import '../sync/sync_health.dart';
 import '../sync/sync_status_label.dart';
 import '../sync/sync_status_ui.dart';
 import '../theme/app_theme.dart';
@@ -1194,7 +1195,12 @@ class _SyncStatusRight extends StatelessWidget {
             Text(
               isExpired
                   ? l.syncSessionExpired
-                  : syncStatusLabel(l, state, s?.lastSyncedAt, DateTime.now()),
+                  : syncStatusLabel(
+                      l,
+                      state,
+                      s?.lastSyncedAt ??
+                          context.read<SyncHealth>().lastSyncedAt,
+                      DateTime.now()),
               style: WorkoutType.mono(
                 size: 11,
                 weight: FontWeight.w600,

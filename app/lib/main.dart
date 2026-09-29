@@ -20,6 +20,7 @@ import 'settings/settings_service.dart';
 import 'shell/app_shell.dart';
 import 'shell/session_launcher.dart';
 import 'sync/db.dart';
+import 'sync/sync_health.dart';
 import 'theme/app_theme.dart';
 import 'ui/onboarding_screen.dart';
 import 'units/unit_service.dart';
@@ -94,7 +95,18 @@ Future<void> main() async {
     await connectSync(auth); // resume sync only for an opted-in remembered session
   }
 
+  final syncHealth = SyncHealth(
+    status: db.statusStream,
+    initial: db.currentStatus,
+    pendingChanges: pendingUploadCount,
+    signedIn: () => auth.email != null,
+    syncEnabled: () => settingsService.syncEnabled,
+    settings: settingsService,
+  );
+  await syncHealth.start();
+
   runApp(App(
+    syncHealth: syncHealth,
     auth: auth,
     settingsService: settingsService,
     unitService: unitService,
@@ -111,6 +123,7 @@ class App extends StatefulWidget {
     required this.unitService,
     required this.identity,
     required this.sessionManager,
+    required this.syncHealth,
   });
 
   final AuthStore auth;
@@ -118,6 +131,7 @@ class App extends StatefulWidget {
   final UnitService unitService;
   final IdentityService identity;
   final SessionManager sessionManager;
+  final SyncHealth syncHealth;
 
   @override
   State<App> createState() => _AppState();
@@ -128,6 +142,7 @@ class _AppState extends State<App> {
     await disconnectAndClear();
     await widget.auth.logout();
     await widget.settingsService.setSyncEnabled(false);
+    await widget.syncHealth.recompute();
     setState(() {}); // returns to the local app shell, not a login wall
   }
 
@@ -152,6 +167,7 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: widget.settingsService),
         ChangeNotifierProvider.value(value: widget.identity),
         ChangeNotifierProvider.value(value: widget.sessionManager),
+        ChangeNotifierProvider.value(value: widget.syncHealth),
       ],
       // Builder is required so that ctx.watch<SettingsService>() is a
       // descendant of the MultiProvider (calling watch in _AppState.build()
