@@ -64,3 +64,9 @@ flutter:
   uses-material-design: true
   # Generate AppLocalizations from lib/l10n/*.arb (config in l10n.yaml).
   generate: true
+  # Space Grotesk / Hanken Grotesk / JetBrains Mono static TTFs (OFL, see
+  # OFL.txt). Named in google_fonts' asset convention (`Family-Weight.ttf`),
+  # so GoogleFonts.* loads them from the bundle with no network; runtime
+  # fetching stays on as the fallback for any weight not bundled.
+  assets:
+    - assets/google_fonts/
