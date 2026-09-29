@@ -26,6 +26,7 @@ import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../update/update_service.dart';
 import '../update/update_ui.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_action_sheet.dart';
@@ -133,8 +134,9 @@ class _Row extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                FitLabel(
                   title,
+                  maxLines: 2,
                   style: WorkoutType.body(
                     size: 14.5,
                     weight: FontWeight.w600,
