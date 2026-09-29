@@ -85,7 +85,6 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
             c.restTotal - DateTime.now().difference(start).inSeconds;
         if (remaining <= 0) c.stopRest();
       }
-      c?.expireRirPrompt(DateTime.now());
       setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
