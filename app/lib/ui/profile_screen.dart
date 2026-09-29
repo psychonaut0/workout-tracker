@@ -114,7 +114,7 @@ class _Row extends StatelessWidget {
 
     Widget row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      child: Row(
+      child: LayoutBuilder(builder: (context, constraints) => Row(
         children: [
           Container(
             width: 34,
@@ -157,10 +157,17 @@ class _Row extends StatelessWidget {
           ),
           if (right != null) ...[
             const SizedBox(width: 8),
-            right!,
+            // Capped so a wide control (chips, a long sync status at large
+            // text) wraps inside its slot instead of squeezing the title to
+            // nothing or overflowing the row.
+            ConstrainedBox(
+              constraints:
+                  BoxConstraints(maxWidth: constraints.maxWidth * _rightShare),
+              child: right!,
+            ),
           ],
         ],
-      ),
+      )),
     );
 
     if (onTap != null) {
@@ -169,6 +176,10 @@ class _Row extends StatelessWidget {
 
     return row;
   }
+
+  /// The most of the row the right slot may take; the 144dp rest steppers
+  /// still fit it at 320dp.
+  static const _rightShare = 0.6;
 }
 
 // ── Quick-stats card ──────────────────────────────────────────────────────────
@@ -262,16 +273,22 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            value,
-            style: WorkoutType.display(
-              size: 20,
-              weight: FontWeight.w700,
-              color: tokens.text,
+          // A third of a narrow phone at large text: "82.4kg" scales down
+          // whole and the label shrinks, then ellipsizes.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: WorkoutType.display(
+                size: 20,
+                weight: FontWeight.w700,
+                color: tokens.text,
+              ),
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+          FitLabel(
             label.toUpperCase(),
             style: WorkoutType.mono(
               size: 9,
@@ -857,12 +874,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  l.syncNotConnected,
-                                  style: WorkoutType.mono(
-                                    size: 11,
-                                    weight: FontWeight.w600,
-                                    color: tokens.dim,
+                                Flexible(
+                                  child: FitLabel(
+                                    l.syncNotConnected,
+                                    maxLines: 2,
+                                    style: WorkoutType.mono(
+                                      size: 11,
+                                      weight: FontWeight.w600,
+                                      color: tokens.dim,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1194,19 +1214,22 @@ class _SyncStatusRight extends StatelessWidget {
               pulsing: !isExpired && state == SyncDotState.syncing,
             ),
             const SizedBox(width: 6),
-            Text(
-              isExpired
-                  ? l.syncSessionExpired
-                  : syncStatusLabel(
-                      l,
-                      state,
-                      s?.lastSyncedAt ??
-                          context.read<SyncHealth>().lastSyncedAt,
-                      DateTime.now()),
-              style: WorkoutType.mono(
-                size: 11,
-                weight: FontWeight.w600,
-                color: tokens.dim,
+            Flexible(
+              child: FitLabel(
+                isExpired
+                    ? l.syncSessionExpired
+                    : syncStatusLabel(
+                        l,
+                        state,
+                        s?.lastSyncedAt ??
+                            context.read<SyncHealth>().lastSyncedAt,
+                        DateTime.now()),
+                maxLines: 2,
+                style: WorkoutType.mono(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: tokens.dim,
+                ),
               ),
             ),
           ],
