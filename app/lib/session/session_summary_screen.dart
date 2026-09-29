@@ -12,6 +12,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pr_badge.dart';
 import '../widgets/tag.dart';
 
@@ -208,9 +209,8 @@ class _SummaryBody extends StatelessWidget {
                     const SizedBox(height: 20),
 
                     // ── Title ──────────────────────────────────────────
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
+                    FitLabel.rich(
+                      TextSpan(
                         style: WorkoutType.display(
                           size: 22,
                           weight: FontWeight.w700,
@@ -230,6 +230,8 @@ class _SummaryBody extends StatelessWidget {
                           ],
                         ],
                       ),
+                      maxLines: 3,
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 6),
 
@@ -487,20 +489,25 @@ class _TileInner extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              value,
-              style: WorkoutType.display(
-                size: 20,
-                weight: FontWeight.w700,
-                color: highlight ? tokens.accentText : tokens.text,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                style: WorkoutType.display(
+                  size: 20,
+                  weight: FontWeight.w700,
+                  color: highlight ? tokens.accentText : tokens.text,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 2),
-            Text(
+            FitLabel(
               label,
-              style: WorkoutType.mono(size: 9.5, color: tokens.faint),
               textAlign: TextAlign.center,
+              style: WorkoutType.mono(size: 9.5, color: tokens.faint),
             ),
           ],
         ),
@@ -536,8 +543,9 @@ class _TopSetRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
+            child: FitLabel(
               name,
+              maxLines: 2,
               style: WorkoutType.body(
                 size: 14,
                 weight: FontWeight.w600,
