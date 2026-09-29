@@ -5,12 +5,15 @@ void main() {
   final now = DateTime(2026, 6, 3, 12, 0);
 
   group('syncDotStateFor', () {
-    test('error wins over everything', () {
-      expect(
-        syncDotStateFor(
-            connected: true, syncing: true, hasError: true),
-        SyncDotState.error,
-      );
+    test('not connected is offline, even with a recorded error', () {
+      expect(syncDotStateFor(connected: false, syncing: false, hasError: true),
+          SyncDotState.offline);
+      expect(syncDotStateFor(connected: false, syncing: true, hasError: true),
+          SyncDotState.offline);
+    });
+    test('an error while connected is an error, even while syncing', () {
+      expect(syncDotStateFor(connected: true, syncing: true, hasError: true),
+          SyncDotState.error);
     });
     test('syncing while connected', () {
       expect(

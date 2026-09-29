@@ -15,6 +15,7 @@ import '../l10n/app_localizations.dart';
 import '../settings/bodyweight_goal.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
+import '../sync/sync_status_label.dart';
 import '../sync/sync_status_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
@@ -1193,7 +1194,7 @@ class _SyncStatusRight extends StatelessWidget {
             Text(
               isExpired
                   ? l.syncSessionExpired
-                  : _syncLabel(l, state, s?.lastSyncedAt),
+                  : syncStatusLabel(l, state, s?.lastSyncedAt, DateTime.now()),
               style: WorkoutType.mono(
                 size: 11,
                 weight: FontWeight.w600,
@@ -1205,34 +1206,6 @@ class _SyncStatusRight extends StatelessWidget {
       },
       ),
     );
-  }
-
-  /// Localized counterpart of the (now pure) sync-status mapping: turns a
-  /// [SyncDotState] + last-synced timestamp into a display string using ARB
-  /// keys. The relative-time phrasing comes from the pure [relativeTimeBucket].
-  static String _syncLabel(
-      AppLocalizations l, SyncDotState state, DateTime? lastSyncedAt) {
-    switch (state) {
-      case SyncDotState.syncing:
-        return l.syncSyncing;
-      case SyncDotState.error:
-        return l.syncError;
-      case SyncDotState.offline:
-        return l.syncOffline;
-      case SyncDotState.synced:
-        if (lastSyncedAt == null) return l.syncSynced;
-        return l.syncSyncedAt(_relativeTime(l, lastSyncedAt, DateTime.now()));
-    }
-  }
-
-  static String _relativeTime(AppLocalizations l, DateTime t, DateTime now) {
-    final b = relativeTimeBucket(t, now);
-    return switch (b.kind) {
-      RelativeTimeKind.justNow => l.syncJustNow,
-      RelativeTimeKind.minutes => l.syncMinutesAgo(b.value),
-      RelativeTimeKind.hours => l.syncHoursAgo(b.value),
-      RelativeTimeKind.date => l.syncDateShort(b.date!.day, b.date!.month),
-    };
   }
 }
 

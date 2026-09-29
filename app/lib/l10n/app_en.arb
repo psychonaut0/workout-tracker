@@ -632,6 +632,14 @@
   "todaySyncPaused": "Sync paused · Sign in again",
   "profileSessionExpiredSub": "Sign in again to resume sync. Your data stays on this device.",
   "syncOffline": "Offline",
+  "syncOfflineSince": "Offline · synced {time}",
+  "@syncOfflineSince": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "syncSynced": "Synced",
   "syncSyncedAt": "Synced · {time}",
   "@syncSyncedAt": {

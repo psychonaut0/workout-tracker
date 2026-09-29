@@ -334,6 +334,7 @@
   "todaySyncPaused": "Sincronización en pausa · Inicia sesión",
   "profileSessionExpiredSub": "Vuelve a iniciar sesión para reanudar la sincronización. Tus datos se quedan en el dispositivo.",
   "syncOffline": "Sin conexión",
+  "syncOfflineSince": "Sin conexión · sincronizado {time}",
   "syncSynced": "Sincronizado",
   "syncSyncedAt": "Sincronizado · {time}",
   "syncNotConnected": "Sin conexión",

@@ -5,17 +5,19 @@ library;
 
 enum SyncDotState { syncing, synced, offline, error }
 
-/// Maps raw connection facts to a dot state. Error wins; then syncing;
-/// then connected-idle; else offline.
+/// Maps raw connection facts to a dot state. Not connected is offline
+/// whatever PowerSync recorded: a local-first app can't tell "server down"
+/// from "no route to the server", and both mean the phone is offline. An
+/// error only counts while connected; then syncing; then idle.
 SyncDotState syncDotStateFor({
   required bool connected,
   required bool syncing,
   required bool hasError,
 }) {
+  if (!connected) return SyncDotState.offline;
   if (hasError) return SyncDotState.error;
-  if (connected && syncing) return SyncDotState.syncing;
-  if (connected) return SyncDotState.synced;
-  return SyncDotState.offline;
+  if (syncing) return SyncDotState.syncing;
+  return SyncDotState.synced;
 }
 
 /// Which relative-time phrasing a timestamp falls into.
