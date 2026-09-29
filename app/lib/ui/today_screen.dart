@@ -17,6 +17,7 @@ import '../session/active_session_controller.dart';
 import '../session/session_manager.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
+import '../sync/sync_health.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
@@ -31,6 +32,7 @@ import '../widgets/section_label.dart';
 import '../widgets/sparkline.dart';
 import '../widgets/split_card.dart';
 import '../widgets/stat_tile.dart';
+import '../widgets/sync_at_risk_card.dart';
 import '../widgets/sync_paused_banner.dart';
 import '../widgets/volume_bars.dart';
 import '../widgets/week_strip.dart';
@@ -304,6 +306,11 @@ class _TodayScreenState extends State<TodayScreen> {
                     settings: context.read<SettingsService>(),
                   ),
                 ),
+              ),
+              SyncAtRiskCard(
+                health: context.read<SyncHealth>(),
+                expired: widget.auth.sessionExpired,
+                onTap: widget.onOpenProfile,
               ),
             ],
           ),

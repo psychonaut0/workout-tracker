@@ -332,6 +332,8 @@
   "syncError": "Errore di sync",
   "syncSessionExpired": "Sessione scaduta",
   "todaySyncPaused": "Sincronizzazione in pausa · Accedi di nuovo",
+  "todaySyncAtRisk": "Non sincronizzato dal {date} · le modifiche sono solo su questo telefono",
+  "todaySyncAtRiskNever": "Non ancora sincronizzato · le modifiche sono solo su questo telefono",
   "profileSessionExpiredSub": "Accedi di nuovo per riprendere la sincronizzazione. I tuoi dati restano sul dispositivo.",
   "syncOffline": "Offline",
   "syncOfflineSince": "Offline · sincronizzato {time}",
