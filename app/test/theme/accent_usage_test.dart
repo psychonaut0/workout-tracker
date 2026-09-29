@@ -47,4 +47,28 @@ void main() {
     expect(style.color, t.accentText);
     expect(t.accentText, isNot(t.accent));
   });
+
+  Future<InputBorder?> focusedBorder(WidgetTester tester, InputDecoration d) async {
+    final theme = buildTheme(Brightness.light, accents[3]);
+    await tester.pumpWidget(_host(theme, TextField(decoration: d)));
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    final states = <WidgetState>{WidgetState.focused};
+    final b = tester.widget<InputDecorator>(find.byType(InputDecorator)).decoration.border;
+    return b is WidgetStateInputBorder ? b.resolve(states) : b;
+  }
+
+  testWidgets('light theme: a default focused field has an accentText border',
+      (tester) async {
+    final t = buildTheme(Brightness.light, accents[3]).extension<WorkoutTokens>()!;
+    final b = await focusedBorder(tester, const InputDecoration(labelText: 'Email'));
+    expect(b!.borderSide.color, t.accentText);
+    expect(b.borderSide.width, 2);
+  });
+
+  testWidgets('a field with border: InputBorder.none stays borderless when focused',
+      (tester) async {
+    final b = await focusedBorder(tester, const InputDecoration(border: InputBorder.none));
+    expect(b, InputBorder.none);
+  });
 }

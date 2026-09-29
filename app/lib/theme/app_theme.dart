@@ -38,8 +38,15 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
               : null,
         ),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: tokens.accentText, width: 2),
+      // A state-resolved `border` (not `focusedBorder`) so a site that sets
+      // its own `border:` replaces it entirely and stays borderless.
+      border: WidgetStateInputBorder.resolveWith(
+        (states) => OutlineInputBorder(
+          borderSide: states.contains(WidgetState.focused) &&
+                  !states.contains(WidgetState.error)
+              ? BorderSide(color: tokens.accentText, width: 2)
+              : BorderSide(color: tokens.lineStrong),
+        ),
       ),
     ),
     textSelectionTheme: TextSelectionThemeData(
