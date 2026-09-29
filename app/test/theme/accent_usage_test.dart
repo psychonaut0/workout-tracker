@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/l10n/app_localizations.dart';
 import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/theme/tokens.dart';
+import 'package:workout_tracker/theme/icons.dart';
 import 'package:workout_tracker/widgets/sparkline.dart';
+import 'package:workout_tracker/widgets/week_strip.dart';
 
 Widget _host(ThemeData theme, Widget child) => MaterialApp(
       theme: theme,
@@ -45,6 +47,29 @@ void main() {
         .ancestor(of: find.text('Email'), matching: find.byType(AnimatedDefaultTextStyle))
         .first).style;
     expect(style.color, t.accentText);
+    expect(t.accentText, isNot(t.accent));
+  });
+
+  testWidgets('light theme: an unselected NEXT chip draws its label and check in accentText',
+      (tester) async {
+    final theme = buildTheme(Brightness.light, accents[3]);
+    final t = theme.extension<WorkoutTokens>()!;
+    // Selecting the first chip leaves the NEXT (and done) chip unfilled.
+    await tester.pumpWidget(_host(
+        theme,
+        WeekStrip(
+          days: const [
+            (name: 'Upper A', weekday: 0, isNext: false, done: false),
+            (name: 'Lower A', weekday: 2, isNext: true, done: true),
+          ],
+          selectedIndex: 0,
+          onSelect: (_) {},
+        )));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.text('NEXT')).style!.color, t.accentText);
+    final check = tester.widget<Icon>(
+        find.byWidgetPredicate((w) => w is Icon && w.icon == WIcons.check));
+    expect(check.color, t.accentText);
     expect(t.accentText, isNot(t.accent));
   });
 

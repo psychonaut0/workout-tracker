@@ -203,7 +203,7 @@ class _StatusIndicator extends StatelessWidget {
         style: WorkoutType.mono(
           size: 9,
           weight: FontWeight.w700,
-          color: filled ? tokens.accentInk : tokens.accent,
+          color: filled ? tokens.accentInk : tokens.accentText,
           letterSpacing: 0.06 * 9,
         ),
       );
@@ -221,7 +221,7 @@ class _StatusIndicator extends StatelessWidget {
             Icon(
               WIcons.check,
               size: 10,
-              color: filled ? tokens.accentInk : tokens.accent,
+              color: filled ? tokens.accentInk : tokens.accentText,
             ),
           ],
         ),
