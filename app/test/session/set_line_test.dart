@@ -5,12 +5,16 @@ import 'package:workout_tracker/session/active_session_controller.dart';
 import 'package:workout_tracker/session/set_line.dart';
 import 'package:workout_tracker/units/unit_service.dart';
 
+import '../support/app_fonts.dart';
 import '../support/l10n_harness.dart';
+import '../support/layout_expect.dart';
 
 SetState _s({bool done = false, bool warmup = false, int? rir = 1, double w = 140, int reps = 6}) => SetState(
     id: 's1', weightKg: w, reps: reps, rir: warmup ? null : rir, isWarmup: warmup, done: done);
 
 void main() {
+  setUpAll(preloadAppFonts);
+
   late int taps;
   late List<int> rirs;
   setUp(() {
@@ -94,4 +98,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  for (final lb in [true, false]) {
+    for (final width in [320.0, 412.0]) {
+      for (final pr in [false, true]) {
+        testWidgets(
+            'a logged ${pr ? 'PR' : 'TOP'} row shows weight and reps whole at '
+            '${width.toInt()}dp / 2.0x in ${lb ? 'lb' : 'kg'}', (tester) async {
+          tester.view.physicalSize = Size(width, 900);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final units = UnitService();
+          if (lb) units.setUnit(Unit.lb);
+          final reps = lb ? 10 : 12;
+          final set = _s(done: true, rir: 2, w: lb ? 65 : 142.5, reps: reps);
+          await tester.pumpWidget(MediaQuery(
+            data: MediaQueryData(size: Size(width, 900), textScaler: const TextScaler.linear(2.0)),
+            child: wrapL10n(Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SetLine(
+                set: set, workIndex: 1, unit: units,
+                isLiveTop: !pr, isLivePr: pr, showRirPrompt: false,
+                onTap: () {}, onRir: (_) {},
+              ),
+            )),
+          ));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final paras = find.byType(RichText).evaluate()
+              .map((e) => e.renderObject)
+              .whereType<RenderParagraph>()
+              .where((p) => p.text.toPlainText().contains('×'))
+              .toList();
+          expect(paras, hasLength(1));
+          final p = paras.single;
+          final plain = p.text.toPlainText();
+          expect(plain, endsWith('$reps'));
+          expect(plain, isNot(contains('…')));
+          expect(p.didExceedMaxLines, isFalse);
+          // The group may scale down but must stay inside the row.
+          final box = tester.getRect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('×')));
+          expect(box.right, lessThanOrEqualTo(width - 16));
+          expectNoSplitWords(tester);
+        });
+      }
+    }
+  }
 }
