@@ -89,6 +89,8 @@ void main() {
     final b = await focusedBorder(tester, const InputDecoration(labelText: 'Email'));
     expect(b!.borderSide.color, t.accentText);
     expect(b.borderSide.width, 2);
+    expect((b as OutlineInputBorder).borderRadius,
+        BorderRadius.circular(AppRadius.radius));
   });
 
   testWidgets('a field with border: InputBorder.none stays borderless when focused',

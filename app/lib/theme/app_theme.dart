@@ -42,6 +42,7 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
       // its own `border:` replaces it entirely and stays borderless.
       border: WidgetStateInputBorder.resolveWith(
         (states) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radius),
           borderSide: states.contains(WidgetState.focused) &&
                   !states.contains(WidgetState.error)
               ? BorderSide(color: tokens.accentText, width: 2)
