@@ -18,6 +18,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pending_input.dart';
 import '../widgets/w_action_sheet.dart';
 import '../widgets/w_dialog.dart';
@@ -85,7 +86,6 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
             c.restTotal - DateTime.now().difference(start).inSeconds;
         if (remaining <= 0) c.stopRest();
       }
-      c?.expireRirPrompt(DateTime.now());
       setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -352,7 +352,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
             prCount: controller.prCount,
             restStart: controller.restStart,
             restTotal: controller.restTotal,
-            nextLabel: restNextLabel(l, unit, live),
+            restEndedAt: controller.restEndedAt,
+            showRestRow: controller.hasLoggedSet,
+            nextLabel: restNextLabel(l, unit, controller.nextPendingSet),
             onMinimize: () => Navigator.of(context).pop(),
             onMenu: () => _openWorkoutMenu(controller),
             onAdd30s: () {
@@ -504,12 +506,16 @@ class _DashedButton extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: tokens.dim),
             const SizedBox(width: 7),
-            Text(
-              label,
-              style: WorkoutType.mono(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: tokens.dim),
+            // Shrinks, then ellipsizes, rather than pushing past the button
+            // on a narrow phone at large text.
+            Flexible(
+              child: FitLabel(
+                label,
+                style: WorkoutType.mono(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: tokens.dim),
+              ),
             ),
           ],
         ),

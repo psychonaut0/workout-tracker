@@ -29,8 +29,6 @@ ActiveSessionController _c(List<BlockState> blocks) => ActiveSessionController()
     startedAt: DateTime(2026, 9, 24, 10), blocks: blocks,
   ));
 
-final _t0 = DateTime(2026, 9, 24, 10, 30);
-
 void main() {
   group('liveSet', () {
     test('is the first not-done set in on-screen order, warm-ups first', () {
@@ -58,7 +56,7 @@ void main() {
       final c = _c([a]);
       c.focusSet(a.workingSets[2]);
       expect(c.liveSet!.set.id, 'a3');
-      c.logLiveSet(now: _t0);
+      c.logLiveSet();
       expect(a.workingSets[2].done, isTrue);
       expect(c.liveSet!.set.id, 'a1');
     });
@@ -70,7 +68,7 @@ void main() {
       final c = _c([a]);
       var notifies = 0;
       c.addListener(() => notifies++);
-      final r = c.logLiveSet(now: _t0)!;
+      final r = c.logLiveSet()!;
       expect(r.set.id, 'a1');
       expect(r.newlyDone, isTrue);
       expect(a.workingSets[0].done, isTrue);
@@ -79,7 +77,7 @@ void main() {
     });
 
     test('returns null when there is no live set', () {
-      expect(_c([_b('a', work: [_s('a1', done: true)])]).logLiveSet(now: _t0), isNull);
+      expect(_c([_b('a', work: [_s('a1', done: true)])]).logLiveSet(), isNull);
     });
 
     test('logging a focused done set keeps it done and clears focus', () {
@@ -87,7 +85,7 @@ void main() {
       final c = _c([a]);
       c.focusSet(a.workingSets[0]);
       a.workingSets[0].weightKg = 102.5; // corrected in the live card
-      final r = c.logLiveSet(now: _t0)!;
+      final r = c.logLiveSet()!;
       expect(r.newlyDone, isFalse);
       expect(a.workingSets[0].done, isTrue);
       expect(a.workingSets[0].weightKg, 102.5);
@@ -99,7 +97,7 @@ void main() {
       final a = _b('a', work: [_s('a1')]);
       final b = _b('b', work: [_s('b1')], expanded: false);
       final c = _c([a, b]);
-      c.logLiveSet(now: _t0);
+      c.logLiveSet();
       expect(a.expanded, isFalse);
       expect(b.expanded, isTrue);
     });
@@ -107,7 +105,7 @@ void main() {
     test('staying inside the same block keeps its expansion', () {
       final a = _b('a', work: [_s('a1'), _s('a2')]);
       final c = _c([a]);
-      c.logLiveSet(now: _t0);
+      c.logLiveSet();
       expect(a.expanded, isTrue);
     });
 
@@ -116,61 +114,113 @@ void main() {
       final b = _b('b', work: [_s('b1'), _s('b2')]);
       final c = _c([a, b]);
       c.focusSet(b.workingSets[0]);
-      c.logLiveSet(now: _t0); // next live is a1, in another block
+      c.logLiveSet(); // next live is a1, in another block
       expect(b.expanded, isTrue);
       expect(a.expanded, isTrue);
     });
   });
 
   group('RIR prompt', () {
-    test('logging a working set opens the prompt for exactly the window', () {
+    test('logging a working set opens the prompt and nothing on a clock closes it', () {
       final a = _b('a', work: [_s('a1'), _s('a2')]);
       final c = _c([a]);
-      c.logLiveSet(now: _t0);
+      c.logLiveSet();
       expect(c.rirPromptSetId, 'a1');
-      c.expireRirPrompt(_t0.add(const Duration(seconds: 3)));
+      // Rest starting and ending does not close it.
+      c.startRest(90);
+      c.stopRest();
       expect(c.rirPromptSetId, 'a1');
-      c.expireRirPrompt(_t0.add(ActiveSessionController.rirPromptWindow));
-      expect(c.rirPromptSetId, isNull);
+    });
+
+    test('picking a value stores it and leaves the prompt open', () {
+      final a = _b('a', work: [_s('a1'), _s('a2')]);
+      final c = _c([a]);
+      c.logLiveSet();
+      c.setRirFromPrompt(a.workingSets[0], 3);
+      expect(a.workingSets[0].rir, 3);
+      expect(c.rirPromptSetId, 'a1');
+    });
+
+    test('logging the next working set moves the prompt to it', () {
+      final a = _b('a', work: [_s('a1'), _s('a2')]);
+      final c = _c([a]);
+      c.logLiveSet();
+      c.logLiveSet();
+      expect(c.rirPromptSetId, 'a2');
     });
 
     test('logging a warm-up opens no prompt and closes an open one', () {
       final a = _b('a', work: [_s('a1')]);
       final b = _b('b', warm: [_s('bw', warmup: true)], work: [_s('b1')]);
       final c = _c([a, b]);
-      c.logLiveSet(now: _t0);
+      c.logLiveSet();
       expect(c.rirPromptSetId, 'a1');
-      c.logLiveSet(now: _t0); // logs the warm-up bw
+      c.logLiveSet(); // logs the warm-up bw
       expect(c.rirPromptSetId, isNull);
     });
 
-    test('a chip tap sets RIR and restarts the window', () {
-      final a = _b('a', work: [_s('a1'), _s('a2')]);
+    test('focusing any set closes the strip, including its own', () {
+      final a = _b('a', work: [_s('a1'), _s('a2'), _s('a3')]);
       final c = _c([a]);
-      c.logLiveSet(now: _t0);
-      final later = _t0.add(const Duration(seconds: 3));
-      c.setRirFromPrompt(a.workingSets[0], 3, now: later);
-      expect(a.workingSets[0].rir, 3);
-      c.expireRirPrompt(_t0.add(const Duration(seconds: 5)));
-      expect(c.rirPromptSetId, 'a1');
-      c.expireRirPrompt(later.add(ActiveSessionController.rirPromptWindow));
+      c.logLiveSet();
+      c.focusSet(a.workingSets[2]);
+      expect(c.rirPromptSetId, isNull);
+
+      c.logLiveSet(); // logs a3, prompt on a3
+      expect(c.rirPromptSetId, 'a3');
+      c.focusSet(a.workingSets[2]); // its own set: becomes the live card
       expect(c.rirPromptSetId, isNull);
     });
 
-    test('expiring with nothing open does not notify', () {
+    test('every change to the set list closes it', () {
+      final cases = <String, void Function(ActiveSessionController, BlockState, BlockState)>{
+        'addSet': (c, a, b) => c.addSet(a),
+        'addWarmupSet': (c, a, b) => c.addWarmupSet(a),
+        'removeSet (another set)': (c, a, b) => c.removeSet(a, a.workingSets[1]),
+        'restoreSet': (c, a, b) {
+          final s = b.workingSets[0];
+          final i = c.removeSet(b, s);
+          c.logLiveSet(); // reopen on a2 (a1 already logged)
+          c.restoreSet(b, s, i);
+        },
+        'moveBlock': (c, a, b) => c.moveBlock(a, 1),
+        'moveBlockTo': (c, a, b) => c.moveBlockTo(0, 1),
+        'removeBlock': (c, a, b) => c.removeBlock(b),
+      };
+      cases.forEach((name, act) {
+        final a = _b('a', work: [_s('a1'), _s('a2')]);
+        final b = _b('b', work: [_s('b1')]);
+        final c = _c([a, b]);
+        c.logLiveSet();
+        expect(c.rirPromptSetId, isNotNull, reason: name);
+        act(c, a, b);
+        expect(c.rirPromptSetId, isNull, reason: name);
+      });
+    });
+
+    test('discard resets it', () {
       final c = _c([_b('a', work: [_s('a1')])]);
-      var notifies = 0;
-      c.addListener(() => notifies++);
-      c.expireRirPrompt(_t0);
-      expect(notifies, 0);
+      c.logLiveSet();
+      c.discard();
+      expect(c.rirPromptSetId, isNull);
     });
   });
 
   group('markNotDone', () {
+    test('un-logging a different set closes an open strip', () {
+      final a = _b('a', work: [_s('a1', done: true), _s('a2'), _s('a3')]);
+      final c = _c([a]);
+      c.logLiveSet(); // logs a2, strip on a2
+      expect(c.rirPromptSetId, 'a2');
+      c.markNotDone(a.workingSets[0]);
+      expect(c.rirPromptSetId, isNull);
+      expect(c.liveSet!.set.id, 'a1');
+    });
+
     test('un-logs the set, makes it live and closes its prompt', () {
       final a = _b('a', work: [_s('a1'), _s('a2')]);
       final c = _c([a]);
-      c.logLiveSet(now: _t0);
+      c.logLiveSet();
       c.markNotDone(a.workingSets[0]);
       expect(a.workingSets[0].done, isFalse);
       expect(c.liveSet!.set.id, 'a1');

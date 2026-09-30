@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../auth/auth_store.dart';
 import '../l10n/app_localizations.dart';
+import '../sync/sync_health.dart';
 
 /// Sign-in / registration against the configured sync server.
 class LoginScreen extends StatefulWidget {
@@ -42,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await widget.auth.login(email, _password.text);
       }
       await widget.onLoggedIn();
+      if (mounted) await context.read<SyncHealth>().recompute();
     } catch (e) {
       setState(() => _error = '$e');
     } finally {

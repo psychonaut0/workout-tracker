@@ -10,6 +10,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../util/dates.dart';
 import '../widgets/dashed_border.dart';
+import '../widgets/fit_label.dart';
 
 /// The Split sub-tab: a list of training days in rotation.
 ///
@@ -105,9 +106,11 @@ class SplitDayCard extends StatelessWidget {
         : '–';
 
     final focusText = focus?.trim() ?? '';
-    final meta = focusText.isNotEmpty
-        ? l.splitDayMeta(focusText, exerciseCount)
-        : l.splitDayMeta('', exerciseCount).replaceFirst(RegExp(r'^\s*·\s*'), '');
+    // The count only (the "{focus} · " prefix stripped), localized.
+    final countText = l
+        .splitDayMeta('', exerciseCount)
+        .replaceFirst(RegExp(r'^\s*·\s*'), '');
+    final metaStyle = WorkoutType.mono(size: 11, color: tokens.faint);
 
     return GestureDetector(
       onTap: onTap,
@@ -154,8 +157,9 @@ class SplitDayCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  FitLabel(
                     name,
+                    maxLines: 2,
                     style: WorkoutType.body(
                       size: 15.5,
                       weight: FontWeight.w600,
@@ -163,13 +167,32 @@ class SplitDayCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    meta,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: WorkoutType.mono(
-                      size: 11,
-                      color: tokens.faint,
+                  // A long focus ellipsizes; the count keeps its own slot,
+                  // capped at the row so at large text it shrinks, then
+                  // ellipsizes, rather than overflowing.
+                  LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: [
+                        if (focusText.isNotEmpty)
+                          Flexible(
+                            child: Text(
+                              focusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: metaStyle,
+                            ),
+                          ),
+                        ConstrainedBox(
+                          constraints:
+                              BoxConstraints(maxWidth: constraints.maxWidth),
+                          child: FitLabel(
+                            focusText.isNotEmpty
+                                ? ' · $countText'
+                                : countText,
+                            style: metaStyle,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -216,12 +239,14 @@ class _NewDayButton extends StatelessWidget {
             children: [
               Icon(WIcons.plus, size: 16, color: tokens.dim),
               const SizedBox(width: 7),
-              Text(
-                l.planNewDay,
-                style: WorkoutType.mono(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: tokens.dim,
+              Flexible(
+                child: FitLabel(
+                  l.planNewDay,
+                  style: WorkoutType.mono(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: tokens.dim,
+                  ),
                 ),
               ),
             ],

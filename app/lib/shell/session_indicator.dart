@@ -69,7 +69,7 @@ class _SessionIndicatorState extends State<SessionIndicator> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(WIcons.dumbbell, size: 13, color: tokens.accent),
+                Icon(WIcons.dumbbell, size: 13, color: tokens.accentText),
                 const SizedBox(width: 7),
                 Text(
                   resting
@@ -78,7 +78,7 @@ class _SessionIndicatorState extends State<SessionIndicator> {
                   style: WorkoutType.mono(
                     size: 12,
                     weight: FontWeight.w700,
-                    color: resting ? tokens.accent : tokens.dim,
+                    color: resting ? tokens.accentText : tokens.dim,
                   ),
                 ),
               ],

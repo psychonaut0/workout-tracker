@@ -7,6 +7,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../units/unit_service.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pr_badge.dart';
 import '../widgets/rir_picker.dart';
 import '../widgets/tag.dart';
@@ -70,52 +71,67 @@ class SetLine extends StatelessWidget {
                       style: WorkoutType.mono(
                         size: 13,
                         weight: FontWeight.w700,
-                        color: done && !set.isWarmup ? tokens.accent : tokens.faint,
+                        color: done && !set.isWarmup ? tokens.accentText : tokens.faint,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text.rich(
-                            TextSpan(children: [
-                              TextSpan(
-                                text: unit.fmtWt(set.weightKg),
-                                style: WorkoutType.mono(
-                                    size: 15,
-                                    weight: FontWeight.w700,
-                                    color: done ? tokens.text : tokens.dim),
+                    // The weight and reps are numbers: they never ellipsize.
+                    // The group is laid out at its natural width and, only
+                    // when the row is too narrow for it, scales down as a
+                    // whole. The RIR text takes whatever is left and gives
+                    // way first.
+                    child: LayoutBuilder(
+                      builder: (context, box) => Row(
+                        children: [
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: box.maxWidth),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text.rich(
+                                TextSpan(children: [
+                                  TextSpan(
+                                    text: unit.fmtWt(set.weightKg),
+                                    style: WorkoutType.mono(
+                                        size: 15,
+                                        weight: FontWeight.w700,
+                                        color: done ? tokens.text : tokens.dim),
+                                  ),
+                                  TextSpan(
+                                    text: unit.uLabel,
+                                    style: WorkoutType.mono(size: 11, color: tokens.faint),
+                                  ),
+                                  TextSpan(
+                                    text: '  ×  ',
+                                    style: WorkoutType.mono(size: 12, color: tokens.faint),
+                                  ),
+                                  TextSpan(
+                                    text: '${set.reps}',
+                                    style: WorkoutType.mono(
+                                        size: 15,
+                                        weight: FontWeight.w700,
+                                        color: done ? tokens.text : tokens.dim),
+                                  ),
+                                ]),
+                                maxLines: 1,
+                                softWrap: false,
                               ),
-                              TextSpan(
-                                text: unit.uLabel,
-                                style: WorkoutType.mono(size: 11, color: tokens.faint),
-                              ),
-                              TextSpan(
-                                text: '  ×  ',
-                                style: WorkoutType.mono(size: 12, color: tokens.faint),
-                              ),
-                              TextSpan(
-                                text: '${set.reps}',
-                                style: WorkoutType.mono(
-                                    size: 15,
-                                    weight: FontWeight.w700,
-                                    color: done ? tokens.text : tokens.dim),
-                              ),
-                            ]),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        if (done && !set.isWarmup) ...[
-                          const SizedBox(width: 10),
-                          Text(
-                            l.sessionRir(set.rir ?? 0),
-                            style: WorkoutType.mono(size: 10.5, color: tokens.faint),
-                          ),
+                          if (done && !set.isWarmup)
+                            Flexible(
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 10),
+                                child: FitLabel(
+                                  l.sessionRir(set.rir ?? 0),
+                                  style: WorkoutType.mono(size: 10.5, color: tokens.faint),
+                                ),
+                              ),
+                            ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                   if (isLivePr)

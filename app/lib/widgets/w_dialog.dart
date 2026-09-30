@@ -126,7 +126,7 @@ class _WDialogBody<T> extends StatelessWidget {
                           color: actions[i].destructive
                               ? tokens.danger
                               : (i == actions.length - 1
-                                  ? tokens.accent
+                                  ? tokens.accentText
                                   : tokens.dim),
                         ),
                       ),

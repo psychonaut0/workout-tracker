@@ -138,9 +138,13 @@ class _ExerciseBlockState extends State<ExerciseBlock>
               padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
               child: Row(
                 children: [
+                  // Completion badge — sizes to its count (min 40dp), so
+                  // "2/3" stays whole at large text.
                   Container(
-                    width: 36,
-                    height: 36,
+                    key: ValueKey('block-badge-${ex.id}'),
+                    constraints:
+                        const BoxConstraints(minWidth: 40, minHeight: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     decoration: BoxDecoration(
                       color: allDone ? tokens.accent : tokens.surface3,
                       borderRadius: BorderRadius.circular(AppRadius.radius * 0.5),
@@ -150,6 +154,8 @@ class _ExerciseBlockState extends State<ExerciseBlock>
                         ? Icon(Icons.check, size: 18, color: tokens.accentInk)
                         : Text(
                             '$doneWorking/${working.length}',
+                            maxLines: 1,
+                            softWrap: false,
                             style: WorkoutType.mono(
                                 size: 13, weight: FontWeight.w700, color: tokens.dim),
                           ),

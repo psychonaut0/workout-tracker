@@ -268,7 +268,7 @@ class _ExerciseRow extends StatelessWidget {
               margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: exercise.compound ? tokens.accent : tokens.surface3,
+                color: exercise.compound ? tokens.accentText : tokens.surface3,
               ),
             ),
 

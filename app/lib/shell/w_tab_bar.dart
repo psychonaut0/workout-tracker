@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/typography.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pressable.dart';
 
 /// The 5-slot bottom navigation bar with a center FAB.
@@ -127,7 +128,7 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final color = active ? tokens.accent : tokens.faint;
+    final color = active ? tokens.accentText : tokens.faint;
 
     return Expanded(
       child: GestureDetector(
@@ -141,12 +142,16 @@ class _TabButton extends StatelessWidget {
             children: [
               Icon(icon, size: 23, color: color),
               const SizedBox(height: 3),
-              Text(
-                label,
-                style: WorkoutType.mono(
-                  size: 9.5,
-                  weight: FontWeight.w600,
-                  color: color,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FitLabel(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: WorkoutType.mono(
+                    size: 9.5,
+                    weight: FontWeight.w600,
+                    color: color,
+                  ),
                 ),
               ),
             ],

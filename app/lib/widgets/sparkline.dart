@@ -6,34 +6,36 @@ import '../theme/motion.dart';
 
 /// A tiny polyline sparkline, ported from `ui.jsx` → `Sparkline`.
 ///
-/// Default size is 92×22 (wider than the JSX 64×24 to fit the stat-tile).
+/// Fills the width its parent offers (92 when that is unbounded), 22 tall, so
+/// in a narrow stat tile it never paints past the tile.
 /// Returns [SizedBox.shrink] when fewer than 2 values are provided.
 ///
-/// The [stroke] color defaults to `context.tokens.accent`; callers that want a
+/// The [stroke] color defaults to `context.tokens.accentText`; callers that want a
 /// muted line (e.g. the bodyweight tile) pass `context.tokens.dim` explicitly.
 class Sparkline extends StatelessWidget {
   const Sparkline({
     super.key,
     required this.values,
     this.stroke,
-    this.width = 92,
+    this.width,
     this.height = 22,
   });
 
   final List<double> values;
 
-  /// Stroke / fill colour. Defaults to [WorkoutTokens.accent].
+  /// Stroke / fill colour. Defaults to [WorkoutTokens.accentText].
   final Color? stroke;
 
-  final double width;
+  /// A fixed width; null fills the parent's width.
+  final double? width;
   final double height;
 
   @override
   Widget build(BuildContext context) {
     if (values.length < 2) return const SizedBox.shrink();
-    final color = stroke ?? context.tokens.accent;
-    return SizedBox(
-      width: width,
+    final color = stroke ?? context.tokens.accentText;
+    final box = SizedBox(
+      width: width ?? double.infinity,
       height: height,
       child: MountProgress(
         duration: Motion.base,
@@ -41,13 +43,12 @@ class Sparkline extends StatelessWidget {
           painter: _SparklinePainter(
             values: values,
             stroke: color,
-            canvasWidth: width,
-            canvasHeight: height,
             progress: t,
           ),
         ),
       ),
     );
+    return width == null ? LimitedBox(maxWidth: 92, child: box) : box;
   }
 }
 
@@ -55,15 +56,11 @@ class _SparklinePainter extends CustomPainter {
   const _SparklinePainter({
     required this.values,
     required this.stroke,
-    required this.canvasWidth,
-    required this.canvasHeight,
     this.progress = 1.0,
   });
 
   final List<double> values;
   final Color stroke;
-  final double canvasWidth;
-  final double canvasHeight;
 
   /// One-shot mount progress 0→1. Strokes the line on; the end dot appears at
   /// completion. Identical to a static render at 1.0.
@@ -71,8 +68,8 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = canvasWidth;
-    final h = canvasHeight;
+    final w = size.width;
+    final h = size.height;
     final n = values.length;
 
     final lo = values.reduce(min);
@@ -119,7 +116,5 @@ class _SparklinePainter extends CustomPainter {
   bool shouldRepaint(_SparklinePainter old) =>
       old.progress != progress ||
       old.values != values ||
-      old.stroke != stroke ||
-      old.canvasWidth != canvasWidth ||
-      old.canvasHeight != canvasHeight;
+      old.stroke != stroke;
 }

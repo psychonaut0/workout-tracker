@@ -5,12 +5,15 @@ void main() {
   final now = DateTime(2026, 6, 3, 12, 0);
 
   group('syncDotStateFor', () {
-    test('error wins over everything', () {
-      expect(
-        syncDotStateFor(
-            connected: true, syncing: true, hasError: true),
-        SyncDotState.error,
-      );
+    test('not connected is offline, even with a recorded error', () {
+      expect(syncDotStateFor(connected: false, syncing: false, hasError: true),
+          SyncDotState.offline);
+      expect(syncDotStateFor(connected: false, syncing: true, hasError: true),
+          SyncDotState.offline);
+    });
+    test('an error while connected is an error, even while syncing', () {
+      expect(syncDotStateFor(connected: true, syncing: true, hasError: true),
+          SyncDotState.error);
     });
     test('syncing while connected', () {
       expect(
@@ -69,6 +72,35 @@ void main() {
         relativeTimeBucket(now.subtract(const Duration(hours: 24)), now).kind,
         RelativeTimeKind.date,
       );
+    });
+  });
+
+  group('syncAtRisk', () {
+    final now = DateTime(2026, 9, 29, 12);
+    bool risk({
+      bool signedIn = true,
+      bool syncEnabled = true,
+      bool connected = false,
+      int pending = 1,
+      DateTime? last,
+    }) =>
+        syncAtRisk(
+            signedIn: signedIn, syncEnabled: syncEnabled, connected: connected,
+            pendingChanges: pending, lastSyncedAt: last, now: now);
+
+    test('only past the threshold', () {
+      expect(risk(last: now.subtract(syncRiskAfter)), isFalse);
+      expect(risk(last: now.subtract(syncRiskAfter + const Duration(minutes: 1))), isTrue);
+    });
+    test('never synced with pending changes is at risk', () {
+      expect(risk(last: null), isTrue);
+    });
+    test('nothing pending, connected, signed out or sync off is never at risk', () {
+      final old = now.subtract(const Duration(days: 30));
+      expect(risk(last: old, pending: 0), isFalse);
+      expect(risk(last: old, connected: true), isFalse);
+      expect(risk(last: old, signedIn: false), isFalse);
+      expect(risk(last: old, syncEnabled: false), isFalse);
     });
   });
 }

@@ -8,9 +8,11 @@ import 'package:google_fonts/google_fonts.dart';
 ///   • body     — Hanken Grotesk (UI text, labels)
 ///   • mono     — JetBrains Mono (stats, metadata, units)
 ///
-/// google_fonts fetches font files over HTTP on first use and falls back to
-/// system fonts offline. GoogleFonts.xxx() returns a TextStyle synchronously,
-/// so tests and analyze work without network access.
+/// The faces are bundled in `assets/google_fonts/` (google_fonts' naming,
+/// `Family-Weight.ttf`), so they load from the app bundle with no network —
+/// the first offline run and the tests included. Runtime fetching stays on
+/// as the fallback for a weight that isn't bundled. GoogleFonts.xxx() returns
+/// a TextStyle synchronously; the face swaps in once its file has loaded.
 abstract final class WorkoutType {
   // ── Display (Space Grotesk, 400–700) ───────────────────────────────────────
   // Sizes ~25–40px; negative tracking (−0.02 to −0.03 em).

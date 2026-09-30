@@ -22,6 +22,7 @@ import 'exercise_sheet.dart';
 import '../util/dates.dart';
 import '../util/group_by_week.dart';
 import '../widgets/card.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pr_badge.dart';
 import '../widgets/w_dialog.dart';
 import 'set_editor_sheet.dart';
@@ -335,18 +336,25 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: WorkoutType.display(
-              size: 23,
-              weight: FontWeight.w700,
-              color: tokens.text,
-              letterSpacing: 23 * -0.025,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              softWrap: false,
+              style: WorkoutType.display(
+                size: 23,
+                weight: FontWeight.w700,
+                color: tokens.text,
+                letterSpacing: 23 * -0.025,
+              ),
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+          FitLabel(
             AppLocalizations.of(context).historySummarySuffix(label),
+            maxLines: 2,
             style: WorkoutType.mono(
               size: 9.5,
               color: tokens.faint,
@@ -378,29 +386,60 @@ class _WeekHeader extends StatelessWidget {
     final prs = sessions.fold<int>(0, (sum, s) => sum + s.prCount);
     final countLabel = l.historyWeekSessions(sessions.length) +
         (prs > 0 ? l.sessionPrCount(prs) : '');
+    final weekLabel = l.historyWeekOf(fmtDate(
+      weekKey,
+      Localizations.localeOf(context).toLanguageTag(),
+    ).toUpperCase());
+    final weekStyle = WorkoutType.mono(
+      size: 11,
+      weight: FontWeight.w600,
+      color: tokens.faint,
+      letterSpacing: 0.08 * 11,
+    );
+    final countStyle = WorkoutType.mono(size: 10.5, color: tokens.dim);
 
     return Padding(
       padding: const EdgeInsets.only(left: 2, right: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            l.historyWeekOf(fmtDate(
-              weekKey,
-              Localizations.localeOf(context).toLanguageTag(),
-            ).toUpperCase()),
-            style: WorkoutType.mono(
-              size: 11,
-              weight: FontWeight.w600,
-              color: tokens.faint,
-              letterSpacing: 0.08 * 11,
-            ),
-          ),
-          Text(
-            countLabel,
-            style: WorkoutType.mono(size: 10.5, color: tokens.dim),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scaler = MediaQuery.textScalerOf(context);
+          final direction = Directionality.of(context);
+          double widthOf(String text, TextStyle style) {
+            final painter = TextPainter(
+              text: TextSpan(text: text, style: style),
+              textDirection: direction,
+              textScaler: scaler,
+              maxLines: 1,
+            )..layout();
+            final width = painter.width;
+            painter.dispose();
+            return width;
+          }
+
+          // Side by side when both fit with a 12 dp gap; otherwise the count
+          // drops to its own line instead of colliding with the week.
+          final sideBySide = widthOf(weekLabel, weekStyle) +
+                  12 +
+                  widthOf(countLabel, countStyle) <=
+              constraints.maxWidth;
+          if (sideBySide) {
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(weekLabel, maxLines: 1, style: weekStyle),
+                Text(countLabel, maxLines: 1, style: countStyle),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FitLabel(weekLabel, style: weekStyle, maxLines: 2),
+              const SizedBox(height: 2),
+              FitLabel(countLabel, style: countStyle, maxLines: 2),
+            ],
+          );
+        },
       ),
     );
   }
@@ -479,22 +518,33 @@ class _SessionCardState extends State<SessionCard> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            '${date.day}',
-                            style: WorkoutType.display(
-                              size: 20,
-                              weight: FontWeight.w700,
-                              color: tokens.text,
-                              letterSpacing: 0,
+                          // Scale down rather than wrap "28" at large text.
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '${date.day}',
+                              maxLines: 1,
+                              softWrap: false,
+                              style: WorkoutType.display(
+                                size: 20,
+                                weight: FontWeight.w700,
+                                color: tokens.text,
+                                letterSpacing: 0,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            monthLabel.toUpperCase(),
-                            style: WorkoutType.mono(
-                              size: 9.5,
-                              color: tokens.faint,
-                              letterSpacing: 0.04 * 9.5,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              monthLabel.toUpperCase(),
+                              maxLines: 1,
+                              softWrap: false,
+                              style: WorkoutType.mono(
+                                size: 9.5,
+                                color: tokens.faint,
+                                letterSpacing: 0.04 * 9.5,
+                              ),
                             ),
                           ),
                         ],
@@ -526,8 +576,8 @@ class _SessionCardState extends State<SessionCard> {
                               ),
                             )
                           else
-                            RichText(
-                              text: TextSpan(
+                            FitLabel.rich(
+                              TextSpan(
                                 children: [
                                   TextSpan(
                                     text: labelName,
@@ -548,10 +598,14 @@ class _SessionCardState extends State<SessionCard> {
                                     ),
                                 ],
                               ),
+                              maxLines: 2,
                             ),
                           const SizedBox(height: 4),
-                          // Meta row
-                          Row(
+                          // Meta — wraps to a second line instead of running
+                          // under the PR badge at large text.
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 2,
                             children: [
                               Text(
                                 AppLocalizations.of(context)
@@ -562,8 +616,7 @@ class _SessionCardState extends State<SessionCard> {
                                   color: tokens.faint,
                                 ),
                               ),
-                              if (session.durationMin != null) ...[
-                                const SizedBox(width: 12),
+                              if (session.durationMin != null)
                                 Text(
                                   '${session.durationMin}m',
                                   style: WorkoutType.mono(
@@ -571,8 +624,6 @@ class _SessionCardState extends State<SessionCard> {
                                     color: tokens.faint,
                                   ),
                                 ),
-                              ],
-                              const SizedBox(width: 12),
                               Text(
                                 localizedDaysAgo(l, session.date),
                                 style: WorkoutType.mono(
@@ -837,7 +888,7 @@ class SessionCardBody extends StatelessWidget {
               key: const ValueKey('history-resume'),
               icon: WIcons.resume,
               label: l.historyResumeWorkout,
-              color: tokens.accent,
+              color: tokens.accentText,
               onTap: onResume,
             ),
           if (resumeState != SessionResumeState.inProgress) ...[
@@ -845,7 +896,7 @@ class SessionCardBody extends StatelessWidget {
               key: const ValueKey('history-add-exercise'),
               icon: WIcons.plus,
               label: l.sessionAddExercise,
-              color: tokens.accent,
+              color: tokens.accentText,
               onTap: onAddExercise,
             ),
             const SizedBox(height: 8),
@@ -898,9 +949,11 @@ class _InlineAction extends StatelessWidget {
               children: [
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+                Flexible(
+                  child: FitLabel(
+                    label,
+                    style: WorkoutType.mono(size: 11, weight: FontWeight.w600, color: color),
+                  ),
                 ),
               ],
             ),
@@ -930,7 +983,7 @@ class _BlockRow extends StatelessWidget {
     final exercise = catalogMap[block.exerciseId];
     final isCompound = exercise?.compound ?? false;
     final name = exercise?.name ?? block.exerciseId;
-    final dotColor = isCompound ? tokens.accent : tokens.lineStrong;
+    final dotColor = isCompound ? tokens.accentText : tokens.lineStrong;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -966,7 +1019,7 @@ class _BlockRow extends StatelessWidget {
             // PR bolt
             if (block.isPr) ...[
               const SizedBox(width: 6),
-              Icon(WIcons.bolt, size: 13, color: tokens.accent),
+              Icon(WIcons.bolt, size: 13, color: tokens.accentText),
             ],
 
             // Weight × reps

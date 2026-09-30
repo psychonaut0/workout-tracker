@@ -23,8 +23,10 @@ String restNextLabel(AppLocalizations l, UnitService unit, LiveSet? live) {
 /// The live workout's sticky header: minimize, title and set count, the ⋯
 /// menu and elapsed time; under it the progress bar, which becomes a thicker
 /// draining rest countdown while resting, with a rest row (countdown, what is
-/// next, +30s / Skip). Replaces the old floating rest card, so nothing ever
-/// covers the exercise list.
+/// next, +30s / Skip). The rest row appears with the first logged set and then
+/// stays, switching between the countdown and a "rested" count-up of the same
+/// height so the list below never moves on its own. Replaces the old floating
+/// rest card, so nothing ever covers the exercise list.
 class SessionHeader extends StatelessWidget {
   const SessionHeader({
     super.key,
@@ -35,6 +37,8 @@ class SessionHeader extends StatelessWidget {
     required this.prCount,
     required this.restStart,
     required this.restTotal,
+    required this.showRestRow,
+    this.restEndedAt,
     required this.nextLabel,
     required this.onMinimize,
     required this.onMenu,
@@ -49,6 +53,12 @@ class SessionHeader extends StatelessWidget {
   final int prCount;
   final DateTime? restStart;
   final int restTotal;
+
+  /// Keep the rest row even when not resting (a set has been logged).
+  final bool showRestRow;
+
+  /// When the last rest ended, for the rested count-up; null when unknown.
+  final DateTime? restEndedAt;
   final String nextLabel;
   final VoidCallback onMinimize;
   final VoidCallback onMenu;
@@ -57,6 +67,9 @@ class SessionHeader extends StatelessWidget {
 
   /// Threshold (inclusive) for the final-seconds accent.
   static const _finalThreshold = 5;
+
+  /// The rested count-up stops here.
+  static const _restedCap = 99 * 60 + 59;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +85,15 @@ class SessionHeader extends StatelessWidget {
         ? 0
         : (restTotal - DateTime.now().difference(start).inSeconds).clamp(0, restTotal);
     final resting = start != null && remaining > 0;
+    final showRow = resting || showRestRow;
+    // Rested since the end the controller recorded; in the second before the
+    // screen ticker stops a finished countdown, since that countdown's end.
+    final restedFrom = restEndedAt ??
+        (start != null && !resting ? start.add(Duration(seconds: restTotal)) : null);
+    final rested = restedFrom == null
+        ? null
+        : DateTime.now().difference(restedFrom).inSeconds.clamp(0, _restedCap);
+    String clock(int s) => '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
     final progress = totalWork > 0 ? doneWork / totalWork : 0.0;
     final barFraction =
         resting ? (restTotal > 0 ? remaining / restTotal : 0.0) : progress.clamp(0.0, 1.0);
@@ -161,7 +183,7 @@ class SessionHeader extends StatelessWidget {
                   children: [
                     Text('$mm:${ss.toString().padLeft(2, '0')}',
                         style: WorkoutType.mono(
-                            size: 18, weight: FontWeight.w700, color: tokens.accent)),
+                            size: 18, weight: FontWeight.w700, color: tokens.accentText)),
                     const SizedBox(height: 2),
                     Text(l.sessionElapsed,
                         style: WorkoutType.mono(
@@ -178,63 +200,97 @@ class SessionHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (resting)
+          if (showRow)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Text(l.restLabel,
-                          style: WorkoutType.mono(
-                              size: 10, color: tokens.faint, letterSpacing: 0.08 * 10)),
-                      const SizedBox(width: 8),
-                      AnimatedDefaultTextStyle(
-                        duration: Motion.of(context, Motion.base),
-                        curve: Motion.curve,
-                        style: WorkoutType.display(
-                          size: 18,
-                          weight: FontWeight.w700,
-                          color: remaining <= _finalThreshold ? tokens.accent : tokens.text,
-                        ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                        child:
-                            Text('${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}'),
-                      ),
-                      // The chip pair sits flush right at natural width; at
-                      // extreme width/scale/translation combos there is not
-                      // enough room for both at their natural (unellipsized)
-                      // text width, so this Expanded — the row's only flex
-                      // child — lets them shrink together rather than
-                      // overflow, each keeping its own ellipsis as a floor.
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Flexible(
-                              child: _RestChip(
-                                key: const Key('rest-add'),
-                                label: l.restAdd30s,
-                                filled: false,
-                                tokens: tokens,
-                                onTap: onAdd30s,
-                              ),
+                  LayoutBuilder(builder: (context, row) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // The chips keep their natural width; the label and
+                        // clock take what is left and scale down to fit when
+                        // it runs out, so the widest labels at large text
+                        // scale never overflow the row.
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(resting ? l.restLabel : l.restRestedLabel,
+                                    style: WorkoutType.mono(
+                                        size: 10, color: tokens.faint, letterSpacing: 0.08 * 10)),
+                                const SizedBox(width: 8),
+                                // Always laid out (empty when the rested time is unknown)
+                                // so both states keep one height.
+                                AnimatedDefaultTextStyle(
+                                  duration: Motion.of(context, Motion.base),
+                                  curve: Motion.curve,
+                                  style: WorkoutType.display(
+                                    size: 18,
+                                    weight: FontWeight.w700,
+                                    color: !resting
+                                        ? tokens.dim
+                                        : remaining <= _finalThreshold
+                                            ? tokens.accentText
+                                            : tokens.text,
+                                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                                  child: Text(resting
+                                      ? clock(remaining)
+                                      : rested == null
+                                          ? ''
+                                          : clock(rested)),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: _RestChip(
-                                key: const Key('rest-skip'),
-                                label: l.commonSkip,
-                                filled: true,
-                                tokens: tokens,
-                                onTap: onSkip,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        // The chip pair sits flush right at natural width,
+                        // capped at 60% of the row so the label and clock
+                        // always keep room. Only past that cap (narrow
+                        // screens, large text, long translations) does Skip
+                        // shrink, keeping its ellipsis as a floor; +30s is
+                        // short in every locale.
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: row.maxWidth * 0.6),
+                          // After rest the chips are gone but keep their
+                          // space, so the row does not change height.
+                          child: Visibility(
+                            visible: resting,
+                            maintainSize: true,
+                            maintainAnimation: true,
+                            maintainState: true,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _RestChip(
+                                  key: const Key('rest-add'),
+                                  label: l.restAdd30s,
+                                  filled: false,
+                                  tokens: tokens,
+                                  onTap: onAdd30s,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: _RestChip(
+                                    key: const Key('rest-skip'),
+                                    label: l.commonSkip,
+                                    filled: true,
+                                    tokens: tokens,
+                                    onTap: onSkip,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
                   const SizedBox(height: 4),
                   Text(nextLabel,
                       maxLines: 1,
@@ -243,12 +299,13 @@ class SessionHeader extends StatelessWidget {
                 ],
               ),
             ),
-          // Progress bar; while resting, a thicker draining countdown whose
-          // fraction glides linearly between the one-second ticks.
+          // Progress bar: 6dp whenever the rest row shows. It drains while
+          // resting (fraction gliding linearly between the one-second ticks)
+          // and otherwise shows workout progress.
           AnimatedContainer(
             duration: Motion.of(context, Motion.base),
             curve: Motion.curve,
-            height: resting ? 6 : 3,
+            height: showRow ? 6 : 3,
             color: tokens.surface3,
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(end: barFraction),
@@ -257,7 +314,7 @@ class SessionHeader extends StatelessWidget {
               builder: (_, value, __) => FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: value.clamp(0.0, 1.0),
-                child: Container(color: tokens.accent),
+                child: Container(color: tokens.accentText),
               ),
             ),
           ),

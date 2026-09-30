@@ -17,6 +17,7 @@ import '../session/active_session_controller.dart';
 import '../session/session_manager.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
+import '../sync/sync_health.dart';
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
@@ -31,6 +32,7 @@ import '../widgets/section_label.dart';
 import '../widgets/sparkline.dart';
 import '../widgets/split_card.dart';
 import '../widgets/stat_tile.dart';
+import '../widgets/sync_at_risk_card.dart';
 import '../widgets/sync_paused_banner.dart';
 import '../widgets/volume_bars.dart';
 import '../widgets/week_strip.dart';
@@ -304,6 +306,11 @@ class _TodayScreenState extends State<TodayScreen> {
                     settings: context.read<SettingsService>(),
                   ),
                 ),
+              ),
+              SyncAtRiskCard(
+                health: context.read<SyncHealth>(),
+                expired: widget.auth.sessionExpired,
+                onTap: widget.onOpenProfile,
               ),
             ],
           ),
@@ -758,7 +765,7 @@ class _PrRow extends StatelessWidget {
             child: Icon(
               WIcons.bolt,
               size: 18,
-              color: tokens.accent,
+              color: tokens.accentText,
             ),
           ),
           const SizedBox(width: 12),
@@ -932,7 +939,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
             children: [
               Text(l.todayActiveNow,
                   style: WorkoutType.mono(
-                      size: 10, color: tokens.accent, letterSpacing: 1.5)),
+                      size: 10, color: tokens.accentText, letterSpacing: 1.5)),
               const SizedBox(height: 10),
               Text(title,
                   style: WorkoutType.display(size: 28, color: tokens.text)),
@@ -952,7 +959,7 @@ class _ResumeHeroState extends State<_ResumeHero> {
                     style: WorkoutType.mono(
                         size: 14,
                         weight: FontWeight.w700,
-                        color: resting ? tokens.accent : tokens.text),
+                        color: resting ? tokens.accentText : tokens.text),
                   ),
                   const SizedBox(width: 12),
                   Text(l.todayExerciseCount(exCount),

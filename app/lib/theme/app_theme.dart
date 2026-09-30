@@ -25,6 +25,36 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
       surface: tokens.surface,
       onSurface: tokens.text,
     ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: tokens.accentText),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: tokens.accentText),
+    inputDecorationTheme: InputDecorationTheme(
+      floatingLabelStyle: WidgetStateTextStyle.resolveWith(
+        (states) => TextStyle(
+          color: states.contains(WidgetState.focused) &&
+                  !states.contains(WidgetState.error)
+              ? tokens.accentText
+              : null,
+        ),
+      ),
+      // A state-resolved `border` (not `focusedBorder`) so a site that sets
+      // its own `border:` replaces it entirely and stays borderless.
+      border: WidgetStateInputBorder.resolveWith(
+        (states) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radius),
+          borderSide: states.contains(WidgetState.focused) &&
+                  !states.contains(WidgetState.error)
+              ? BorderSide(color: tokens.accentText, width: 2)
+              : BorderSide(color: tokens.lineStrong),
+        ),
+      ),
+    ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: tokens.accentText,
+      selectionHandleColor: tokens.accentText,
+      selectionColor: tokens.accent.withValues(alpha: 0.35),
+    ),
   );
 }
 

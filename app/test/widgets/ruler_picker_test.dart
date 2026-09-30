@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/widgets/ruler_picker.dart';
 
@@ -175,6 +175,58 @@ void main() {
       node.owner!.performAction(node.id, SemanticsAction.tap);
       expect(taps, 1, reason: 'typed entry must be reachable with a screen reader');
       handle.dispose();
+    });
+
+    // The ruler is 200 wide, centred in a 400-wide black frame. Nothing may
+    // be painted in the 100px margins on either side.
+    Future<int> strayPixels(WidgetTester tester, Key frame) async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(frame));
+      final image = (await tester.runAsync(() => boundary.toImage()))!;
+      final bytes = (await tester.runAsync(() => image.toByteData()))!;
+      var stray = 0;
+      for (var y = 0; y < image.height; y++) {
+        for (var x = 0; x < image.width; x++) {
+          if (x >= 100 && x < 300) continue;
+          final o = (y * image.width + x) * 4;
+          if (bytes.getUint8(o) + bytes.getUint8(o + 1) + bytes.getUint8(o + 2) > 0) stray++;
+        }
+      }
+      return stray;
+    }
+
+    Widget framed(Key frame, {required double value}) => wrapL10n(Center(
+          child: RepaintBoundary(
+            key: frame,
+            child: Container(
+              color: Colors.black,
+              width: 400,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: 200,
+                child: RulerPicker(
+                  value: value,
+                  step: 1,
+                  fineStep: 0.25,
+                  max: 500,
+                  format: (v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v',
+                  onChanged: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ));
+
+    testWidgets('the tape paints nothing outside its own box, coarse and zoomed',
+        (tester) async {
+      const frame = Key('frame');
+      await tester.pumpWidget(framed(frame, value: 100));
+      await tester.pumpAndSettle();
+      expect(await strayPixels(tester, frame), 0, reason: 'coarse');
+
+      await tester.pumpWidget(framed(frame, value: 100.25)); // rests zoomed
+      await tester.pumpAndSettle();
+      expect(state(tester).zoom, 1);
+      expect(await strayPixels(tester, frame), 0, reason: 'zoomed');
     });
   });
 

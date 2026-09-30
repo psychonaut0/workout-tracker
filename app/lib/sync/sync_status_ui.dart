@@ -5,17 +5,19 @@ library;
 
 enum SyncDotState { syncing, synced, offline, error }
 
-/// Maps raw connection facts to a dot state. Error wins; then syncing;
-/// then connected-idle; else offline.
+/// Maps raw connection facts to a dot state. Not connected is offline
+/// whatever PowerSync recorded: a local-first app can't tell "server down"
+/// from "no route to the server", and both mean the phone is offline. An
+/// error only counts while connected; then syncing; then idle.
 SyncDotState syncDotStateFor({
   required bool connected,
   required bool syncing,
   required bool hasError,
 }) {
+  if (!connected) return SyncDotState.offline;
   if (hasError) return SyncDotState.error;
-  if (connected && syncing) return SyncDotState.syncing;
-  if (connected) return SyncDotState.synced;
-  return SyncDotState.offline;
+  if (syncing) return SyncDotState.syncing;
+  return SyncDotState.synced;
 }
 
 /// Which relative-time phrasing a timestamp falls into.
@@ -64,4 +66,22 @@ RelativeTimeBucket relativeTimeBucket(DateTime t, DateTime now) {
     return RelativeTimeBucket(RelativeTimeKind.hours, value: d.inHours);
   }
   return RelativeTimeBucket(RelativeTimeKind.date, date: t);
+}
+
+/// How long local changes may wait unsynced before Today mentions it.
+const Duration syncRiskAfter = Duration(days: 3);
+
+/// Whether local changes are at risk: sync is meant to run, the phone is
+/// offline, changes are waiting, and the last sync is older than
+/// [syncRiskAfter] (or never happened).
+bool syncAtRisk({
+  required bool signedIn,
+  required bool syncEnabled,
+  required bool connected,
+  required int pendingChanges,
+  required DateTime? lastSyncedAt,
+  required DateTime now,
+}) {
+  if (!signedIn || !syncEnabled || connected || pendingChanges <= 0) return false;
+  return lastSyncedAt == null || now.difference(lastSyncedAt) > syncRiskAfter;
 }

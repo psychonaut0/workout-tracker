@@ -347,13 +347,13 @@ class _BodyweightRow extends StatelessWidget {
           color: tokens.surface,
           borderRadius: BorderRadius.circular(AppRadius.radius * 0.65),
           border: Border.all(
-            color: selected ? tokens.accent : tokens.line,
+            color: selected ? tokens.accentText : tokens.line,
             width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            Icon(WIcons.scale, size: 20, color: tokens.accent),
+            Icon(WIcons.scale, size: 20, color: tokens.accentText),
             const SizedBox(width: 11),
             Expanded(
               child: Column(
@@ -378,7 +378,7 @@ class _BodyweightRow extends StatelessWidget {
             ),
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(WIcons.check, size: 16, color: tokens.accent),
+              Icon(WIcons.check, size: 16, color: tokens.accentText),
             ],
           ],
         ),
@@ -424,7 +424,7 @@ class _ExerciseRow extends StatelessWidget {
           color: tokens.surface,
           borderRadius: BorderRadius.circular(AppRadius.radius * 0.65),
           border: Border.all(
-            color: selected ? tokens.accent : tokens.line,
+            color: selected ? tokens.accentText : tokens.line,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -459,7 +459,7 @@ class _ExerciseRow extends StatelessWidget {
             // Check icon when this is the current exercise
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(WIcons.check, size: 16, color: tokens.accent),
+              Icon(WIcons.check, size: 16, color: tokens.accentText),
             ],
           ],
         ),

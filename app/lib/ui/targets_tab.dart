@@ -10,6 +10,7 @@ import '../sync/db.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/stepper.dart';
 
 /// The Targets sub-tab: edit weekly per-muscle set goals.
@@ -112,48 +113,59 @@ class _TargetRow extends StatelessWidget {
           border: Border.all(color: tokens.line),
           borderRadius: BorderRadius.circular(AppRadius.radius),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    localizedMuscle(context, muscle),
-                    style: WorkoutType.body(
-                      size: 15.5,
-                      weight: FontWeight.w600,
-                      color: labelColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    hasGoal ? l.targetsSetsPerWeek : l.targetsNoGoal,
-                    style: WorkoutType.mono(size: 11, color: tokens.faint),
-                  ),
-                ],
+        child: LayoutBuilder(builder: (context, constraints) {
+          final labels = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FitLabel(
+                localizedMuscle(context, muscle),
+                style: WorkoutType.body(
+                  size: 15.5,
+                  weight: FontWeight.w600,
+                  color: labelColor,
+                ),
               ),
-            ),
-            SizedBox(
-              width: 168,
-              child: WStepper(
-                value: sets.toDouble(),
-                step: 1,
-                format: (v) => v.round() == 0 ? '—' : v.round().toString(),
-                onChanged: (v) => onChanged(muscle, v.round().clamp(0, 40)),
-                editable: true,
-                allowDecimal: false,
-                min: 0,
-                max: 40,
-                emptyValue: 0,
-                formatForEdit: (v) => v.round() == 0 ? '' : v.round().toString(),
-                semanticLabel: localizedMuscle(context, muscle),
+              const SizedBox(height: 2),
+              FitLabel(
+                hasGoal ? l.targetsSetsPerWeek : l.targetsNoGoal,
+                maxLines: 2,
+                style: WorkoutType.mono(size: 11, color: tokens.faint),
               ),
+            ],
+          );
+          final stepper = SizedBox(
+            width: _stepperWidth,
+            child: WStepper(
+              value: sets.toDouble(),
+              step: 1,
+              format: (v) => v.round() == 0 ? '—' : v.round().toString(),
+              onChanged: (v) => onChanged(muscle, v.round().clamp(0, 40)),
+              editable: true,
+              allowDecimal: false,
+              min: 0,
+              max: 40,
+              emptyValue: 0,
+              formatForEdit: (v) => v.round() == 0 ? '' : v.round().toString(),
+              semanticLabel: localizedMuscle(context, muscle),
             ),
-          ],
-        ),
+          );
+          // Beside the stepper a narrow phone at large text leaves the name
+          // room for a few letters only: put the stepper under it instead.
+          final nameRoom = constraints.maxWidth - _stepperWidth;
+          final stacked =
+              nameRoom < MediaQuery.textScalerOf(context).scale(15.5) * 5;
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [labels, const SizedBox(height: 8), stepper],
+            );
+          }
+          return Row(children: [Expanded(child: labels), stepper]);
+        }),
       ),
     );
   }
+
+  static const _stepperWidth = 168.0;
 }

@@ -8,6 +8,7 @@ import '../theme/icons.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import '../widgets/fit_label.dart';
 import '../widgets/pressable.dart';
 import 'day_editor.dart';
 import 'exercise_editor.dart';
@@ -332,7 +333,9 @@ class _SegBtn extends StatelessWidget {
             child: Center(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
-                height: 36,
+                // 36 tall at 1.0×; grows with a large text size.
+                constraints: const BoxConstraints(minHeight: 36),
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(36 * 0.6),
                   color: active ? tokens.surface3 : Colors.transparent,
@@ -349,8 +352,9 @@ class _SegBtn extends StatelessWidget {
                       : null,
                 ),
                 alignment: Alignment.center,
-                child: Text(
+                child: FitLabel(
                   label,
+                  textAlign: TextAlign.center,
                   style: WorkoutType.mono(
                     size: 12.5,
                     weight: FontWeight.w700,

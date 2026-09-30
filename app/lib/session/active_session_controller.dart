@@ -440,11 +440,17 @@ class ActiveSessionController extends ChangeNotifier {
   DateTime? restStart;
   int restTotal = 0;
 
+  /// When the last rest ended (ran out or was skipped), for the header's
+  /// "rested" count-up. In memory only, like the live set: null after a
+  /// resume, and cleared when the next rest starts.
+  DateTime? restEndedAt;
+
   bool get resting => restStart != null;
 
   void startRest(int seconds) {
     restStart = DateTime.now();
     restTotal = seconds;
+    restEndedAt = null;
     notifyListeners();
   }
 
@@ -454,8 +460,14 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ends the rest. A late call (the app was backgrounded when it ran out)
+  /// dates the end to when the countdown reached zero, not to now.
   void stopRest() {
-    if (restStart == null) return;
+    final start = restStart;
+    if (start == null) return;
+    final due = start.add(Duration(seconds: restTotal));
+    final now = DateTime.now();
+    restEndedAt = now.isBefore(due) ? now : due;
     restStart = null;
     restTotal = 0;
     notifyListeners();
@@ -474,10 +486,26 @@ class ActiveSessionController extends ChangeNotifier {
 
   String? _focusedSetId;
   String? _rirPromptSetId;
-  DateTime? _rirPromptUntil;
 
-  /// How long the RIR correction strip stays open after a set is logged.
-  static const rirPromptWindow = Duration(seconds: 4);
+  /// Closes the RIR strip. It has no timer: only an action on another set or
+  /// a change to the set list closes it.
+  void _closeRirPrompt() => _rirPromptSetId = null;
+
+  /// Whether any set in the workout has been logged (warm-ups included): the
+  /// header keeps its rest row from then on.
+  bool get hasLoggedSet =>
+      _draft?.blocks.any((b) => b.allSets.any((s) => s.done)) ?? false;
+
+  LiveSet? _firstPending() {
+    final d = _draft;
+    if (d == null) return null;
+    for (final b in d.blocks) {
+      for (final s in b.allSets) {
+        if (!s.done) return (block: b, set: s);
+      }
+    }
+    return null;
+  }
 
   /// The set the log bar acts on: the tapped set while it still exists,
   /// otherwise the first not-done set in on-screen order (blocks top to
@@ -493,21 +521,28 @@ class ActiveSessionController extends ChangeNotifier {
         }
       }
     }
-    for (final b in d.blocks) {
-      for (final s in b.allSets) {
-        if (!s.done) return (block: b, set: s);
-      }
-    }
-    return null;
+    return _firstPending();
+  }
+
+  /// What the header's "Next ·" line names: the live set while it is still
+  /// to do, otherwise the first set still to do. A logged set open for
+  /// correction is never "next".
+  LiveSet? get nextPendingSet {
+    final live = liveSet;
+    if (live != null && !live.set.done) return live;
+    return _firstPending();
   }
 
   /// The logged set whose RIR strip is open, or null.
   String? get rirPromptSetId => _rirPromptSetId;
 
-  /// Makes [set] the live set (a tap on its row).
+  /// Makes [set] the live set (a tap on its row). Closes the RIR strip: a
+  /// tap on another set moves on, and a tap on the prompted set turns it
+  /// into the live card.
   void focusSet(SetState set) {
-    if (_focusedSetId == set.id) return;
+    if (_focusedSetId == set.id && _rirPromptSetId == null) return;
     _focusedSetId = set.id;
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -515,10 +550,9 @@ class ActiveSessionController extends ChangeNotifier {
   /// correction made in the live card. Focus then falls back to the first
   /// not-done set; when that is in another block, the block just finished
   /// collapses (only if every set in it is done) and the next one expands.
-  /// A newly logged working set opens the RIR strip; anything else closes it.
+  /// A newly logged working set opens the RIR strip on it; anything else closes it.
   /// Returns null when there is no live set.
-  ({BlockState block, SetState set, bool newlyDone})? logLiveSet(
-      {DateTime? now}) {
+  ({BlockState block, SetState set, bool newlyDone})? logLiveSet() {
     final live = liveSet;
     if (live == null) return null;
     final newlyDone = !live.set.done;
@@ -526,10 +560,8 @@ class ActiveSessionController extends ChangeNotifier {
     _focusedSetId = null;
     if (newlyDone && !live.set.isWarmup) {
       _rirPromptSetId = live.set.id;
-      _rirPromptUntil = (now ?? DateTime.now()).add(rirPromptWindow);
     } else {
-      _rirPromptSetId = null;
-      _rirPromptUntil = null;
+      _closeRirPrompt();
     }
     final next = liveSet;
     if (next != null && !identical(next.block, live.block)) {
@@ -544,30 +576,14 @@ class ActiveSessionController extends ChangeNotifier {
   void markNotDone(SetState set) {
     set.done = false;
     _focusedSetId = set.id;
-    if (_rirPromptSetId == set.id) {
-      _rirPromptSetId = null;
-      _rirPromptUntil = null;
-    }
+    _closeRirPrompt();
     notifyListeners();
   }
 
-  /// A tap on the RIR strip: stores [rir] and restarts the strip's window.
-  void setRirFromPrompt(SetState set, int rir, {DateTime? now}) {
+  /// A tap on the RIR strip: stores [rir]; the strip stays open.
+  void setRirFromPrompt(SetState set, int rir) {
     set.rir = rir;
     _rirPromptSetId = set.id;
-    _rirPromptUntil = (now ?? DateTime.now()).add(rirPromptWindow);
-    notifyListeners();
-  }
-
-  /// Closes the RIR strip once its window has passed. Called by the
-  /// screen's one-second ticker; notifies only when it actually closes.
-  void expireRirPrompt(DateTime now) {
-    final until = _rirPromptUntil;
-    if (_rirPromptSetId == null || until == null || now.isBefore(until)) {
-      return;
-    }
-    _rirPromptSetId = null;
-    _rirPromptUntil = null;
     notifyListeners();
   }
 
@@ -636,6 +652,7 @@ class ActiveSessionController extends ChangeNotifier {
       isWarmup: false,
       done: false,
     ));
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -646,10 +663,7 @@ class ActiveSessionController extends ChangeNotifier {
     final index = list.indexOf(set);
     list.remove(set);
     if (_focusedSetId == set.id) _focusedSetId = null;
-    if (_rirPromptSetId == set.id) {
-      _rirPromptSetId = null;
-      _rirPromptUntil = null;
-    }
+    _closeRirPrompt();
     notifyListeners();
     return index;
   }
@@ -662,6 +676,7 @@ class ActiveSessionController extends ChangeNotifier {
     if (d == null || !d.blocks.contains(block)) return;
     final list = set.isWarmup ? block.warmupSets : block.workingSets;
     list.insert(index.clamp(0, list.length), set);
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -686,6 +701,7 @@ class ActiveSessionController extends ChangeNotifier {
       isWarmup: true,
       done: false,
     ));
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -699,6 +715,7 @@ class ActiveSessionController extends ChangeNotifier {
     blocks
       ..removeAt(from)
       ..insert(to, block);
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -715,12 +732,14 @@ class ActiveSessionController extends ChangeNotifier {
       return;
     }
     blocks.insert(to, blocks.removeAt(from));
+    _closeRirPrompt();
     notifyListeners();
   }
 
   /// Removes [block] from the session.
   void removeBlock(BlockState block) {
     draft.blocks.remove(block);
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -749,6 +768,7 @@ class ActiveSessionController extends ChangeNotifier {
     block.bestKg = bestKg;
     block.lastTop = lastTop;
     draft.blocks.add(block);
+    _closeRirPrompt();
     notifyListeners();
   }
 
@@ -848,9 +868,9 @@ class ActiveSessionController extends ChangeNotifier {
     _draft = null;
     restStart = null;
     restTotal = 0;
+    restEndedAt = null;
     _focusedSetId = null;
     _rirPromptSetId = null;
-    _rirPromptUntil = null;
     notifyListeners();
 
     return sessionId;
@@ -863,9 +883,9 @@ class ActiveSessionController extends ChangeNotifier {
     _draft = null;
     restStart = null;
     restTotal = 0;
+    restEndedAt = null;
     _focusedSetId = null;
     _rirPromptSetId = null;
-    _rirPromptUntil = null;
     _draftStore?.clear(); // fire-and-forget; a discarded workout must not resurrect
     notifyListeners();
   }

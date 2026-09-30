@@ -246,6 +246,7 @@
   "sessionNoExercisesFound": "No exercises found",
   "sessionOtherMuscle": "Other",
   "restLabel": "REST",
+  "restRestedLabel": "RESTED",
   "restAdd30s": "+30s",
   "summarySessionNotFound": "Session not found.",
   "summaryLoadFailed": "Failed to load session: {error}",
@@ -629,8 +630,19 @@
   "syncError": "Sync error",
   "syncSessionExpired": "Session expired",
   "todaySyncPaused": "Sync paused · Sign in again",
+  "todaySyncAtRisk": "Not synced since {date} · changes are on this phone only",
+  "@todaySyncAtRisk": {"placeholders": {"date": {"type": "String"}}},
+  "todaySyncAtRiskNever": "Not synced yet · changes are on this phone only",
   "profileSessionExpiredSub": "Sign in again to resume sync. Your data stays on this device.",
   "syncOffline": "Offline",
+  "syncOfflineSince": "Offline · synced {time}",
+  "@syncOfflineSince": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "syncSynced": "Synced",
   "syncSyncedAt": "Synced · {time}",
   "@syncSyncedAt": {
