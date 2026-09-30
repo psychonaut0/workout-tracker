@@ -55,6 +55,18 @@ Download it to the phone and install (it's a new app id vs the old "Workout Trac
 so it installs alongside until you uninstall the old one). On first run, set the server
 URL to `http://workout.lan` (Tailscale must be on) and sign in — data syncs from the homelab.
 
+## Preview builds (an unmerged branch on the phone)
+`.github/workflows/android-preview.yml` builds a release-signed APK from any branch and
+uploads it as a run artifact (no tag, no Release). Same key as releases, so it upgrades
+in place and keeps the phone's data:
+```bash
+adb shell dumpsys package io.github.psychonaut0.reps | grep versionCode   # installed, e.g. 36
+gh workflow run android-preview.yml --ref <branch> -f build_number=36     # >= installed, <= next release run number
+gh run download <run-id> -n reps-preview-apk -D /tmp/preview
+adb install -r /tmp/preview/app-release.apk
+```
+The next real release (a higher run number) replaces the preview through the normal OTA update.
+
 ## Notes
 - `key.properties`, `*.jks`, `*.keystore` are gitignored — never commit them.
 - Without `key.properties` (e.g. a contributor / PR CI), `flutter build apk --release`
