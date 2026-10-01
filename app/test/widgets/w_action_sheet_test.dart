@@ -130,12 +130,13 @@ void main() {
     expect(tester.takeException(), isNull);
     final title = tester.getRect(find.text('Bankdrücken'));
     final last = find.byKey(const ValueKey('sheet-action-5'));
-    await tester.ensureVisible(last);
-    await tester.pumpAndSettle();
     final rows = tester
         .state<ScrollableState>(find.descendant(
             of: find.byType(BottomSheet), matching: find.byType(Scrollable)))
         .position;
+    expect(rows.pixels, 0, reason: 'a menu with no current choice opens at its top');
+    await tester.ensureVisible(last);
+    await tester.pumpAndSettle();
     expect(rows.pixels, greaterThan(0),
         reason: 'the rows should have scrolled to reach the last one');
     expect(tester.getRect(find.text('Bankdrücken')), title,
@@ -143,6 +144,48 @@ void main() {
     await tester.tap(last);
     await tester.pumpAndSettle();
     expect(result, 'remove');
+  });
+
+  // In Spanish at large text on a short phone, the two-line system row pushes
+  // the language rows past the fold: the sheet must open with the current
+  // choice in view, not at the top.
+  testWidgets('a sheet opens with its current choice in view at 320x640dp 2.0x es',
+      (tester) async {
+    setPhone(tester, width: 320, height: 640, textScale: 2.0);
+    await tester.pumpWidget(sheetHost(
+      locale: const Locale('es'),
+      title: 'Idioma',
+      (l) => [
+        WSheetAction(label: l.languageSystem, value: 'system'),
+        for (final (code, name) in const [
+          ('en', 'English'),
+          ('it', 'Italiano'),
+          ('de', 'Deutsch'),
+          ('es', 'Español'),
+        ])
+          WSheetAction(
+            label: name,
+            value: code,
+            labelLocale: Locale(code),
+            selected: code == 'es',
+          ),
+      ],
+    ));
+    await open(tester);
+    expect(tester.takeException(), isNull);
+    final rows = find.descendant(
+        of: find.byType(BottomSheet), matching: find.byType(Scrollable));
+    final position = tester.state<ScrollableState>(rows).position;
+    expect(position.maxScrollExtent, greaterThan(0),
+        reason: 'the rows should outgrow the sheet here');
+    final view = tester.getRect(rows);
+    final check = tester.getRect(find.descendant(
+        of: find.byKey(const ValueKey('sheet-action-4')),
+        matching: find.byIcon(WIcons.check)));
+    expect(check.top, greaterThanOrEqualTo(view.top),
+        reason: 'the check is above the visible rows');
+    expect(check.bottom, lessThanOrEqualTo(view.bottom),
+        reason: 'the check is below the fold');
   });
 
   // "Predeterminado del sistema" is the longest language-sheet label.
