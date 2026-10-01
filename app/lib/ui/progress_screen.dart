@@ -15,9 +15,9 @@ import '../theme/icons.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import '../units/unit_format.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
-import '../util/format.dart';
 import '../widgets/card.dart';
 import '../widgets/fit_label.dart';
 import '../widgets/line_chart.dart';
@@ -249,8 +249,17 @@ class _LiftView extends StatelessWidget {
     }
   }
 
+  bool get _isLoad => metricId == 'top' || metricId == 'e1rm';
+
+  // A weight reads as a set weight does on every other screen (whole lb,
+  // kg up to two decimals); volume and reps read as whole counts.
   String _fmtVal(double v) =>
-      metricId == 'volume' ? fmtThousands(v) : fmtPlain(v);
+      _isLoad ? fmtLoad(v, unitService.unit) : fmtCount(v);
+
+  // [v] rounded to exactly what [_fmtVal] shows, so a change is computed
+  // between two values on screen.
+  double _roundVal(double v) =>
+      _isLoad ? roundLoad(v, unitService.unit) : roundCount(v);
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +268,9 @@ class _LiftView extends StatelessWidget {
     final metricName = metricLabel(l, metricId);
     final unit = metric.wt ? unitService.uLabel : '';
     final seriesValues = rawSeries.map(_displayValue).toList();
+    // What the cards and the session log show and subtract. The chart keeps
+    // the raw values, so its y-domain and ticks don't move.
+    final shownValues = seriesValues.map(_roundVal).toList();
 
     // Chart series — values already in display units.
     final chartSeries = List.generate(rawSeries.length, (i) {
@@ -342,13 +354,14 @@ class _LiftView extends StatelessWidget {
                   height: 210,
                   unit: unit,
                   showReps: metric.reps,
+                  formatValue: _fmtVal,
                 ),
         ),
         const SizedBox(height: 14),
 
         // (5) BigStat cards
         _BigStatRow(
-          series: seriesValues,
+          series: shownValues,
           metric: metric,
           unit: unit,
           topReps: rawSeries.isNotEmpty ? rawSeries.last.topReps : 0,
@@ -379,7 +392,7 @@ class _LiftView extends StatelessWidget {
         else
           _SessionLogCard(
             rawSeries: rawSeries,
-            seriesValues: seriesValues,
+            seriesValues: shownValues,
             metric: metric,
             unit: unit,
             tokens: tokens,
@@ -506,6 +519,8 @@ class _SessionLogCard extends StatelessWidget {
   });
 
   final List<ProgressPoint> rawSeries;
+
+  /// Each point's displayed (rounded) value, parallel to [rawSeries].
   final List<double> seriesValues;
   final Metric metric;
   final String unit;
@@ -551,13 +566,16 @@ class _SessionLogCard extends StatelessWidget {
               curReps: p.topReps,
             );
             deltaLabel = changeLabel(l, c, fmtVal: fmtVal);
-            deltaColor = (c is WeightChange && c.delta > 0) ||
-                    (c is RepChange && c.delta > 0)
+            final up = (c is WeightChange && c.delta > 0) ||
+                (c is RepChange && c.delta > 0);
+            deltaColor = up && deltaLabel != l.progressSame
                 ? tokens.accentText
                 : tokens.faint;
           } else {
             deltaLabel = signedChange(diff, fmtVal, l);
-            deltaColor = diff > 0 ? tokens.accentText : tokens.faint;
+            deltaColor = diff > 0 && deltaLabel != l.progressSame
+                ? tokens.accentText
+                : tokens.faint;
           }
 
           return Container(

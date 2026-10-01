@@ -7,7 +7,6 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../theme/typography.dart';
-import '../util/format.dart';
 
 /// Each ISO date's position in [0, 1] between the first and last date, so a
 /// chart's x spacing reflects time rather than entry order. Equal dates share
@@ -186,7 +185,9 @@ TextStyle chartChipStyle(Color color) =>
 /// month x-labels, and a value label on a chip beside the last point. Falls back
 /// to an empty [SizedBox] when `series.length < 2`.
 ///
-/// Series values are already in display units — callers convert.
+/// Series values are already in display units — callers convert — and the
+/// last point's value chip reads through [formatValue], the formatter the
+/// caller's cards use.
 /// Each record includes a [date] (ISO-8601 date string, e.g. '2024-03-15')
 /// used to space the x-axis by calendar time (not entry index) and to derive
 /// month boundary x-labels, mirroring `ui.jsx` `s.date`.
@@ -197,12 +198,17 @@ class LineChart extends StatelessWidget {
     this.height = 210,
     required this.unit,
     this.showReps = true,
+    required this.formatValue,
   });
 
   final List<({String date, double value, int reps, bool isPr})> series;
   final double height;
   final String unit;
   final bool showReps;
+
+  /// Formats the last point's value for its chip, so the chip reads exactly
+  /// like the screen's cards (Progress's `_fmtVal`, `fmtBodyweight`).
+  final String Function(double) formatValue;
 
   @override
   Widget build(BuildContext context) {
@@ -220,6 +226,7 @@ class LineChart extends StatelessWidget {
               series: series,
               unit: unit,
               showReps: showReps,
+              formatValue: formatValue,
               accent: tokens.accentText,
               bg: tokens.bg,
               faint: tokens.faint,
@@ -242,6 +249,7 @@ class _LineChartPainter extends CustomPainter {
     required this.series,
     required this.unit,
     required this.showReps,
+    required this.formatValue,
     required this.accent,
     required this.bg,
     required this.faint,
@@ -253,6 +261,7 @@ class _LineChartPainter extends CustomPainter {
   final List<({String date, double value, int reps, bool isPr})> series;
   final String unit;
   final bool showReps;
+  final String Function(double) formatValue;
   final Color accent;
   final Color bg;
   final Color faint;
@@ -427,7 +436,7 @@ class _LineChartPainter extends CustomPainter {
     // Value label on a small chip beside the last point — placed so it never
     // covers the line's final segment.
     final label =
-        '${fmtPlain(last.value)}$unit${showReps ? ' ×${last.reps}' : ''}';
+        '${formatValue(last.value)}$unit${showReps ? ' ×${last.reps}' : ''}';
     final tp = TextPainter(
       text: TextSpan(text: label, style: chartChipStyle(text)),
       textDirection: TextDirection.ltr,
@@ -490,6 +499,7 @@ class _LineChartPainter extends CustomPainter {
         old.series != series ||
         old.unit != unit ||
         old.showReps != showReps ||
+        old.formatValue != formatValue ||
         old.accent != accent ||
         old.bg != bg ||
         old.faint != faint ||

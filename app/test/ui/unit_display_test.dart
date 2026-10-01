@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart' show PowerSyncDatabase;
 import 'package:workout_tracker/auth/auth_store.dart';
 import 'package:workout_tracker/session/session_summary_screen.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/ui/history_screen.dart';
 import 'package:workout_tracker/ui/profile_screen.dart';
 import 'package:workout_tracker/ui/progress_screen.dart';
@@ -31,6 +32,36 @@ Future<void> _seedBodyweightOnly(PowerSyncDatabase d) async {
   final now = DateTime.now();
   await seedBodyweight(d, now.subtract(const Duration(days: 2)), 82.33);
   await seedBodyweight(d, now, 82.37);
+}
+
+/// Two sessions of pairs whose change reads differently once each value is
+/// rounded to what Progress shows: lb exA 99.75 kg x5 -> 100 x5 (220 -> 220),
+/// exB 100 x5 -> 100.1 x5 (220 -> 221), exC 99.75 x6 -> 100 x8 (220 -> 220,
+/// two more reps); kg exD 60 x5 -> 60.25 x5.
+Future<void> _seedPairs(PowerSyncDatabase d) async {
+  await seedExercise(d, 'exA', 'Pair A');
+  await seedExercise(d, 'exB', 'Pair B');
+  await seedExercise(d, 'exC', 'Pair C');
+  await seedExercise(d, 'exD', 'Pair D');
+  final now = DateTime.now();
+  await seedSession(d, 'p1',
+      date: now.subtract(const Duration(days: 5)),
+      label: 'Pairs',
+      sets: [
+        ('exA', 99.75, 5, 1, false),
+        ('exB', 100, 5, 1, false),
+        ('exC', 99.75, 6, 1, false),
+        ('exD', 60, 5, 1, false),
+      ]);
+  await seedSession(d, 'p2',
+      date: now.subtract(const Duration(days: 2)),
+      label: 'Pairs',
+      sets: [
+        ('exA', 100, 5, 1, false),
+        ('exB', 100.1, 5, 1, false),
+        ('exC', 100, 8, 1, false),
+        ('exD', 60.25, 5, 1, false),
+      ]);
 }
 
 void main() {
@@ -136,6 +167,74 @@ void main() {
       await tester.pumpWidget(harness.wrap(_profile()));
       await settleReal(tester);
       expect(find.text('82.4kg'), findsOneWidget);
+      await harness.unmount(tester);
+    });
+  });
+
+  group('Progress', () {
+    // seedLong's ex3 top sets, oldest first: 95, 97.5, 100, 102.5 kg x5,
+    // which display as 209, 215, 220, 226 lb.
+    testWidgets('lb shows whole pounds and the changes between them',
+        (tester) async {
+      await harness.open(tester, prefs: _lb);
+      setPhone(tester, width: 412);
+      await tester.pumpWidget(harness.wrap(
+          const Scaffold(body: ProgressScreen(initialTarget: 'ex3'))));
+      // Current and Best are plain Text.
+      await settleUntilFound(tester, find.text('226'), where: 'Progress lb');
+      expect(find.text('+17'), findsOneWidget); // 226 − 209
+      // Session-log rows are Text.rich: find.text matches their plain text.
+      expect(find.text('220lb × 5'), findsOneWidget);
+      expect(find.textContaining('220.5'), findsNothing);
+      // The newest row shows its PR badge; the two below read the change
+      // between the rows on screen (220 − 215, 215 − 209), where subtracting
+      // the raw values would read +6 twice.
+      expect(find.text('+5'), findsOneWidget);
+      expect(find.text('+6'), findsOneWidget);
+
+      // Volume, 1047, 1075, 1102, 1130 lb shown: the middle change is
+      // 1102 − 1075, where subtracting the raw values would read +28.
+      await tester.tap(find.text('Volume'));
+      await settleUntilFound(tester, find.text('+27'),
+          where: 'Progress lb volume');
+      expect(find.text('1,102lb'), findsOneWidget);
+      await harness.unmount(tester);
+    });
+
+    // The 12-week tile and the newer session-log row both read the change
+    // between the displayed values, accent only when it is a real gain.
+    for (final (id, shown, change, accent) in const [
+      ('exA', '220', 'same', false),
+      ('exB', '221', '+1', true),
+      ('exC', '220', '+2 reps', true),
+    ]) {
+      testWidgets('lb $id reads $change between the shown top sets',
+          (tester) async {
+        await harness.open(tester, prefs: _lb, seed: _seedPairs);
+        setPhone(tester, width: 412);
+        await tester.pumpWidget(harness.wrap(
+            Scaffold(body: ProgressScreen(initialTarget: id))));
+        await settleUntilFound(tester, find.textContaining('lb × '),
+            where: 'Progress $id');
+        final tokens = tester.element(find.byType(ProgressScreen)).tokens;
+        expect(find.text(shown), findsNWidgets(2)); // Current and Best
+        expect(find.text(change), findsNWidgets(2)); // 12wk tile, newer row
+        final row = tester.widgetList<Text>(find.text(change)).last;
+        expect(row.style!.color, accent ? tokens.accentText : tokens.faint);
+        await harness.unmount(tester);
+      });
+    }
+
+    testWidgets('kg keeps a quarter-kilo top set and its change',
+        (tester) async {
+      await harness.open(tester, seed: _seedPairs);
+      setPhone(tester, width: 412);
+      await tester.pumpWidget(harness.wrap(
+          const Scaffold(body: ProgressScreen(initialTarget: 'exD'))));
+      await settleUntilFound(tester, find.textContaining('kg × '),
+          where: 'Progress exD');
+      expect(find.text('60.25'), findsNWidgets(2)); // Current and Best
+      expect(find.text('+0.25'), findsNWidgets(2)); // 12wk tile, newer row
       await harness.unmount(tester);
     });
   });

@@ -119,6 +119,7 @@ class _BodyweightViewState extends State<BodyweightView> {
                 height: 210,
                 unit: unit,
                 showReps: false,
+                formatValue: fmtBodyweight,
               ),
             ),
             const SizedBox(height: 14),

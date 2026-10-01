@@ -81,6 +81,13 @@ void main() {
   });
 
   group('fmtBodyweight', () {
+    test('whole number returns bare integer', () {
+      expect(fmtBodyweight(80), '80');
+      expect(fmtBodyweight(80.0), '80');
+    });
+    test('fractional returns 1dp, no trailing .0', () {
+      expect(fmtBodyweight(72.5), '72.5');
+    });
     test('one decimal, with ".0" trimmed', () {
       expect(fmtBodyweight(82.37), '82.4');
       expect(fmtBodyweight(82), '82');
@@ -90,6 +97,12 @@ void main() {
   });
 
   group('fmtCount', () {
+    test('comma-groups thousands', () {
+      expect(fmtCount(12500), '12,500');
+    });
+    test('values under 1000 have no comma', () {
+      expect(fmtCount(900), '900');
+    });
     test('a grouped whole number', () {
       expect(fmtCount(1482.5), '1,483');
       expect(fmtCount(3268.35), '3,268');

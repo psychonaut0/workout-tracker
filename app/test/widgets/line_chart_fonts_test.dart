@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workout_tracker/units/unit_format.dart';
 import 'package:workout_tracker/widgets/line_chart.dart';
 
 import '../support/app_fonts.dart';
@@ -33,6 +34,7 @@ Future<Finder> _pumpChart(WidgetTester tester) async {
           (date: '2026-06-08', value: 82.5, reps: 5, isPr: true),
         ],
         unit: 'kg',
+        formatValue: fmtBodyweight,
       ),
     ),
   ));

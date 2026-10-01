@@ -9,7 +9,7 @@ sealed class TopSetChange {
   const TopSetChange();
 }
 
-/// The weight moved by [delta] kg (display units, via the caller's `fmtVal`).
+/// The displayed weight moved by [delta], in display units.
 class WeightChange extends TopSetChange {
   const WeightChange(this.delta);
   final double delta;
@@ -29,6 +29,9 @@ class NoChange extends TopSetChange {
 const double _weightTolerance = 1e-6;
 
 /// Compares a previous top set to the current one and decides what to show.
+///
+/// The weights are the displayed (rounded) values, so a change too small to
+/// show is no change and the rep change stands in for it.
 TopSetChange topSetChange({
   required double prevWeight,
   required int? prevReps,
@@ -48,6 +51,9 @@ TopSetChange topSetChange({
 /// A signed value string: "+x", "−x" (U+2212), or [AppLocalizations.progressSame]
 /// when `fmtVal(delta.abs())` formats the same as `fmtVal(0)` — i.e. [delta]
 /// is exactly zero, or rounds away to nothing under the caller's formatter.
+///
+/// [delta] is the difference of two displayed (rounded) values, so it is the
+/// change the user can read off the screen.
 String signedChange(double delta, String Function(double) fmtVal, AppLocalizations l) {
   final abs = fmtVal(delta.abs());
   if (abs == fmtVal(0)) return l.progressSame;
@@ -57,7 +63,10 @@ String signedChange(double delta, String Function(double) fmtVal, AppLocalizatio
 /// Renders a [TopSetChange] as the label shown in Progress's change column.
 ///
 /// - [WeightChange]: `fmtVal` of the absolute delta, prefixed with the sign
-///   and suffixed with [unit] when non-empty (no space before the unit).
+///   and suffixed with [unit] when non-empty (no space before the unit), or
+///   [AppLocalizations.progressSame] when it formats as zero, as in
+///   [signedChange]. A delta between displayed values never does; the guard
+///   is defensive.
 /// - [RepChange]: the localized "+N rep(s)" / "−N rep(s)" string.
 /// - [NoChange]: [AppLocalizations.progressSame].
 String changeLabel(
@@ -69,6 +78,7 @@ String changeLabel(
   switch (c) {
     case WeightChange(:final delta):
       final abs = fmtVal(delta.abs());
+      if (abs == fmtVal(0)) return l.progressSame;
       final sign = delta > 0 ? '+$abs' : '−$abs';
       return unit.isEmpty ? sign : '$sign$unit';
     case RepChange(:final delta):
@@ -116,9 +126,10 @@ String? shownProgressTarget({
 
 /// The value and unit slot of Progress's 12-week change tile.
 ///
-/// For a top-set metric ([reps]) the rep change stands in when the weight
-/// didn't move. The unit slot is null whenever the value is not a weight:
-/// a rep change, or "same". Fewer than two points show "—".
+/// [series] holds the displayed (rounded) values. For a top-set metric
+/// ([reps]) the rep change stands in when the weight didn't move. The unit
+/// slot is null whenever the value is not a weight: a rep change, or "same".
+/// Fewer than two points show "—".
 ({String value, String? unit}) progressDeltaStat(
   AppLocalizations l, {
   required List<double> series,
@@ -139,9 +150,10 @@ String? shownProgressTarget({
       curWeight: last,
       curReps: topReps,
     );
+    final value = changeLabel(l, c, fmtVal: fmtVal);
     return (
-      value: changeLabel(l, c, fmtVal: fmtVal),
-      unit: c is WeightChange ? unitSlot : null,
+      value: value,
+      unit: c is WeightChange && value != l.progressSame ? unitSlot : null,
     );
   }
   final value = signedChange(last - first, fmtVal, l);
