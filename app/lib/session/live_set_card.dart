@@ -90,14 +90,19 @@ class LiveSetCard extends StatelessWidget {
           ),
           if (set.done && !set.isWarmup) ...[
             const SizedBox(height: 12),
+            // When the chips wrap to two rows, the caption stays level with
+            // the first.
             inset(Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.sessionColRir, style: caption()),
+                SizedBox(
+                  height: 48,
+                  child: Center(child: Text(l.sessionColRir, style: caption())),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: RirPicker(
                     value: set.rir,
-                    height: 48,
                     onChanged: (v) {
                       set.rir = v;
                       onChanged();

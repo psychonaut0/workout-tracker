@@ -281,6 +281,18 @@ void main() {
     });
   }
 
+  testWidgets('in two rows the RIR caption sits level with the first', (tester) async {
+    setPhone(tester, width: 320);
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(host(repo, [_set('s1')]));
+    await tester.tap(find.byKey(const Key('open-sheet')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-line-s1')));
+    await tester.pumpAndSettle();
+    expect(expectRirChipsAtLeast48(tester), 2);
+    expectCaptionOnFirstRirRow(tester, find.text('RIR'));
+  });
+
   testWidgets('a set can be corrected to RIR 5', (tester) async {
     final repo = FakeSessionRepository();
     await tester.pumpWidget(sheet(repo, [_set('s1', rir: 1)]));

@@ -176,6 +176,13 @@ void main() {
     });
   }
 
+  testWidgets('in two rows the RIR caption sits level with the first', (tester) async {
+    await tester.pumpWidget(host(card(_s(done: true)), width: 262));
+    await tester.pumpAndSettle();
+    expect(expectRirChipsAtLeast48(tester), 2);
+    expectCaptionOnFirstRirRow(tester, find.text('RIR'));
+  });
+
   testWidgets('no RIR picker for a pending set or a logged warm-up', (tester) async {
     await tester.pumpWidget(host(card(_s())));
     expect(find.byKey(const Key('rir-0')), findsNothing);

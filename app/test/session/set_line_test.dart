@@ -55,6 +55,12 @@ void main() {
     expect(find.text('TOP'), findsOneWidget);
   });
 
+  testWidgets('a logged working set with no RIR shows no RIR text', (tester) async {
+    await tester.pumpWidget(wrapL10n(line(_s(done: true, rir: null))));
+    expect(find.text('140kg  ×  6'), findsOneWidget);
+    expect(find.textContaining('RIR'), findsNothing);
+  });
+
   testWidgets('the RIR strip shows 48dp chips; a chip tap sets RIR, not focus', (tester) async {
     await tester.pumpWidget(wrapL10n(line(_s(done: true), prompt: true)));
     await tester.pumpAndSettle();
@@ -86,6 +92,14 @@ void main() {
       expect(expectRirChipsAtLeast48(tester), rows);
     });
   }
+
+  testWidgets('in two rows the RIR caption sits level with the first', (tester) async {
+    await tester.pumpWidget(wrapL10n(
+        SizedBox(width: 262, child: line(_s(done: true), prompt: true))));
+    await tester.pumpAndSettle();
+    expect(expectRirChipsAtLeast48(tester), 2);
+    expectCaptionOnFirstRirRow(tester, find.text('RIR'));
+  });
 
   testWidgets('a tap in the gap between the chip rows neither sets RIR nor focuses the set',
       (tester) async {

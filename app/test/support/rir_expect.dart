@@ -14,3 +14,10 @@ int expectRirChipsAtLeast48(WidgetTester tester, {String where = ''}) {
   }
   return tops.length;
 }
+
+/// Expects the host's [caption] to sit level with the first chip row, as it
+/// must when the chips wrap to two rows.
+void expectCaptionOnFirstRirRow(WidgetTester tester, Finder caption) {
+  expect(tester.getCenter(caption).dy,
+      moreOrLessEquals(tester.getCenter(find.byKey(Key('rir-$rirMin'))).dy, epsilon: 0.01));
+}
