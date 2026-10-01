@@ -12,6 +12,7 @@ import '../data/models.dart';
 import '../data/session_repository.dart';
 import '../export/export_service.dart';
 import '../l10n/app_localizations.dart';
+import '../settings/app_languages.dart';
 import '../settings/bodyweight_goal.dart';
 import '../settings/settings_service.dart';
 import '../sync/db.dart';
@@ -393,40 +394,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Language picker ─────────────────────────────────────────────────────────
 
+  // The language in its own name, as the sheet lists it; null, or a code the
+  // UI can't write, reads as the system default.
   String _languageLabel(BuildContext context, String? code) {
-    final l = AppLocalizations.of(context);
-    switch (code) {
-      case 'en':
-        return l.languageEnglish;
-      case 'it':
-        return l.languageItalian;
-      case 'de':
-        return l.languageGerman;
-      case 'es':
-        return l.languageSpanish;
-      default:
-        return l.languageSystem;
+    for (final lang in appLanguages) {
+      if (lang.code == code) return lang.name;
     }
+    return AppLocalizations.of(context).languageSystem;
   }
 
   Future<void> _pickLanguage(
       BuildContext context, SettingsService settings) async {
-    final l = AppLocalizations.of(context);
-    // showWDialog returns null both on barrier-dismiss AND for a null action
-    // value, so "System default" carries a non-null 'system' sentinel and a
-    // real null means dismissed (no change).
-    final choice = await showWDialog<String>(
-      context,
-      title: l.settingsLanguage,
-      message: '',
-      actions: [
-        WDialogAction(label: l.languageSystem, value: 'system'),
-        WDialogAction(label: l.languageEnglish, value: 'en'),
-        WDialogAction(label: l.languageItalian, value: 'it'),
-        WDialogAction(label: l.languageGerman, value: 'de'),
-        WDialogAction(label: l.languageSpanish, value: 'es'),
-      ],
-    );
+    final choice =
+        await showLanguageSheet(context, current: settings.localeOverride);
     if (choice == null) return; // dismissed
     await settings.setLocaleOverride(choice == 'system' ? null : choice);
   }
@@ -448,7 +428,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             WSheetAction(
               label: _goalLabel(l, g),
               value: g,
-              icon: g == settings.bodyweightGoal ? WIcons.check : WIcons.target,
+              icon: WIcons.target,
+              selected: g == settings.bodyweightGoal,
             ),
         ]);
     if (picked != null) await settings.setBodyweightGoal(picked);
