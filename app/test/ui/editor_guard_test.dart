@@ -84,6 +84,25 @@ void main() {
       d.slots.first.workSets = 4;
       expect(daySnapshot(d), isNot(before));
     });
+
+    // Every value a slot saves must reach the snapshot, or a change to it
+    // would leave without the discard prompt.
+    for (final (field, change) in <(String, void Function(SlotDraft))>[
+      ('exerciseId', (s) => s.exerciseId = 'ex9'),
+      ('workSets', (s) => s.workSets = 4),
+      ('warmupSets', (s) => s.warmupSets = 2),
+      ('repLow', (s) => s.repLow = 5),
+      ('repHigh', (s) => s.repHigh = 12),
+      ('rirLow', (s) => s.rirLow = 0),
+      ('rirHigh', (s) => s.rirHigh = 3),
+    ]) {
+      test('a changed slot $field is a change', () {
+        final d = _day();
+        final baseline = daySnapshot(d);
+        change(d.slots.first);
+        expect(daySnapshot(d), isNot(baseline));
+      });
+    }
   });
 
   group('exerciseSnapshot', () {
@@ -131,6 +150,27 @@ void main() {
       expect(exerciseSnapshot(_exercise(baseWeightKg: null)).baseWeightKg,
           isNull);
     });
+
+    // Every field the exercise saves must reach the snapshot, or a change to
+    // it would leave without the discard prompt.
+    for (final (field, change) in <(String, void Function(ExerciseDraft))>[
+      ('muscleGroup', (d) => d.muscleGroup = 'back'),
+      ('compound', (d) => d.compound = false),
+      ('plateStepKg', (d) => d.plateStepKg = 1.25),
+      ('defaultRepLow', (d) => d.defaultRepLow = 5),
+      ('defaultRepHigh', (d) => d.defaultRepHigh = 12),
+      ('defaultWorkingSets', (d) => d.defaultWorkingSets = 4),
+      ('defaultWarmupSets', (d) => d.defaultWarmupSets = 2),
+      ('defaultRirLow', (d) => d.defaultRirLow = 0),
+      ('defaultRirHigh', (d) => d.defaultRirHigh = 3),
+    ]) {
+      test('a changed $field is a change', () {
+        final d = _exercise();
+        final baseline = exerciseSnapshot(d);
+        change(d);
+        expect(exerciseSnapshot(d), isNot(baseline));
+      });
+    }
   });
 
   test('a fresh guard reports no unsaved edits', () {

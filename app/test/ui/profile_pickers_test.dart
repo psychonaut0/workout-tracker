@@ -76,6 +76,16 @@ void main() {
     expect(find.text('Deutsch'), findsOneWidget,
         reason: 'the Language row should name the choice in its own language');
     expect(find.text('Tedesco'), findsNothing);
+
+    // Reopened, the sheet checks the stored choice, not the system row.
+    await tester.tap(languageRow);
+    await settleUntilFound(tester, sheetRow(4), where: 'language picker again');
+    await settleReal(tester, ticks: 10);
+    final check = find.descendant(
+        of: find.byType(BottomSheet), matching: find.byIcon(WIcons.check));
+    expect(check, findsOneWidget);
+    expect(find.descendant(of: sheetRow(3), matching: check), findsOneWidget,
+        reason: 'the Deutsch row should carry the check');
     await harness.unmount(tester);
   });
 }

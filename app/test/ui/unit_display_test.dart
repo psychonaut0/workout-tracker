@@ -8,6 +8,7 @@ import 'package:workout_tracker/ui/history_screen.dart';
 import 'package:workout_tracker/ui/profile_screen.dart';
 import 'package:workout_tracker/ui/progress_screen.dart';
 import 'package:workout_tracker/ui/today_screen.dart';
+import 'package:workout_tracker/widgets/line_chart.dart';
 import 'package:workout_tracker/widgets/sparkline.dart';
 
 import '../support/screen_harness.dart';
@@ -139,6 +140,10 @@ void main() {
           const Scaffold(body: ProgressScreen(initialTarget: bwId))));
       await settleUntilFound(tester, find.text('181.7'),
           where: 'Bodyweight lb');
+      expect(find.text('181.7'), findsOneWidget);
+      // The chart's value chip reads through the cards' formatter.
+      expect(tester.widget<LineChart>(find.byType(LineChart)).formatValue(181.659),
+          '181.7');
 
       await tester.pumpWidget(harness.wrap(_profile()));
       await settleReal(tester);
@@ -198,6 +203,9 @@ void main() {
       await settleUntilFound(tester, find.text('+27'),
           where: 'Progress lb volume');
       expect(find.text('1,102lb'), findsOneWidget);
+      // The chart's value chip reads through the cards' formatter.
+      expect(tester.widget<LineChart>(find.byType(LineChart)).formatValue(1129.5),
+          '1,130');
       await harness.unmount(tester);
     });
 
