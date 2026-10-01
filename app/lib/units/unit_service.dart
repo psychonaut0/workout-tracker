@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'unit_format.dart';
+
 /// Weight unit the user has selected. Everything is stored internally in kg;
 /// this service converts at the view layer only.
 enum Unit { kg, lb }
@@ -48,18 +50,17 @@ class UnitService extends ChangeNotifier {
   String fmtWt(double kg) => fmtDisplay(fromKg(kg, _unit), _unit);
 
   /// Format a value already in [unit] for display: kg up to two decimals
-  /// (trailing zeros trimmed), lb as a whole number.
-  static String fmtDisplay(double v, Unit unit) {
-    if (unit == Unit.lb) {
-      return v.round().toString();
-    }
-    // kg: drop trailing ".0"
-    if (v == v.truncateToDouble()) {
-      return v.toInt().toString();
-    }
-    // Up to two decimals (quarter-kilo loads), trailing zeros trimmed.
-    return v.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
-  }
+  /// (trailing zeros trimmed), lb as a whole number. The set-weight rule,
+  /// [fmtLoad].
+  static String fmtDisplay(double v, Unit unit) => fmtLoad(v, unit);
+
+  /// Format a bodyweight in kg for display in the current unit: one decimal,
+  /// ".0" trimmed ([fmtBodyweight]).
+  String fmtBw(double kg) => fmtBodyweight(fromKg(kg, _unit));
+
+  /// Format a training volume in kg for display in the current unit
+  /// ([fmtVolume]): "850kg", "1.5t", "3.3k lb".
+  String fmtVol(double kg) => fmtVolume(kg, _unit);
 
   /// The current unit label ("kg" or "lb").
   String get uLabel => _unit == Unit.lb ? 'lb' : 'kg';
