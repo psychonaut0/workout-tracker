@@ -463,7 +463,7 @@ class _TodayScreenState extends State<TodayScreen> {
             ? bwEntries.sublist(bwEntries.length - 18)
             : bwEntries;
         final hasBw = bwEntries.isNotEmpty;
-        final bwValue = hasBw ? units.fmtWt(bwEntries.last.weightKg) : '—';
+        final bwValue = hasBw ? units.fmtBw(bwEntries.last.weightKg) : '—';
         final bwUnit = hasBw ? units.uLabel : null;
         final sparkValues = lastUpTo18.map((e) => e.weightKg).toList();
 

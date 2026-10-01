@@ -13,7 +13,8 @@ DeltaTone bodyweightDeltaTone(double delta, BodyweightGoal goal) => switch (goal
       _ => DeltaTone.neutral,
     };
 
-/// Rounds [delta] to the same one-decimal precision `fmtSigned` displays, so
-/// a delta whose printed text reads "0" is never toned as a change — a raw
-/// delta in (0, 0.05) would otherwise still read as a gain or loss.
+/// Rounds [delta] to the one-decimal precision `fmtBodyweight` displays, so a
+/// delta that reads "same" is never toned as a change. Callers pass the
+/// difference of two already-rounded weights; this also drops the binary
+/// noise of that subtraction (67.1 − 67 is 0.0999…).
 double displayedBodyweightDelta(double delta) => (delta * 10).round() / 10;

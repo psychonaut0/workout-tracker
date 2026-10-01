@@ -381,16 +381,6 @@ class _StatTiles extends StatelessWidget {
   final UnitService unit;
   final WorkoutTokens tokens;
 
-  String _fmtVolume() {
-    final v = UnitService.fromKg(volumeKg, unit.unit);
-    if (v >= 1000) {
-      final t = v / 1000;
-      final rounded = (t * 10).round() / 10;
-      return '${rounded % 1 == 0 ? rounded.toInt() : rounded}t';
-    }
-    return '${v.round()}${unit.uLabel}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -420,7 +410,7 @@ class _StatTiles extends StatelessWidget {
         const SizedBox(width: 12),
         _Tile(
             label: l.summaryVolume,
-            value: _fmtVolume(),
+            value: unit.fmtVol(volumeKg),
             tokens: tokens),
         const SizedBox(width: 12),
         // PR count ticks up from 0 on mount.

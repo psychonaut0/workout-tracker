@@ -149,11 +149,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final monthPrs = recent.fold<int>(0, (sum, s) => sum + s.prCount);
     final monthTonnageKg =
         recent.fold<double>(0, (sum, s) => sum + s.tonnageKg);
-    final monthVolDisplay = () {
-      final converted = UnitService.fromKg(monthTonnageKg, units.unit) / 1000;
-      final suffix = units.uLabel == 'kg' ? 't' : 'k';
-      return '${converted.toStringAsFixed(1)}$suffix';
-    }();
+    final monthVolDisplay = units.fmtVol(monthTonnageKg);
 
     // ── Week grouping ────────────────────────────────────────────────────────
     final groups = groupByWeek<HistorySessionRow>(sessions, (r) => r.date);

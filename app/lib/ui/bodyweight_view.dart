@@ -11,9 +11,9 @@ import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/motion.dart';
 import '../theme/typography.dart';
+import '../units/unit_format.dart';
 import '../units/unit_service.dart';
 import '../util/dates.dart';
-import '../util/format.dart';
 import '../widgets/card.dart';
 import '../widgets/line_chart.dart';
 import '../widgets/progress_widgets.dart';
@@ -187,9 +187,10 @@ class _BwStatRow extends StatelessWidget {
       );
     }
 
-    final last = series.last.value;
-    final lowest =
-        series.map((s) => s.value).reduce((a, b) => a < b ? a : b);
+    // Rounded to what the cards show, so the delta is the change they read.
+    final last = roundBodyweight(series.last.value);
+    final lowest = roundBodyweight(
+        series.map((s) => s.value).reduce((a, b) => a < b ? a : b));
 
     // 30-day: earliest entry within the last 30 days.
     final now = DateTime.now();
@@ -205,8 +206,8 @@ class _BwStatRow extends StatelessWidget {
       },
       orElse: () => series.first,
     );
-    final delta30 = last - month30.value;
-    final delta30Label = signedChange(delta30, fmtPlain, l);
+    final delta30 = last - roundBodyweight(month30.value);
+    final delta30Label = signedChange(delta30, fmtBodyweight, l);
 
     return Row(
       children: [
@@ -217,7 +218,7 @@ class _BwStatRow extends StatelessWidget {
               unitKey: unit,
               child: BigStat(
                 label: l.bodyweightStatCurrent,
-                value: fmtPlain(last),
+                value: fmtBodyweight(last),
                 unit: unit,
               ),
             ),
@@ -248,7 +249,7 @@ class _BwStatRow extends StatelessWidget {
               unitKey: unit,
               child: BigStat(
                 label: l.bodyweightStatLowest,
-                value: fmtPlain(lowest),
+                value: fmtBodyweight(lowest),
                 unit: unit,
               ),
             ),
@@ -321,9 +322,13 @@ class BodyweightHistoryCard extends StatelessWidget {
           // outside the capped-at-24 `items` window for the oldest visible
           // row. Only the very first entry overall has no predecessor.
           final seriesIndex = series.length - 1 - i;
-          final prevValue =
-              seriesIndex > 0 ? series[seriesIndex - 1].value : null;
-          final diff = prevValue != null ? entry.value - prevValue : 0.0;
+          // Both ends rounded to what the rows show, so the delta is the
+          // change between the two displayed weights.
+          final value = roundBodyweight(entry.value);
+          final prevValue = seriesIndex > 0
+              ? roundBodyweight(series[seriesIndex - 1].value)
+              : null;
+          final diff = prevValue != null ? value - prevValue : 0.0;
           final isLast = i == items.length - 1;
 
           return Container(
@@ -354,7 +359,7 @@ class BodyweightHistoryCard extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: fmtPlain(entry.value),
+                        text: fmtBodyweight(value),
                         style: WorkoutType.mono(
                           size: 14,
                           weight: FontWeight.w700,
@@ -372,7 +377,7 @@ class BodyweightHistoryCard extends StatelessWidget {
                 // Signed, and accent only when it moves the way the goal wants.
                 if (prevValue != null)
                   Text(
-                    signedChange(diff, fmtPlain, l),
+                    signedChange(diff, fmtBodyweight, l),
                     style: WorkoutType.mono(
                       size: 11.5,
                       weight: FontWeight.w600,

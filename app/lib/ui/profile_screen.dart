@@ -234,7 +234,7 @@ class _QuickStatsState extends State<_QuickStats> {
             final bwEntries = bwSnap.data ?? [];
             final bwText = bwEntries.isEmpty
                 ? '–'
-                : '${unitService.fmtWt(bwEntries.last.weightKg)}${unitService.uLabel}';
+                : '${unitService.fmtBw(bwEntries.last.weightKg)}${unitService.uLabel}';
 
             return Row(
               children: [

@@ -11,8 +11,8 @@ import '../theme/app_theme.dart';
 import '../theme/icons.dart';
 import '../theme/typography.dart';
 import '../theme/tokens.dart';
+import '../units/unit_format.dart';
 import '../units/unit_service.dart';
-import '../util/format.dart';
 import '../widgets/delete_button.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
@@ -482,20 +482,21 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           ),
         ),
 
-        // Start-weight stepper in DISPLAY units.
-        // step = fromKg(plateStepKg, unit) — NOT raw plateStepKg.
+        // Start-weight stepper in DISPLAY units, read like a live set's
+        // weight. step = fromKg(plateStepKg, unit) — NOT raw plateStepKg.
+        // No parseDisplay: the value is already in display units.
         Field(
           label: l.exerciseEditorStartWeight,
           hint: l.exerciseEditorStartWeightHint,
           child: WStepper(
             value: _baseWeightDisplay,
             step: _stepDisplay,
-            format: (v) => '${fmtPlain(v)}${units.uLabel}',
+            format: (v) => '${fmtLoad(v, units.unit)}${units.uLabel}',
             onChanged: (v) {
               setState(() => _baseWeightDisplay = v < 0 ? 0 : v);
             },
             editable: true,
-            formatForEdit: (v) => fmtPlain(v),
+            formatForEdit: (v) => fmtLoad(v, units.unit),
             min: 0,
             semanticLabel: l.exerciseEditorStartWeight,
           ),
