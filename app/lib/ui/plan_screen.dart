@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/day_template_repository.dart';
@@ -9,8 +11,11 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import '../widgets/fit_label.dart';
+import '../widgets/pending_input.dart';
 import '../widgets/pressable.dart';
+import '../widgets/w_dialog.dart';
 import 'day_editor.dart';
+import 'editor_guard.dart';
 import 'exercise_editor.dart';
 import 'exercise_library_tab.dart';
 import 'split_tab.dart';
@@ -20,10 +25,15 @@ import 'targets_tab.dart';
 
 /// Describes which in-place editor is currently open.
 /// [kind] is `'day'` or `'exercise'`; [id] is the row id (null = new).
+/// Built fresh for every open, so an editor still fading out can never
+/// answer for, or close, the one that replaced it.
 class _EditorRoute {
-  const _EditorRoute({required this.kind, required this.id});
+  _EditorRoute({required this.kind, required this.id});
   final String kind; // 'day' | 'exercise'
   final String? id;
+
+  /// Bound by this route's editor to report unsaved edits.
+  final EditorGuard guard = EditorGuard();
 }
 
 /// The Plan header's eyebrow: "N training days", or empty while the day
@@ -65,14 +75,67 @@ class PlanScreenState extends State<PlanScreen> {
   late final Stream<int> _dayCountStream =
       _dayRepo.watchDays().map((days) => days.length);
 
-  void _openEditor(_EditorRoute route) => setState(() => _editor = route);
+  /// True while [requestClose] runs: a second call is refused rather than
+  /// stacking a second prompt.
+  bool _closing = false;
 
-  void _onBack() => setState(() => _editor = null);
+  /// Opens an editor. Ignored while one is open: the list can then only be
+  /// reached by a tap that fell through to the outgoing list while the new
+  /// editor was still loading.
+  void _openEditor(String kind, String? id) {
+    if (_editor != null) return;
+    setState(() => _editor = _EditorRoute(kind: kind, id: id));
+  }
 
-  /// Consumes a back press when the in-tab editor is open. Returns true if handled.
+  /// Closes [route]'s editor if it is still the open one, so a late Save or
+  /// Delete never closes an editor opened since.
+  void _closeEditor(_EditorRoute route) {
+    if (!identical(_editor, route)) return;
+    setState(() => _editor = null);
+  }
+
+  /// Whether the open editor would lose edits if closed now.
+  bool get hasUnsavedEdits => _editor?.guard.isDirty() ?? false;
+
+  /// Closes the open editor, asking first if it holds unsaved edits.
+  /// Returns true if the editor closed.
+  Future<bool> requestClose() async {
+    final route = _editor;
+    if (route == null || _closing) return false;
+    _closing = true;
+    try {
+      // A typed value still in a focused stepper counts as an edit.
+      commitPendingInput();
+      if (route.guard.isDirty()) {
+        final l = AppLocalizations.of(context);
+        final discard = await showWConfirm(
+          context,
+          title: l.planDiscardTitle,
+          message: route.kind == 'day'
+              ? l.planDiscardDayMessage
+              : l.planDiscardExerciseMessage,
+          cancelLabel: l.commonKeepEditing,
+          confirmLabel: l.commonDiscard,
+          destructive: true,
+        );
+        // Keep editing, a dismissed dialog, or an editor that changed or
+        // closed meanwhile: leave everything as it is.
+        if (discard != true || !mounted || !identical(_editor, route)) {
+          return false;
+        }
+      }
+      _closeEditor(route);
+      return true;
+    } finally {
+      _closing = false;
+    }
+  }
+
+  /// Consumes a back press when the in-tab editor is open. Returns true if
+  /// handled; the editor then closes, or asks first, on its own.
   bool handleBack() {
     if (_editor == null) return false;
-    _onBack();
+    unawaited(requestClose());
     return true;
   }
 
@@ -106,7 +169,10 @@ class PlanScreenState extends State<PlanScreen> {
             child: _editor != null
                 ? Row(
                     children: [
-                      _BackButton(tokens: tokens, onBack: _onBack),
+                      _BackButton(
+                        tokens: tokens,
+                        onBack: () => unawaited(requestClose()),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -168,23 +234,27 @@ class PlanScreenState extends State<PlanScreen> {
 
   Widget _buildBody() {
     final Widget body;
-    if (_editor != null) {
-      if (_editor!.kind == 'day') {
-        body = DayEditor(id: _editor!.id, onBack: _onBack);
+    final editor = _editor;
+    if (editor != null) {
+      if (editor.kind == 'day') {
+        body = DayEditor(
+          id: editor.id,
+          onBack: () => _closeEditor(editor),
+          guard: editor.guard,
+        );
       } else {
-        body = ExerciseEditor(id: _editor!.id, onBack: _onBack);
+        body = ExerciseEditor(
+          id: editor.id,
+          onBack: () => _closeEditor(editor),
+          guard: editor.guard,
+        );
       }
     } else if (_activeTab == 'split') {
-      body = SplitTab(
-        onOpenEditor: (id) => _openEditor(_EditorRoute(kind: 'day', id: id)),
-      );
+      body = SplitTab(onOpenEditor: (id) => _openEditor('day', id));
     } else if (_activeTab == 'targets') {
       body = const TargetsTab();
     } else {
-      body = LibraryTab(
-        onOpenEditor: (id) =>
-            _openEditor(_EditorRoute(kind: 'exercise', id: id)),
-      );
+      body = LibraryTab(onOpenEditor: (id) => _openEditor('exercise', id));
     }
 
     return AnimatedSwitcher(

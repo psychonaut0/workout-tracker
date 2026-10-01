@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -141,6 +142,15 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Back on Today while a Plan editor holds unsaved edits: shows the
+  /// editor and asks, and finishes the exit only if the edits are discarded.
+  Future<void> _confirmExit() async {
+    setState(() => _index = 3);
+    final closed = await _planKey.currentState?.requestClose() ?? false;
+    if (!mounted) return;
+    if (closed) SystemNavigator.pop();
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -151,11 +161,19 @@ class _AppShellState extends State<AppShell> {
         if (didPop) return;
         final tabHandled =
             _index == 3 && (_planKey.currentState?.handleBack() ?? false);
-        switch (decideBack(tabHandled: tabHandled, tabIndex: _index)) {
+        switch (decideBack(
+          tabHandled: tabHandled,
+          tabIndex: _index,
+          // The hidden tab's typed values are already committed: it lost
+          // focus when it was left.
+          planEditsAtRisk: _planKey.currentState?.hasUnsavedEdits ?? false,
+        )) {
           case BackAction.none:
             break;
           case BackAction.goHome:
             setState(() => _index = 0);
+          case BackAction.confirmExit:
+            unawaited(_confirmExit());
           case BackAction.exit:
             SystemNavigator.pop();
         }
