@@ -1,6 +1,8 @@
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
+import 'package:workout_tracker/theme/tokens.dart';
 import 'package:workout_tracker/theme/typography.dart';
 
 import '../support/app_fonts.dart';
@@ -22,6 +24,10 @@ void main() {
       () async {
     GoogleFonts.config.allowRuntimeFetching = false;
     addTearDown(() => GoogleFonts.config.allowRuntimeFetching = true);
+    // buildTheme asks google_fonts for the theme's own text weights.
+    for (final b in Brightness.values) {
+      buildTheme(b, accents[0]);
+    }
     // A face missing from assets/google_fonts/ throws here instead of
     // falling back to a fetch.
     await preloadAppFonts();

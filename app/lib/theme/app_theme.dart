@@ -3,7 +3,7 @@ import 'tokens.dart';
 import 'typography.dart';
 
 /// Build a [ThemeData] with [WorkoutTokens] wired as a [ThemeExtension].
-/// Typography is applied in [WorkoutType] and wired via [_buildTextTheme].
+/// Material's text theme is [WorkoutType.hankenTextTheme].
 ThemeData buildTheme(Brightness brightness, Color accent) {
   final tokens = brightness == Brightness.dark
       ? WorkoutTokens.dark(accent)
