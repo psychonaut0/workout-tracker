@@ -50,6 +50,9 @@ class SetLine extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final done = set.done;
     final strip = showRirPrompt && done && !set.isWarmup;
+    // A logged working set with no RIR (resumed, or added in History) shows
+    // none, as History's line does.
+    final rir = done && !set.isWarmup ? set.rir : null;
 
     return Semantics(
       button: true,
@@ -120,12 +123,12 @@ class SetLine extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (done && !set.isWarmup)
+                          if (rir != null)
                             Flexible(
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 10),
                                 child: FitLabel(
-                                  l.sessionRir(set.rir ?? 0),
+                                  l.sessionRir(rir),
                                   style: WorkoutType.mono(size: 10.5, color: tokens.faint),
                                 ),
                               ),
@@ -148,20 +151,36 @@ class SetLine extends StatelessWidget {
               curve: Motion.curve,
               alignment: Alignment.topCenter,
               child: strip
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: 22, bottom: 8),
-                      child: Row(
-                        children: [
-                          Text(
-                            l.sessionColRir,
-                            style: WorkoutType.mono(
-                                size: 10.5, color: tokens.faint, letterSpacing: 0.08 * 10.5),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: RirPicker(value: set.rir, height: 48, onChanged: onRir),
-                          ),
-                        ],
+                  // The whole strip absorbs taps, so one beside or below the
+                  // chips (blank in two rows) never focuses the set. Kept out
+                  // of the semantics tree: it must not add a tap node.
+                  ? GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      excludeFromSemantics: true,
+                      onTap: () {},
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 22, bottom: 8),
+                        // When the chips wrap to two rows, the caption stays
+                        // level with the first.
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              height: 48,
+                              child: Center(
+                                child: Text(
+                                  l.sessionColRir,
+                                  style: WorkoutType.mono(
+                                      size: 10.5, color: tokens.faint, letterSpacing: 0.08 * 10.5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: RirPicker(value: set.rir, onChanged: onRir),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : const SizedBox(width: double.infinity),

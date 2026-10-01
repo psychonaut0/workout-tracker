@@ -4,3 +4,6 @@ output-localization-file: app_localizations.dart
 output-class: AppLocalizations
 output-dir: lib/l10n
 nullable-getter: false
+# Flutter falls back to the first supported locale; without this gen_l10n
+# sorts them, and a device with no app language got German.
+preferred-supported-locales: [en]

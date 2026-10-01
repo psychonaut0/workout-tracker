@@ -1,9 +1,5 @@
 {
   "@@locale": "en",
-  "languageEnglish": "English",
-  "languageItalian": "Italiano",
-  "languageGerman": "Deutsch",
-  "languageSpanish": "Español",
   "languageSystem": "System default",
   "settingsLanguage": "Language",
   "commonCancel": "Cancel",
@@ -74,6 +70,7 @@
   "splitStartWorkout": "Start workout",
   "weekStripNext": "NEXT",
   "commonDiscard": "Discard",
+  "commonKeepEditing": "Keep editing",
   "commonRemove": "Remove",
   "commonSkip": "Skip",
   "commonDone": "Done",
@@ -268,6 +265,9 @@
   "planNewDay": "New training day",
   "planEditExercise": "Edit exercise",
   "planNewExercise": "New exercise",
+  "planDiscardTitle": "Discard changes?",
+  "planDiscardDayMessage": "Your changes to this training day will be lost.",
+  "planDiscardExerciseMessage": "Your changes to this exercise will be lost.",
   "planTabSplit": "Split",
   "planTabExercises": "Exercises",
   "planTabTargets": "Targets",
@@ -562,7 +562,22 @@
   "profileNamePlaceholder": "Your name",
   "profileSaveName": "Save",
   "profileEditName": "Edit name",
-  "profileTrainingSince": "Training since Mar 2026 · 4-day split",
+  "profileTrainingSince": "Training since {month}",
+  "@profileTrainingSince": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "profileSplitDays": "{count, plural, =1{1-\u2060day split} other{{count}-\u2060day split}}",
+  "@profileSplitDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileStatSessions": "Sessions",
   "profileStatPrs": "PRs",
   "profileStatBodyweight": "Bodyweight",

@@ -62,31 +62,38 @@ abstract final class WorkoutType {
     );
   }
 
-  /// A [TextTheme] with Hanken Grotesk as the declared font family.
+  /// Material's text theme in Hanken Grotesk, for every widget that styles
+  /// its text from the theme (onboarding, login, SnackBars, the date-range
+  /// picker).
   ///
-  /// Uses the font family name directly rather than routing through
-  /// [GoogleFonts.hankenGroteskTextTheme] so that no async font-file fetches
-  /// are triggered when this getter is called (e.g. inside [buildTheme] during
-  /// tests). The [WorkoutType.body], [display], and [mono] helpers use
-  /// [GoogleFonts] at the widget level where async loading is fine.
-  static TextTheme get hankenTextTheme {
-    const family = 'HankenGrotesk';
-    return const TextTheme(
-      displayLarge: TextStyle(fontFamily: family, fontSize: 57, fontWeight: FontWeight.w400),
-      displayMedium: TextStyle(fontFamily: family, fontSize: 45, fontWeight: FontWeight.w400),
-      displaySmall: TextStyle(fontFamily: family, fontSize: 36, fontWeight: FontWeight.w400),
-      headlineLarge: TextStyle(fontFamily: family, fontSize: 32, fontWeight: FontWeight.w600),
-      headlineMedium: TextStyle(fontFamily: family, fontSize: 28, fontWeight: FontWeight.w600),
-      headlineSmall: TextStyle(fontFamily: family, fontSize: 24, fontWeight: FontWeight.w600),
-      titleLarge: TextStyle(fontFamily: family, fontSize: 22, fontWeight: FontWeight.w600),
-      titleMedium: TextStyle(fontFamily: family, fontSize: 16, fontWeight: FontWeight.w500),
-      titleSmall: TextStyle(fontFamily: family, fontSize: 14, fontWeight: FontWeight.w500),
-      bodyLarge: TextStyle(fontFamily: family, fontSize: 16, fontWeight: FontWeight.w400),
-      bodyMedium: TextStyle(fontFamily: family, fontSize: 14, fontWeight: FontWeight.w400),
-      bodySmall: TextStyle(fontFamily: family, fontSize: 12, fontWeight: FontWeight.w400),
-      labelLarge: TextStyle(fontFamily: family, fontSize: 14, fontWeight: FontWeight.w600),
-      labelMedium: TextStyle(fontFamily: family, fontSize: 12, fontWeight: FontWeight.w500),
-      labelSmall: TextStyle(fontFamily: family, fontSize: 11, fontWeight: FontWeight.w500),
-    );
-  }
+  /// google_fonts registers one family per weight (`HankenGrotesk_600`) and
+  /// nothing registers the plain name, so the styles must come from
+  /// [GoogleFonts.hankenGroteskTextTheme]. Always pass [_hankenSizes]: with
+  /// no argument it starts from `ThemeData.light().textTheme`, which brings
+  /// a dark text colour onto the dark theme and drops these weights. Colours
+  /// stay null, so they come from `colorScheme.onSurface`.
+  ///
+  /// Because each family is one weight, `copyWith(fontWeight: …)` on these
+  /// styles keeps the old face: a heavier weight is faux-bolded and a lighter
+  /// one is not drawn lighter. Use [body] for another weight.
+  static TextTheme get hankenTextTheme =>
+      GoogleFonts.hankenGroteskTextTheme(_hankenSizes);
+
+  static const _hankenSizes = TextTheme(
+    displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.w400),
+    displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.w400),
+    displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w400),
+    headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w600),
+    headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
+    headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+    titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+    titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+    titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+    bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+    bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+    bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+    labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+    labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+  );
 }

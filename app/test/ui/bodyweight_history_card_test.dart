@@ -59,6 +59,32 @@ void main() {
     expect(_colorOf(tester, 'same'), tokens.dim);
   });
 
+  testWidgets('a delta is taken between the displayed values: 67.04 to 67.06 reads +0.1', (tester) async {
+    // 67.04 → 67.06 displays 67 → 67.1; the raw +0.02 read "same".
+    final series = [
+      (date: '2026-09-06', value: 67.04, reps: 0, isPr: false),
+      (date: '2026-09-07', value: 67.06, reps: 0, isPr: false),
+    ];
+    await tester.pumpWidget(wrapL10n(SingleChildScrollView(
+        child: BodyweightHistoryCard(series: series, unit: 'kg', goal: BodyweightGoal.bulk))));
+    final tokens = tester.element(find.byType(BodyweightHistoryCard)).tokens;
+    expect(find.text('+0.1'), findsOneWidget);
+    expect(_colorOf(tester, '+0.1'), tokens.accentText);
+  });
+
+  testWidgets('rows that display the same weight read "same", neutral, on bulk', (tester) async {
+    // 67.06 → 67.14 displays 67.1 → 67.1; the raw +0.08 read "+0.1".
+    final series = [
+      (date: '2026-09-06', value: 67.06, reps: 0, isPr: false),
+      (date: '2026-09-07', value: 67.14, reps: 0, isPr: false),
+    ];
+    await tester.pumpWidget(wrapL10n(SingleChildScrollView(
+        child: BodyweightHistoryCard(series: series, unit: 'kg', goal: BodyweightGoal.bulk))));
+    final tokens = tester.element(find.byType(BodyweightHistoryCard)).tokens;
+    expect(find.text('same'), findsOneWidget);
+    expect(_colorOf(tester, 'same'), tokens.dim);
+  });
+
   testWidgets('the oldest visible row still shows a delta when older entries exist', (tester) async {
     // 26 entries, one per day; the card caps display at 24, newest first, so
     // series[0] and series[1] are dropped and series[2] is the oldest shown

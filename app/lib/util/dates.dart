@@ -93,3 +93,17 @@ String fmtDate(String iso, String localeName, {bool weekday = false}) {
   final pattern = weekday ? 'E d MMM' : 'd MMM';
   return DateFormat(pattern, localeName).format(d);
 }
+
+/// Formats an ISO date string as a localized short month and year
+/// (en `'Mar 2026'`, de `'März 2026'`), or null for a null, empty or
+/// unparseable [iso].
+///
+/// The date is read at local midnight, so no timezone shift can move it into
+/// another month. It uses [DateTime.tryParse], never [DateTime.parse]: this
+/// runs during build, where a throw renders the gray ErrorWidget.
+String? fmtMonthYear(String? iso, String localeName) {
+  if (iso == null || iso.isEmpty) return null;
+  final d = DateTime.tryParse('${iso}T00:00:00');
+  if (d == null) return null;
+  return DateFormat.yMMM(localeName).format(d);
+}

@@ -31,4 +31,23 @@ void main() {
     expect(fmtDate('2026-05-25', 'en', weekday: true), 'Mon 25 May');
     expect(fmtDate('2026-05-31', 'en'), '31 May');
   });
+  test('fmtMonthYear: the localized short month and the year', () {
+    expect(fmtMonthYear('2026-03-14', 'en'), 'Mar 2026');
+    expect(fmtMonthYear('2026-03-14', 'it'), 'mar 2026');
+    expect(fmtMonthYear('2026-03-14', 'de'), 'März 2026');
+    expect(fmtMonthYear('2026-03-14', 'es'), 'mar 2026');
+    // The locale data's own abbreviations, kept as they are.
+    expect(fmtMonthYear('2026-09-30', 'de'), 'Sept. 2026');
+    expect(fmtMonthYear('2026-01-05', 'es'), 'ene 2026');
+    expect(fmtMonthYear('2026-09-30', 'it'), 'set 2026');
+  });
+  test('fmtMonthYear: the first and last day stay in their month', () {
+    expect(fmtMonthYear('2026-03-01', 'en'), 'Mar 2026');
+    expect(fmtMonthYear('2026-03-31', 'en'), 'Mar 2026');
+  });
+  test('fmtMonthYear: null, empty or garbage gives null, never a throw', () {
+    expect(fmtMonthYear(null, 'en'), isNull);
+    expect(fmtMonthYear('', 'en'), isNull);
+    expect(fmtMonthYear('garbage', 'en'), isNull);
+  });
 }

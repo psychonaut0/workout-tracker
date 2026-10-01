@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workout_tracker/data/models.dart';
 import 'package:workout_tracker/data/session_repository.dart';
+import 'package:workout_tracker/theme/app_theme.dart';
 import 'package:workout_tracker/ui/set_editor_sheet.dart';
 import 'package:workout_tracker/units/unit_service.dart';
+import 'package:workout_tracker/widgets/rir_picker.dart';
 import 'package:workout_tracker/widgets/ruler_picker.dart';
 
+import '../support/app_fonts.dart';
 import '../support/l10n_harness.dart';
+import '../support/rir_expect.dart';
+import '../support/screen_harness.dart' show setPhone;
 
 /// Records every mutating call instead of touching a database.
 class FakeSessionRepository implements SessionRepository {
@@ -103,6 +108,9 @@ Widget host(FakeSessionRepository repo, List<LoggedSet> sets) => wrapL10n(
     );
 
 void main() {
+  // Real metrics: the RIR row's layout depends on the caption's width.
+  setUpAll(preloadAppFonts);
+
   testWidgets('each set is a >=48dp line; tapping one opens its rulers', (tester) async {
     final repo = FakeSessionRepository();
     await tester.pumpWidget(sheet(repo, [_set('s1'), _set('s2', weight: 120, reps: 6)]));
@@ -250,13 +258,74 @@ void main() {
     expect(find.byKey(const Key('live-weight')), findsOneWidget);
   });
 
-  testWidgets('the RIR chips in the open card are at least 48dp tall', (tester) async {
+  // History opens the sheet across the whole phone; the chip rows its open
+  // card must fall into there.
+  for (final (width, scale, rows) in const [
+    (320.0, 1.0, 2),
+    (320.0, 2.0, 2),
+    (412.0, 1.0, 1),
+    (412.0, 2.0, 1),
+  ]) {
+    testWidgets(
+        'every RIR chip in the open card is at least 48x48 on a ${width.toInt()}dp phone '
+        'at ${scale}x, in $rows row${rows == 1 ? '' : 's'}', (tester) async {
+      setPhone(tester, width: width, textScale: scale);
+      final repo = FakeSessionRepository();
+      await tester.pumpWidget(host(repo, [_set('s1')]));
+      await tester.tap(find.byKey(const Key('open-sheet')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('set-line-s1')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(expectRirChipsAtLeast48(tester), rows);
+    });
+  }
+
+  testWidgets('in two rows the RIR caption sits level with the first', (tester) async {
+    setPhone(tester, width: 320);
     final repo = FakeSessionRepository();
-    await tester.pumpWidget(sheet(repo, [_set('s1')]));
+    await tester.pumpWidget(host(repo, [_set('s1')]));
+    await tester.tap(find.byKey(const Key('open-sheet')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-line-s1')));
+    await tester.pumpAndSettle();
+    expect(expectRirChipsAtLeast48(tester), 2);
+    expectCaptionOnFirstRirRow(tester, find.text('RIR'));
+  });
+
+  testWidgets('a set can be corrected to RIR 5', (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(sheet(repo, [_set('s1', rir: 1)]));
     await tester.tap(find.byKey(const Key('set-line-s1')));
     await tester.pumpAndSettle();
 
-    expect(tester.getSize(find.byKey(const Key('rir-0'))).height, greaterThanOrEqualTo(48));
+    await tester.tap(find.byKey(const Key('rir-5')));
+    await tester.pump(const Duration(milliseconds: 500)); // past the 400ms debounce
+    expect(repo.updateCalls, isNotEmpty);
+    expect(repo.updateCalls.last.rir, 5);
+  });
+
+  // Regression guard: a stored out-of-range RIR is neither shown as a
+  // choice nor rewritten by an unrelated edit.
+  testWidgets('a stored RIR outside the range selects no chip and survives a weight edit',
+      (tester) async {
+    final repo = FakeSessionRepository();
+    await tester.pumpWidget(sheet(repo, [_set('s1', rir: 7)]));
+    await tester.tap(find.byKey(const Key('set-line-s1')));
+    await tester.pumpAndSettle();
+
+    final tokens = tester.element(find.byType(SetEditorSheet)).tokens;
+    final faces = tester.widgetList<DecoratedBox>(
+        find.descendant(of: find.byType(RirPicker), matching: find.byType(DecoratedBox)));
+    expect(faces, isNotEmpty);
+    for (final face in faces) {
+      expect((face.decoration as BoxDecoration).color, tokens.surface3);
+    }
+
+    await tester.timedDrag(find.byKey(const Key('live-weight')), dragOffset, dragDuration);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(repo.updateCalls, isNotEmpty);
+    expect(repo.updateCalls.last.rir, 7);
   });
 
   testWidgets('the Delete set action is at least 48dp tall', (tester) async {

@@ -94,6 +94,30 @@ class StatsRepository {
     return rs.first['exercise_id'] as String?;
   }
 
+  // ── Profile header ────────────────────────────────────────────────────────
+
+  /// First logged session date (YYYY-MM-DD, or null with no sessions) and the
+  /// number of the user's own training days.
+  ///
+  /// The days filter `is_template IS NOT 1`, as `watchDays` does: synced
+  /// template days stay in the local DB next to their absorbed copies, so a
+  /// raw count would double them (NULL counts as owned). The query always
+  /// returns exactly one row, so an empty DB emits `(null, 0)`.
+  Stream<({String? firstSessionDate, int dayCount})> watchTrainingSummary() {
+    // Both tables are named rather than left to PowerSync to infer from the
+    // subqueries, so a days-only change always refreshes the line.
+    return reListenable(() => db
+        .watch(
+          'SELECT (SELECT MIN(date) FROM sessions) AS first, '
+          '(SELECT COUNT(*) FROM day_templates WHERE is_template IS NOT 1) AS days',
+          triggerOnTables: const ['sessions', 'day_templates'],
+        )
+        .map((rs) => (
+              firstSessionDate: rs.first['first'] as String?,
+              dayCount: rs.first['days'] as int? ?? 0,
+            )));
+  }
+
   // ── List streams ──────────────────────────────────────────────────────────
 
   /// Live stream of the most-recent [limit] PR sets, newest session first.

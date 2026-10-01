@@ -21,9 +21,9 @@ void main() {
       expect(rirWithLow(1, 1, 2), (low: 2, high: 2));
       expect(rirWithLow(0, 1, 4), (low: 4, high: 4));
     });
-    test('the low is clamped to 0–5', () {
-      expect(rirWithLow(1, 3, -2), (low: 0, high: 3));
-      expect(rirWithLow(1, 3, 9), (low: 5, high: 5));
+    test('the low is clamped to rirMin–rirMax', () {
+      expect(rirWithLow(1, 3, rirMin - 2), (low: rirMin, high: 3));
+      expect(rirWithLow(1, 3, rirMax + 4), (low: rirMax, high: rirMax));
     });
   });
 
@@ -34,9 +34,9 @@ void main() {
     test('a high below the low drags the low down', () {
       expect(rirWithHigh(3, 4, 1), (low: 1, high: 1));
     });
-    test('the high is clamped to 0–5', () {
-      expect(rirWithHigh(1, 3, 12), (low: 1, high: 5));
-      expect(rirWithHigh(2, 3, -1), (low: 0, high: 0));
+    test('the high is clamped to rirMin–rirMax', () {
+      expect(rirWithHigh(1, 3, rirMax + 7), (low: 1, high: rirMax));
+      expect(rirWithHigh(2, 3, rirMin - 1), (low: rirMin, high: rirMin));
     });
   });
 

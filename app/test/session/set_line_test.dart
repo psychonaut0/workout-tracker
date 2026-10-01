@@ -8,6 +8,7 @@ import 'package:workout_tracker/units/unit_service.dart';
 import '../support/app_fonts.dart';
 import '../support/l10n_harness.dart';
 import '../support/layout_expect.dart';
+import '../support/rir_expect.dart';
 
 SetState _s({bool done = false, bool warmup = false, int? rir = 1, double w = 140, int reps = 6}) => SetState(
     id: 's1', weightKg: w, reps: reps, rir: warmup ? null : rir, isWarmup: warmup, done: done);
@@ -54,6 +55,12 @@ void main() {
     expect(find.text('TOP'), findsOneWidget);
   });
 
+  testWidgets('a logged working set with no RIR shows no RIR text', (tester) async {
+    await tester.pumpWidget(wrapL10n(line(_s(done: true, rir: null))));
+    expect(find.text('140kg  ×  6'), findsOneWidget);
+    expect(find.textContaining('RIR'), findsNothing);
+  });
+
   testWidgets('the RIR strip shows 48dp chips; a chip tap sets RIR, not focus', (tester) async {
     await tester.pumpWidget(wrapL10n(line(_s(done: true), prompt: true)));
     await tester.pumpAndSettle();
@@ -63,11 +70,75 @@ void main() {
     expect(taps, 0);
   });
 
-  testWidgets('RIR chips stay at least 48dp wide at a 260dp line width', (tester) async {
+  // The line's width in a block on a 320dp and a 412dp phone (the list
+  // padding, block border and sets padding take 58dp), and the chip rows
+  // the strip must fall into there.
+  for (final (width, scale, rows) in const [
+    (262.0, 1.0, 2),
+    (262.0, 2.0, 2),
+    (354.0, 1.0, 1),
+    (354.0, 2.0, 2),
+  ]) {
+    testWidgets(
+        'every RIR chip is at least 48x48 at ${width.toInt()}dp / ${scale}x, '
+        'in $rows row${rows == 1 ? '' : 's'}', (tester) async {
+      await tester.pumpWidget(MediaQuery(
+        data: MediaQueryData(
+            size: Size(width + 58, 900), textScaler: TextScaler.linear(scale)),
+        child: wrapL10n(SizedBox(width: width, child: line(_s(done: true), prompt: true))),
+      ));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(expectRirChipsAtLeast48(tester), rows);
+    });
+  }
+
+  testWidgets('in two rows the RIR caption sits level with the first', (tester) async {
     await tester.pumpWidget(wrapL10n(
-        SizedBox(width: 260, child: line(_s(done: true), prompt: true))));
+        SizedBox(width: 262, child: line(_s(done: true), prompt: true))));
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byKey(const Key('rir-0'))).width, greaterThanOrEqualTo(48));
+    expect(expectRirChipsAtLeast48(tester), 2);
+    expectCaptionOnFirstRirRow(tester, find.text('RIR'));
+  });
+
+  testWidgets('a tap in the gap between the chip rows neither sets RIR nor focuses the set',
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(
+        SizedBox(width: 262, child: line(_s(done: true), prompt: true))));
+    await tester.pumpAndSettle();
+    final top = tester.getRect(find.byKey(const Key('rir-0')));
+    final bottom = tester.getRect(find.byKey(const Key('rir-3')));
+    expect(bottom.top, greaterThan(top.bottom)); // two rows, with a gap
+    await tester.tapAt(Offset(top.center.dx, (top.bottom + bottom.top) / 2));
+    await tester.pumpAndSettle();
+    expect(taps, 0);
+    expect(rirs, isEmpty);
+  });
+
+  // In two rows the strip has blank space the chips don't cover: beside the
+  // second row, under the caption, and the strip's bottom padding. A tap
+  // there would turn the logged set back into the live card.
+  testWidgets('a tap in the strip beside or below the chips neither sets RIR nor focuses the set',
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(
+        SizedBox(width: 262, child: line(_s(done: true), prompt: true))));
+    await tester.pumpAndSettle();
+    expect(expectRirChipsAtLeast48(tester), 2);
+    final lineRect = tester.getRect(find.byType(SetLine));
+    final second = tester.getRect(find.byKey(const Key('rir-3')));
+    final beside = Offset(second.left - 6, second.center.dy);
+    final below = Offset(tester.getRect(find.byKey(const Key('rir-4'))).center.dx,
+        second.bottom + 4);
+    for (final (where, point) in [
+      ('beside the second row', beside),
+      ('in the bottom padding', below),
+    ]) {
+      expect(lineRect.contains(point), isTrue, reason: where);
+      await tester.tapAt(point);
+      await tester.pumpAndSettle();
+      expect(taps, 0, reason: where);
+      expect(rirs, isEmpty, reason: where);
+    }
   });
 
   testWidgets('a warm-up never shows the RIR strip and shows a W index', (tester) async {

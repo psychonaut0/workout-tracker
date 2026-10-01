@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workout_tracker/data/stats_repository.dart';
 import 'package:workout_tracker/sync/schema.dart';
 
-/// [StatsRepository.lastTrainedExerciseId] against a REAL PowerSync database.
+/// [StatsRepository.lastTrainedExerciseId] and
+/// [StatsRepository.watchTrainingSummary] against a REAL PowerSync database.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -64,5 +66,66 @@ void main() {
     await seedSet('a1', 's1', 'squat', 1);
     await seedSet('a2', 's1', 'bench', 2);
     expect(await repo.lastTrainedExerciseId(), 'bench');
+  });
+
+  group('watchTrainingSummary', () {
+    Future<void> seedDay(String id, int? isTemplate) => db.execute(
+        'INSERT INTO day_templates (id, name, position, is_template) '
+        'VALUES (?, ?, 0, ?)',
+        [id, 'Day $id', isTemplate]);
+
+    test('counts only owned days: a template day sits next to its absorbed '
+        'copy, and a NULL flag counts as owned', () async {
+      await seedDay('tpl', 1);
+      await seedDay('copy', 0);
+      await seedDay('legacy', null);
+      final summary = await repo.watchTrainingSummary().first;
+      expect(summary.dayCount, 2);
+    });
+
+    test('an empty database emits no date and no days', () async {
+      expect(await repo.watchTrainingSummary().first,
+          (firstSessionDate: null, dayCount: 0));
+    });
+
+    test('sessions inserted out of date order give the earliest date',
+        () async {
+      await seedSession('s2', '2026-05-02');
+      await seedSession('s1', '2026-03-14');
+      await seedSession('s3', '2026-04-20');
+      final summary = await repo.watchTrainingSummary().first;
+      expect(summary.firstSessionDate, '2026-03-14');
+    });
+
+    test('one stream can be listened to twice', () async {
+      await seedSession('s1', '2026-03-14');
+      final stream = repo.watchTrainingSummary();
+      final first = await stream.first; // listens, then cancels
+      final second = await stream.first; // re-listens
+      expect(first.firstSessionDate, '2026-03-14');
+      expect(second.firstSessionDate, '2026-03-14');
+    });
+
+    // PowerSync also infers both tables from the query plan, so this passes
+    // with or without triggerOnTables; it fails if an explicit list leaves
+    // day_templates out. The listen can still catch the seeding write's late
+    // notification and re-emit the old count first, so skip emissions until
+    // the count moves.
+    test('a change to day_templates alone re-emits with one more day',
+        () async {
+      await seedSession('s1', '2026-03-14');
+      await seedDay('d1', 0);
+      final emissions = StreamIterator(repo.watchTrainingSummary());
+      addTearDown(emissions.cancel);
+      expect(await emissions.moveNext(), isTrue);
+      expect(emissions.current, (firstSessionDate: '2026-03-14', dayCount: 1));
+      await seedDay('d2', 0);
+      do {
+        expect(
+            await emissions.moveNext().timeout(const Duration(seconds: 5)),
+            isTrue);
+      } while (emissions.current.dayCount == 1);
+      expect(emissions.current, (firstSessionDate: '2026-03-14', dayCount: 2));
+    });
   });
 }
