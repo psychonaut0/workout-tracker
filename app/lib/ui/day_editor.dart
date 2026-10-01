@@ -17,6 +17,7 @@ import '../widgets/delete_button.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
+import 'editor_guard.dart';
 import 'exercise_sheet.dart';
 
 // ── DaySlotState ────────────────────────────────────────────────────────────────
@@ -53,11 +54,18 @@ DaySlotState daySlotStateFromResolved(ResolvedSlot r, String? itemId) {
 ///
 /// [id] null → new day; non-null → edit existing.
 /// [onBack] is called after save or delete so the parent can return to the list.
+/// [guard], when given, is bound to report whether leaving would lose edits.
 class DayEditor extends StatefulWidget {
-  const DayEditor({super.key, required this.id, required this.onBack});
+  const DayEditor({
+    super.key,
+    required this.id,
+    required this.onBack,
+    this.guard,
+  });
 
   final String? id;
   final VoidCallback onBack;
+  final EditorGuard? guard;
 
   @override
   State<DayEditor> createState() => _DayEditorState();
@@ -79,6 +87,13 @@ class _DayEditorState extends State<DayEditor> {
   List<Exercise> _catalog = [];
   bool _saving = false;
 
+  // From the delete confirm until the delete lands: leaving then loses
+  // nothing, because the day is going away.
+  bool _deleting = false;
+
+  // What Save would have written right after loading; null until loaded.
+  DaySnapshot? _baseline;
+
   DayTemplateRepository get _dayRepo => DayTemplateRepository(db);
   ExerciseRepository get _exRepo => ExerciseRepository(db);
 
@@ -87,7 +102,14 @@ class _DayEditorState extends State<DayEditor> {
     super.initState();
     _nameCtrl = TextEditingController();
     _focusCtrl = TextEditingController();
+    widget.guard?.isDirty = _isDirty;
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(DayEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.guard != oldWidget.guard) widget.guard?.isDirty = _isDirty;
   }
 
   @override
@@ -107,6 +129,7 @@ class _DayEditorState extends State<DayEditor> {
         setState(() {
           _catalog = catalog;
           _editId = null;
+          _baseline = daySnapshot(_currentDraft());
           _loaded = true;
         });
       }
@@ -122,6 +145,7 @@ class _DayEditorState extends State<DayEditor> {
       setState(() {
         _catalog = catalog;
         _editId = null;
+        _baseline = daySnapshot(_currentDraft());
         _loaded = true;
       });
       return;
@@ -146,8 +170,27 @@ class _DayEditorState extends State<DayEditor> {
       _focusCtrl.text = day.focus ?? '';
       _weekday = day.scheduledWeekday;
       _slots.addAll(slots);
+      _baseline = daySnapshot(_currentDraft());
       _loaded = true;
     });
+  }
+
+  // ── unsaved edits ─────────────────────────────────────────────────────────
+
+  /// What Save would write now.
+  DayDraft _currentDraft() => DayDraft(
+        name: _nameCtrl.text.trim(),
+        focus: _focusCtrl.text.trim().isEmpty ? null : _focusCtrl.text.trim(),
+        weekday: _weekday,
+        slots: _slots.map((s) => s.draft).toList(),
+      );
+
+  /// Whether leaving now would lose edits. Never while loading, saving or
+  /// deleting: back then closes as before and the write still lands.
+  bool _isDirty() {
+    final baseline = _baseline;
+    if (baseline == null || _saving || _deleting) return false;
+    return daySnapshot(_currentDraft()) != baseline;
   }
 
   // ── slot actions ──────────────────────────────────────────────────────────
@@ -204,12 +247,7 @@ class _DayEditorState extends State<DayEditor> {
     FocusManager.instance.applyFocusChangesIfNeeded();
     setState(() => _saving = true);
 
-    final draft = DayDraft(
-      name: _nameCtrl.text.trim(),
-      focus: _focusCtrl.text.trim().isEmpty ? null : _focusCtrl.text.trim(),
-      weekday: _weekday,
-      slots: _slots.map((s) => s.draft).toList(),
-    );
+    final draft = _currentDraft();
 
     try {
       await _dayRepo.saveDay(id: _editId, draft: draft);
@@ -242,7 +280,12 @@ class _DayEditorState extends State<DayEditor> {
       destructive: true,
     );
     if (confirmed != true) return;
-    await _dayRepo.deleteDay(_editId!);
+    _deleting = true;
+    try {
+      await _dayRepo.deleteDay(_editId!);
+    } finally {
+      _deleting = false;
+    }
     if (mounted) widget.onBack();
   }
 

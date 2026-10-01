@@ -17,6 +17,7 @@ import '../widgets/delete_button.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
 import '../widgets/w_dialog.dart';
+import 'editor_guard.dart';
 
 /// Editor for a single exercise (create or edit).
 ///
@@ -27,15 +28,18 @@ import '../widgets/w_dialog.dart';
 /// Owned exercises (isTemplate==false) edit in place via [updateExercise].
 ///
 /// [onBack] is called after save so the parent returns to the list.
+/// [guard], when given, is bound to report whether leaving would lose edits.
 class ExerciseEditor extends StatefulWidget {
   const ExerciseEditor({
     super.key,
     required this.id,
     required this.onBack,
+    this.guard,
   });
 
   final String? id;
   final VoidCallback onBack;
+  final EditorGuard? guard;
 
   @override
   State<ExerciseEditor> createState() => _ExerciseEditorState();
@@ -85,6 +89,13 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
 
   bool _saving = false;
 
+  // From the delete confirm until the delete lands: leaving then loses
+  // nothing, because the exercise is going away.
+  bool _deleting = false;
+
+  // What Save would have written right after loading; null until loaded.
+  ExerciseSnapshot? _baseline;
+
   ExerciseRepository get _repo => ExerciseRepository(db);
 
   // ── lifecycle ──────────────────────────────────────────────────────────────
@@ -94,7 +105,14 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     super.initState();
     _nameCtrl = TextEditingController();
     _equipCtrl = TextEditingController();
+    widget.guard?.isDirty = _isDirty;
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(ExerciseEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.guard != oldWidget.guard) widget.guard?.isDirty = _isDirty;
   }
 
   @override
@@ -117,6 +135,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           _compound = false;
           _baseWeightDisplay = 0;
           _stepDisplay = stepDisplay;
+          _baseline = exerciseSnapshot(_currentDraft());
           _loaded = true;
         });
       }
@@ -131,6 +150,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       // Not found — treat as new.
       setState(() {
         _editId = null;
+        _baseline = exerciseSnapshot(_currentDraft());
         _loaded = true;
       });
       return;
@@ -176,6 +196,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       _rirHigh = rir?.high;
       _prKg = prKg;
       _extraMuscle = extra;
+      _baseline = exerciseSnapshot(_currentDraft());
       _loaded = true;
     });
   }
@@ -197,27 +218,20 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
     _lastUnit = unit;
   }
 
-  // ── save ───────────────────────────────────────────────────────────────────
+  // ── unsaved edits ──────────────────────────────────────────────────────────
 
-  Future<void> _save() async {
-    if (_nameCtrl.text.trim().isEmpty) return;
-    // This screen does not own any of its steppers, so nothing else unfocuses
-    // an open one on Android (tap-outside only unfocuses for touch on web,
-    // and this button's own tap handler never requests focus). Flush focus
-    // BEFORE _baseWeightDisplay (and the other stepper-backed fields below)
-    // are read — the stepper's focus-loss listener commits synchronously.
-    FocusManager.instance.primaryFocus?.unfocus();
-    FocusManager.instance.applyFocusChangesIfNeeded();
-    setState(() => _saving = true);
-
-    final unit = context.read<UnitService>().unit;
+  /// What Save would write now, in kg.
+  ExerciseDraft _currentDraft() {
+    // The unit _baseWeightDisplay is held in: right after a unit switch it
+    // is still the old one, until the next build converts the value.
+    final unit = _lastUnit ?? context.read<UnitService>().unit;
 
     // Convert display weight back to kg; 0 → null (write NULL, not 0.00).
     final baseKg = _baseWeightDisplay <= 0
         ? null
         : UnitService.toKg(_baseWeightDisplay, unit);
 
-    final draft = ExerciseDraft(
+    return ExerciseDraft(
       name: _nameCtrl.text.trim(),
       muscleGroup: _muscleGroup,
       equip: _equipCtrl.text.trim().isEmpty ? null : _equipCtrl.text.trim(),
@@ -232,6 +246,31 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
       defaultRirHigh: _rirHigh,
       defaultRestSeconds: _restSeconds == 0 ? null : _restSeconds,
     );
+  }
+
+  /// Whether leaving now would lose edits. Never while loading, saving or
+  /// deleting: back then closes as before and the write still lands.
+  bool _isDirty() {
+    final baseline = _baseline;
+    // _currentDraft can read the unit from context.
+    if (!mounted || baseline == null || _saving || _deleting) return false;
+    return exerciseSnapshot(_currentDraft()) != baseline;
+  }
+
+  // ── save ───────────────────────────────────────────────────────────────────
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    // This screen does not own any of its steppers, so nothing else unfocuses
+    // an open one on Android (tap-outside only unfocuses for touch on web,
+    // and this button's own tap handler never requests focus). Flush focus
+    // BEFORE _baseWeightDisplay (and the other stepper-backed fields below)
+    // are read — the stepper's focus-loss listener commits synchronously.
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusManager.instance.applyFocusChangesIfNeeded();
+    setState(() => _saving = true);
+
+    final draft = _currentDraft();
 
     try {
       if (_editId != null) {
@@ -300,7 +339,7 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           destructive: true,
         );
         if (ok != true) return;
-        await _repo.deleteExercise(id, removeFromDays: true);
+        await _deleteConfirmed(id, removeFromDays: true);
       case ExerciseDeleteAction.confirmPlain:
         final ok = await showWConfirm(
           context,
@@ -310,9 +349,21 @@ class _ExerciseEditorState extends State<ExerciseEditor> {
           destructive: true,
         );
         if (ok != true) return;
-        await _repo.deleteExercise(id, removeFromDays: false);
+        await _deleteConfirmed(id, removeFromDays: false);
     }
     if (mounted) widget.onBack();
+  }
+
+  /// Runs a confirmed delete. Until it lands the editor reports no unsaved
+  /// edits, so a back press closes it as before.
+  Future<void> _deleteConfirmed(String id,
+      {required bool removeFromDays}) async {
+    _deleting = true;
+    try {
+      await _repo.deleteExercise(id, removeFromDays: removeFromDays);
+    } finally {
+      _deleting = false;
+    }
   }
 
   // ── build ──────────────────────────────────────────────────────────────────
