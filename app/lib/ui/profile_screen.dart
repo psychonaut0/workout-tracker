@@ -183,7 +183,8 @@ class _Row extends StatelessWidget {
     );
 
     if (onTap != null) {
-      row = GestureDetector(onTap: onTap, child: row);
+      row = GestureDetector(
+          behavior: HitTestBehavior.opaque, onTap: onTap, child: row);
     }
 
     return row;
