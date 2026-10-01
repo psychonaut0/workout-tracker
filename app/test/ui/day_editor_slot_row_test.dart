@@ -213,7 +213,7 @@ void main() {
     expect(state.slots[0].draft.rirHigh, 2);
   });
 
-  testWidgets('RIR steppers stay within 0 to 5', (tester) async {
+  testWidgets('RIR steppers stay within rirMin to rirMax', (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(wrapL10n(const _Harness(expandedIndex: 0)));
@@ -223,14 +223,14 @@ void main() {
       await tester.tap(rirButton('RIR HIGH', 'stepper-inc'));
       await tester.pumpAndSettle();
     }
-    expect(state.slots[0].draft.rirHigh, 5);
+    expect(state.slots[0].draft.rirHigh, rirMax);
     expect(state.slots[0].draft.rirLow, 1);
 
     for (var i = 0; i < 3; i++) {
       await tester.tap(rirButton('RIR LOW', 'stepper-dec'));
       await tester.pumpAndSettle();
     }
-    expect(state.slots[0].draft.rirLow, 0);
-    expect(state.slots[0].draft.rirHigh, 5);
+    expect(state.slots[0].draft.rirLow, rirMin);
+    expect(state.slots[0].draft.rirHigh, rirMax);
   });
 }

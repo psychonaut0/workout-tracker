@@ -8,7 +8,9 @@ import 'package:workout_tracker/units/unit_service.dart';
 import 'package:workout_tracker/util/dates.dart';
 import 'package:workout_tracker/widgets/ruler_picker.dart';
 
+import '../support/app_fonts.dart';
 import '../support/l10n_harness.dart';
+import '../support/rir_expect.dart';
 
 const _ex = Exercise(
   id: 'lp', name: 'Leg press', slug: 'lp', muscleGroup: 'quads',
@@ -19,6 +21,9 @@ SetState _s({bool done = false, bool warmup = false}) => SetState(
     id: 's', weightKg: 140, reps: 6, rir: warmup ? null : 1, isWarmup: warmup, done: done);
 
 void main() {
+  // Real metrics: the RIR row's layout depends on the caption's width.
+  setUpAll(preloadAppFonts);
+
   late int changes;
   late int unlogs;
   setUp(() {
@@ -31,8 +36,8 @@ void main() {
         unit: UnitService(), onChanged: () => changes++, onMarkNotDone: () => unlogs++,
       );
 
-  Widget host(Widget child, {Locale locale = const Locale('en')}) =>
-      wrapL10n(SingleChildScrollView(child: SizedBox(width: 260, child: child)), locale: locale);
+  Widget host(Widget child, {Locale locale = const Locale('en'), double width = 260}) =>
+      wrapL10n(SingleChildScrollView(child: SizedBox(width: width, child: child)), locale: locale);
 
   testWidgets('labels: pending set, warm-up, logged', (tester) async {
     await tester.pumpWidget(host(card(_s())));
@@ -147,6 +152,29 @@ void main() {
     expect(s.rir, 3);
     expect(changes, 1);
   });
+
+  // The card's width in a block on a 320dp and a 412dp phone (the list
+  // padding, block border and sets padding take 58dp), and the chip rows
+  // its RIR row must fall into there.
+  for (final (width, scale, rows) in const [
+    (262.0, 1.0, 2),
+    (262.0, 2.0, 2),
+    (354.0, 1.0, 1),
+    (354.0, 2.0, 2),
+  ]) {
+    testWidgets(
+        'every RIR chip is at least 48x48 at ${width.toInt()}dp / ${scale}x, '
+        'in $rows row${rows == 1 ? '' : 's'}', (tester) async {
+      await tester.pumpWidget(MediaQuery(
+        data: MediaQueryData(
+            size: Size(width + 58, 900), textScaler: TextScaler.linear(scale)),
+        child: host(card(_s(done: true)), width: width),
+      ));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(expectRirChipsAtLeast48(tester), rows);
+    });
+  }
 
   testWidgets('no RIR picker for a pending set or a logged warm-up', (tester) async {
     await tester.pumpWidget(host(card(_s())));

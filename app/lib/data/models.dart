@@ -33,7 +33,7 @@ String rirToString(int low, int high) {
   return low == high ? '$low' : '$low–$high';
 }
 
-/// The editors' RIR bounds: 0–5.
+/// The RIR range, 0–5: the bounds of every RIR picker and editor stepper.
 const int rirMin = 0;
 const int rirMax = 5;
 
