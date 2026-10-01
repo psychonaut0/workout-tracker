@@ -7,8 +7,8 @@ void main() {
       // 100 * (1 + 5/30) = 116.666... → 117
       expect(est1rm(100, 5), 117);
     });
-    test('1 rep returns the weight itself', () {
-      expect(est1rm(100, 1), (100 * (1 + 1 / 30)).round());
+    test('a single still goes through Epley: 100 kg x1 reads 103', () {
+      expect(est1rm(100, 1), 103);
     });
   });
 }

@@ -261,10 +261,11 @@ void main() {
         reason: 'the selected row keeps its own icon');
   });
 
-  // One node per row carries the label, its language, the button role, the
-  // selected state and the tap, so TalkBack reads "Deutsch" in German on the
-  // node it focuses.
-  testWidgets('each row is one semantics node with its label, language, state and tap',
+  // Each row's focusable node carries the label, its language, the button
+  // role, the selected state and the tap, so TalkBack reads "Deutsch" in
+  // German on the node it focuses. The language comes from an outer
+  // locale-only node around it.
+  testWidgets("each row's focusable node carries its label, language, state and tap",
       (tester) async {
     final semantics = tester.ensureSemantics();
     const List<({String label, String? code})> rows = [
