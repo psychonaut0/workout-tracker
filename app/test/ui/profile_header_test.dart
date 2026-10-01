@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart' show PowerSyncDatabase;
 import 'package:workout_tracker/auth/auth_store.dart';
@@ -45,7 +46,7 @@ void main() {
     await harness.open(tester, seed: seedDaysAndSessions);
     await pumpProfile(tester);
     await settleUntilFound(tester, line, where: 'Profile en');
-    expect(lineText(tester), 'Training since Mar 2026 · 2-day split');
+    expect(lineText(tester), 'Training since Mar 2026 · 2-\u2060day split');
     await harness.unmount(tester);
   });
 
@@ -53,7 +54,7 @@ void main() {
     await harness.open(tester, seed: seedDaysAndSessions);
     await pumpProfile(tester, locale: const Locale('de'));
     await settleUntilFound(tester, line, where: 'Profile de');
-    expect(lineText(tester), 'Training seit März 2026 · 2-Tage-Split');
+    expect(lineText(tester), 'Training seit März 2026 · 2-\u2060Tage-Split');
     await harness.unmount(tester);
   });
 
@@ -68,7 +69,7 @@ void main() {
     await tester.runAsync(
         () => seedDay(harness.database, 'd1', 'Upper', position: 0));
     await settleUntilFound(tester, line, where: 'after the first day');
-    expect(lineText(tester), '1-day split');
+    expect(lineText(tester), '1-\u2060day split');
     await harness.unmount(tester);
   });
 
@@ -77,7 +78,7 @@ void main() {
     await harness.open(tester, seed: seedTwoDays);
     await pumpProfile(tester);
     await settleUntilFound(tester, line, where: 'days only');
-    expect(lineText(tester), '2-day split');
+    expect(lineText(tester), '2-\u2060day split');
     await harness.unmount(tester);
   });
 
@@ -95,13 +96,48 @@ void main() {
     await harness.open(tester, seed: seedDaysAndSessions);
     await pumpProfile(tester);
     await settleUntilFound(
-        tester, find.text('Training since Mar 2026 · 2-day split'),
+        tester, find.text('Training since Mar 2026 · 2-\u2060day split'),
         where: 'before the delete');
     await tester.runAsync(() =>
         harness.database.execute("DELETE FROM sessions WHERE id = 's1'"));
     await settleUntilFound(
-        tester, find.text('Training since May 2026 · 2-day split'),
+        tester, find.text('Training since May 2026 · 2-\u2060day split'),
         where: 'after the delete');
+    await harness.unmount(tester);
+  });
+
+  // At 320dp the line wraps before the split. The count must start the
+  // second line with its noun, never end the first as a dangling "3-".
+  testWidgets('a wrapped line keeps the day count with its noun at 320dp',
+      (tester) async {
+    await harness.open(tester, seed: (d) async {
+      await seedDay(d, 'd1', 'Push', position: 0);
+      await seedDay(d, 'd2', 'Pull', position: 1);
+      await seedDay(d, 'd3', 'Legs', position: 2);
+      await seedSession(d, 's1',
+          date: DateTime(2026, 9, 14), label: 'Push', sets: const []);
+    });
+    setPhone(tester, width: 320, textScale: 1.0);
+    await pumpProfile(tester);
+    await settleUntilFound(tester, line, where: 'Profile 320dp');
+    final p = tester.renderObject<RenderParagraph>(
+        find.descendant(of: line, matching: find.byType(RichText)));
+    expect(p.size.height,
+        greaterThan(p.getFullHeightForCaret(const TextPosition(offset: 0)) * 1.5),
+        reason: 'the line should wrap here');
+    final text = p.text.toPlainText();
+    final digit = text.indexOf('3-');
+    expect(digit, isNonNegative, reason: '"$text" has no "3-day" split');
+    var letter = digit + 2;
+    while (!RegExp(r'\p{L}', unicode: true).hasMatch(text[letter])) {
+      letter++;
+    }
+    double top(int i) => p
+        .getBoxesForSelection(TextSelection(baseOffset: i, extentOffset: i + 1))
+        .first
+        .top;
+    expect(top(digit), top(letter),
+        reason: '"$text" breaks between the count and its noun');
     await harness.unmount(tester);
   });
 
@@ -116,7 +152,7 @@ void main() {
     await tester.tap(find.text('Save'));
     // No new query: the line comes back from the value already held.
     await settleReal(tester, ticks: 2);
-    expect(lineText(tester), 'Training since Mar 2026 · 2-day split');
+    expect(lineText(tester), 'Training since Mar 2026 · 2-\u2060day split');
     await harness.unmount(tester);
   });
 }

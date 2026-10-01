@@ -11,10 +11,10 @@ void main() {
   });
 
   for (final (code, since, split, oneDay) in [
-    ('en', 'Training since Mar 2026', '4-day split', '1-day split'),
-    ('it', 'Ti alleni da mar 2026', 'split di 4 giorni', 'split di 1 giorno'),
-    ('de', 'Training seit März 2026', '4-Tage-Split', '1-Tag-Split'),
-    ('es', 'Entrenando desde mar 2026', 'rutina de 4 días', 'rutina de 1 día'),
+    ('en', 'Training since Mar 2026', '4-\u2060day split', '1-\u2060day split'),
+    ('it', 'Ti alleni da mar 2026', 'split di 4\u00A0giorni', 'split di 1\u00A0giorno'),
+    ('de', 'Training seit März 2026', '4-\u2060Tage-Split', '1-\u2060Tag-Split'),
+    ('es', 'Entrenando desde mar 2026', 'rutina de 4\u00A0días', 'rutina de 1\u00A0día'),
   ]) {
     group('profileTrainingLine ($code)', () {
       final l = lookupAppLocalizations(Locale(code));

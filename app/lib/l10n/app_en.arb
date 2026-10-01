@@ -570,7 +570,7 @@
       }
     }
   },
-  "profileSplitDays": "{count, plural, =1{1-day split} other{{count}-day split}}",
+  "profileSplitDays": "{count, plural, =1{1-\u2060day split} other{{count}-\u2060day split}}",
   "@profileSplitDays": {
     "placeholders": {
       "count": {

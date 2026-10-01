@@ -268,7 +268,7 @@
   "profileEditName": "Editar nombre",
   "profileTrainingSince": "Entrenando desde {month}",
   "@profileTrainingSince": {"placeholders": {"month": {"type": "String"}}},
-  "profileSplitDays": "{count, plural, =1{rutina de 1 día} other{rutina de {count} días}}",
+  "profileSplitDays": "{count, plural, =1{rutina de 1\u00A0día} other{rutina de {count}\u00A0días}}",
   "profileStatSessions": "Entrenamientos",
   "profileStatPrs": "PR",
   "profileStatBodyweight": "Peso corporal",
