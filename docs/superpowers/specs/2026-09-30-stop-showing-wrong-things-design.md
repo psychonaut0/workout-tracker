@@ -214,7 +214,7 @@ Rounding helpers, each returning the displayed precision as a double:
 - `WSheetAction` gains `bool selected = false` and `Locale? labelLocale`, and `icon` becomes optional. All defaults are named, so every existing call site compiles unchanged (the two live-workout menus, the goal picker, `w_action_sheet_test`).
 - A selected row draws a trailing `Icon(WIcons.check, size: 20, color: tokens.accentText)`. It is a thin mark, so `accentText`, never `accent`.
 - The row's existing `Semantics(button:, enabled:)` gains `selected: a.selected ? true : null`, so unselected rows carry no selected state (`Tristate.none`), as in the exercise sheet.
-- When `labelLocale` is set, the row's own `Semantics(button:, enabled:, selected:)` is wrapped in a separate outer `Semantics(localeForSubtree: labelLocale, child: …)`. The row stays one semantics node carrying label, locale, button, selected and tap, so TalkBack reads "Deutsch" in German on the node it focuses. Probed on Flutter 3.44, the other placements break the row:
+- When `labelLocale` is set, the row's own `Semantics(button:, enabled:, selected:)` is wrapped in a separate outer `Semantics(localeForSubtree: labelLocale, child: …)`. The outer `Semantics` forms only an empty, locale-only container. The row's focusable node inside it carries label, locale, button, selected and tap, so TalkBack reads "Deutsch" in German on the node it focuses. Probed on Flutter 3.44, the other placements break the row:
   - on the label alone, the label splits off and the button is left unlabelled;
   - on the row's own `Semantics`, the tap splits from the button and selected node;
   - `MergeSemantics` drops the locale.
