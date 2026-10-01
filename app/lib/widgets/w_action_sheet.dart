@@ -34,10 +34,11 @@ class WSheetAction<T> {
   final Locale? labelLocale;
 }
 
-/// Tokens-styled bottom action sheet: a small caps [title] over 56dp rows.
-/// Returns the tapped action's value, or null on dismiss. Disabled rows render
-/// faint and ignore taps. The title stays put and the rows scroll when they
-/// outgrow the sheet (a six-row menu on a short phone at large text).
+/// Tokens-styled bottom action sheet: a small caps [title] over rows of at
+/// least 56dp. Returns the tapped action's value, or null on dismiss.
+/// Disabled rows render faint and ignore taps. The title stays put and the
+/// rows scroll when they outgrow the sheet (a six-row menu on a short phone
+/// at large text).
 Future<T?> showWActionSheet<T>(
   BuildContext context, {
   required String title,

@@ -74,8 +74,8 @@ abstract final class WorkoutType {
   /// stay null, so they come from `colorScheme.onSurface`.
   ///
   /// Because each family is one weight, `copyWith(fontWeight: …)` on these
-  /// styles keeps the old face and synthesises the new weight; use [body]
-  /// for another weight.
+  /// styles keeps the old face: a heavier weight is faux-bolded and a lighter
+  /// one is not drawn lighter. Use [body] for another weight.
   static TextTheme get hankenTextTheme =>
       GoogleFonts.hankenGroteskTextTheme(_hankenSizes);
 
