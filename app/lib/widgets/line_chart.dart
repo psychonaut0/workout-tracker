@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' show DateFormat;
 
 import '../theme/app_theme.dart';
 import '../theme/motion.dart';
+import '../theme/typography.dart';
 import '../util/format.dart';
 
 /// Each ISO date's position in [0, 1] between the first and last date, so a
@@ -171,6 +172,14 @@ Offset valueLabelOrigin({
   );
 }
 
+/// The chart's axis labels: the y gridline values and the month names.
+TextStyle chartLabelStyle(Color color) =>
+    WorkoutType.mono(size: 9, color: color);
+
+/// The value chip beside the chart's last point.
+TextStyle chartChipStyle(Color color) =>
+    WorkoutType.mono(size: 12, weight: FontWeight.w700, color: color);
+
 /// A progression line chart ported from `ui.jsx` `LineChart`.
 ///
 /// Renders a [CustomPaint] with area-fill gradient, polyline, PR markers,
@@ -226,6 +235,9 @@ class LineChart extends StatelessWidget {
 }
 
 class _LineChartPainter extends CustomPainter {
+  // Repaints when a font finishes loading, so labels first drawn in a
+  // fallback face are redrawn in JetBrains Mono. Under reduced motion the
+  // chart paints once and nothing else would repaint it.
   _LineChartPainter({
     required this.series,
     required this.unit,
@@ -236,7 +248,7 @@ class _LineChartPainter extends CustomPainter {
     required this.text,
     required this.localeName,
     this.progress = 1.0,
-  });
+  }) : super(repaint: PaintingBinding.instance.systemFonts);
 
   final List<({String date, double value, int reps, bool isPr})> series;
   final String unit;
@@ -279,6 +291,10 @@ class _LineChartPainter extends CustomPainter {
     double xAt(int i) => _padL + fractions[i] * iw;
     double yAt(double v) => _padT + ih - ((v - lo) / (hi - lo)) * ih;
 
+    // One style for every axis label, built once per paint rather than per
+    // gridline: each call goes through google_fonts.
+    final labelStyle = chartLabelStyle(faint);
+
     // ── gridlines + left y labels, on round values ───────────────────────────
     final gridPaint = Paint()
       ..color = faint.withValues(alpha: 0.18)
@@ -295,11 +311,7 @@ class _LineChartPainter extends CustomPainter {
         x: _padL - 7,
         y: gy + 3.5,
         rightAlign: true,
-        style: TextStyle(
-          fontFamily: 'JetBrainsMono',
-          fontSize: 9,
-          color: faint,
-        ),
+        style: labelStyle,
       );
     }
 
@@ -373,11 +385,6 @@ class _LineChartPainter extends CustomPainter {
     // The first month is labelled at the first point; later months at their
     // 1st on the time axis (so a late-August and an early-September point
     // don't stack their labels), skipping any that would crowd a neighbour.
-    final xLabelStyle = TextStyle(
-      fontFamily: 'JetBrainsMono',
-      fontSize: 9,
-      color: faint,
-    );
     for (final m in monthLabelPositions([for (final s in series) s.date])) {
       final x = _padL + m.fraction * iw;
       _paintText(
@@ -387,7 +394,7 @@ class _LineChartPainter extends CustomPainter {
         y: H - 8,
         rightAlign: false,
         centreAlign: true,
-        style: xLabelStyle,
+        style: labelStyle,
       );
     }
 
@@ -422,15 +429,7 @@ class _LineChartPainter extends CustomPainter {
     final label =
         '${fmtPlain(last.value)}$unit${showReps ? ' ×${last.reps}' : ''}';
     final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          fontFamily: 'JetBrainsMono',
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: text,
-        ),
-      ),
+      text: TextSpan(text: label, style: chartChipStyle(text)),
       textDirection: TextDirection.ltr,
     )..layout();
     const chipPad = EdgeInsets.symmetric(horizontal: 6, vertical: 3);
