@@ -18,8 +18,8 @@ import '../theme/typography.dart';
 /// maxWidth/3 in two, so at the default [height] a picker at least 144dp
 /// wide always gets slots of at least 48×48dp.
 ///
-/// Warm-up sets should render an empty [SizedBox] of the same width instead
-/// of this widget (the disabled state is handled by the caller, not here).
+/// Hosts leave out the RIR row entirely for warm-up sets; the picker has no
+/// disabled state.
 ///
 /// Button keys: `rir-<n>` (e.g. `rir-0`, `rir-1`, ...).
 ///
@@ -90,6 +90,7 @@ class RirPicker extends StatelessWidget {
           ],
         );
 
+    // The absorber must stay out of the semantics tree: no extra tap node.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,

@@ -115,6 +115,32 @@ void main() {
     expect(rirs, isEmpty);
   });
 
+  // In two rows the strip has blank space the chips don't cover: beside the
+  // second row, under the caption, and the strip's bottom padding. A tap
+  // there would turn the logged set back into the live card.
+  testWidgets('a tap in the strip beside or below the chips neither sets RIR nor focuses the set',
+      (tester) async {
+    await tester.pumpWidget(wrapL10n(
+        SizedBox(width: 262, child: line(_s(done: true), prompt: true))));
+    await tester.pumpAndSettle();
+    expect(expectRirChipsAtLeast48(tester), 2);
+    final lineRect = tester.getRect(find.byType(SetLine));
+    final second = tester.getRect(find.byKey(const Key('rir-3')));
+    final beside = Offset(second.left - 6, second.center.dy);
+    final below = Offset(tester.getRect(find.byKey(const Key('rir-4'))).center.dx,
+        second.bottom + 4);
+    for (final (where, point) in [
+      ('beside the second row', beside),
+      ('in the bottom padding', below),
+    ]) {
+      expect(lineRect.contains(point), isTrue, reason: where);
+      await tester.tapAt(point);
+      await tester.pumpAndSettle();
+      expect(taps, 0, reason: where);
+      expect(rirs, isEmpty, reason: where);
+    }
+  });
+
   testWidgets('a warm-up never shows the RIR strip and shows a W index', (tester) async {
     await tester.pumpWidget(wrapL10n(line(_s(done: true, warmup: true), prompt: true)));
     await tester.pumpAndSettle();
