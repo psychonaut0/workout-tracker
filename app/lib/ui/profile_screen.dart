@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -10,6 +11,7 @@ import '../auth/auth_store.dart';
 import '../data/bodyweight_repository.dart';
 import '../data/models.dart';
 import '../data/session_repository.dart';
+import '../data/stats_repository.dart';
 import '../export/export_service.dart';
 import '../l10n/app_localizations.dart';
 import '../settings/app_languages.dart';
@@ -27,6 +29,7 @@ import '../theme/typography.dart';
 import '../units/unit_service.dart';
 import '../update/update_service.dart';
 import '../update/update_ui.dart';
+import '../util/dates.dart';
 import '../widgets/fit_label.dart';
 import '../widgets/plan_form.dart';
 import '../widgets/stepper.dart';
@@ -313,12 +316,30 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// ── Training line ─────────────────────────────────────────────────────────────
+
+/// The Profile header's second line, or null to hide it.
+///
+/// "Since" is the month of the first logged workout, dropped when
+/// [firstSessionDate] is null or doesn't parse; the split is the number of
+/// the user's own training days, dropped when [dayCount] is null or 0.
+String? profileTrainingLine(AppLocalizations l, String localeName,
+    {String? firstSessionDate, int? dayCount}) {
+  final month = fmtMonthYear(firstSessionDate, localeName);
+  final parts = [
+    if (month != null) l.profileTrainingSince(month),
+    if (dayCount != null && dayCount > 0) l.profileSplitDays(dayCount),
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
 // ── ProfileScreen ─────────────────────────────────────────────────────────────
 
 /// Full-screen Profile & Settings overlay, pushed on the root navigator.
 ///
 /// Exposes:
 ///   • Editable profile name → SettingsService
+///   • Training line (first workout month · training days) from the local DB
 ///   • Quick stats (Sessions / PRs / Bodyweight) from the local DB
 ///   • Units chip (kg / lb) → UnitService
 ///   • Theme chip (Dark / Light) + 4 accent swatches → SettingsService
@@ -360,6 +381,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Runtime app version (footer; reused by the Updates group).
   String _version = '';
 
+  // The header's training line data; null until the first value arrives, and
+  // the header shows no line until then. Held here, not in the header: the
+  // header is a ListView child swapped out while the name is edited, and a
+  // stream it owned would re-query on every remount and make the line blink.
+  ({String? firstSessionDate, int dayCount})? _training;
+  StreamSubscription<({String? firstSessionDate, int dayCount})>? _trainingSub;
+
   @override
   void initState() {
     super.initState();
@@ -370,10 +398,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     PackageInfo.fromPlatform().then((i) {
       if (mounted) setState(() => _version = i.version);
     });
+    // onError hides the line rather than leaving it stale; the subscription
+    // stays open, so the next emission brings it back.
+    _trainingSub = StatsRepository(db).watchTrainingSummary().listen((t) {
+      if (mounted) setState(() => _training = t);
+    }, onError: (Object e, StackTrace st) {
+      debugPrint('profile: training summary stream error: $e');
+      if (mounted) setState(() => _training = null);
+    });
   }
 
   @override
   void dispose() {
+    _trainingSub?.cancel();
     _nameCtrl.dispose();
     _serverCtrl.dispose();
     super.dispose();
@@ -996,6 +1033,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildProfileHeader(SettingsService settings, WorkoutTokens tokens) {
     final l = AppLocalizations.of(context);
+    final training = _training;
+    final trainingLine = training == null
+        ? null
+        : profileTrainingLine(
+            l,
+            Localizations.localeOf(context).toLanguageTag(),
+            firstSessionDate: training.firstSessionDate,
+            dayCount: training.dayCount,
+          );
     return Row(
       children: [
         // 66px accent avatar
@@ -1077,10 +1123,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-              ] else ...[
+              ] else if (trainingLine != null) ...[
                 const SizedBox(height: 3),
                 Text(
-                  l.profileTrainingSince,
+                  trainingLine,
+                  key: const Key('profile-training-line'),
                   style: WorkoutType.mono(size: 11, color: tokens.faint),
                 ),
               ],

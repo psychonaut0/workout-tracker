@@ -558,7 +558,22 @@
   "profileNamePlaceholder": "Your name",
   "profileSaveName": "Save",
   "profileEditName": "Edit name",
-  "profileTrainingSince": "Training since Mar 2026 · 4-day split",
+  "profileTrainingSince": "Training since {month}",
+  "@profileTrainingSince": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "profileSplitDays": "{count, plural, =1{1-day split} other{{count}-day split}}",
+  "@profileSplitDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileStatSessions": "Sessions",
   "profileStatPrs": "PRs",
   "profileStatBodyweight": "Bodyweight",
