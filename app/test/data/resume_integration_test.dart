@@ -225,6 +225,27 @@ void main() {
       expect(c.draft.blocks.single.bestKg, 100);
       expect(c.draft.blocks.single.lastTop!.date, '2026-09-23');
     });
+
+    // Blocks are keyed by exercise id on screen: a second block for the same
+    // exercise duplicates the key and the live workout glitches.
+    test('an exercise already in the workout is not added again', () async {
+      final c = await controllerWithBench();
+      final bench = (await ExerciseRepository(db).byId('bench'))!;
+      await c.addBlock(bench, sessionRepo: SessionRepository(db));
+      expect(c.draft.blocks, hasLength(1));
+    });
+
+    test('two adds of the same exercise in flight add it once', () async {
+      await seedExercise('row', 'Row');
+      final c = await controllerWithBench();
+      final row = (await ExerciseRepository(db).byId('row'))!;
+      final repo = SessionRepository(db);
+      await Future.wait([
+        c.addBlock(row, sessionRepo: repo),
+        c.addBlock(row, sessionRepo: repo),
+      ]);
+      expect(c.draft.blocks.map((b) => b.exercise.id), ['bench', 'row']);
+    });
   });
 
   group('restoreFinishedDraft (real DB)', () {
