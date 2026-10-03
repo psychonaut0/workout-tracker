@@ -743,7 +743,12 @@ class ActiveSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the workout already has a block for the exercise [exerciseId].
+  bool hasExercise(String exerciseId) =>
+      draft.blocks.any((b) => b.exercise.id == exerciseId);
+
   /// Appends a new block for [exercise] using the exercise's own defaults.
+  /// Does nothing if the workout already has that exercise.
   ///
   /// Seeds the block from logged history exactly like [buildFromTemplate] so a
   /// mid-workout add shows previous data ("last time …"), a history-based
@@ -764,6 +769,10 @@ class ActiveSessionController extends ChangeNotifier {
         excludeSessionId: draft.sessionId);
     final bestKg = await sessionRepo.bestTopSet(exercise.id,
         excludeSessionId: draft.sessionId);
+    // An exercise appears once per workout: blocks are keyed by exercise id
+    // on screen. Checked after the lookups, so a second add that was already
+    // in flight is dropped too.
+    if (hasExercise(exercise.id)) return;
     final block = buildBlock(resolved: resolved, lastTopKg: lastTop?.weight);
     block.bestKg = bestKg;
     block.lastTop = lastTop;

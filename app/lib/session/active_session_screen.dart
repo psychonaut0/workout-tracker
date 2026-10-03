@@ -409,7 +409,11 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
                   tokens: tokens,
                   onTap: () async {
                     final repo = ExerciseRepository(db);
-                    final all = await repo.all();
+                    // Exercises already in the workout aren't offered again.
+                    final all = [
+                      for (final e in await repo.all())
+                        if (!controller.hasExercise(e.id)) e,
+                    ];
                     if (!context.mounted) return;
                     final picked = await showExercisePicker(context, exercises: all);
                     if (picked != null) {
